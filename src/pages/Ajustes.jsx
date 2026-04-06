@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Settings, MessageSquare, Kanban } from "lucide-react";
 
 const OPCIONES = [

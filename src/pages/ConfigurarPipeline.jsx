@@ -6,9 +6,9 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Trash2, GripVertical, Edit2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 

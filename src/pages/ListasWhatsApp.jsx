@@ -2,7 +2,7 @@ import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { ArrowLeft, Plus, Pencil, Trash2, Archive } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
 

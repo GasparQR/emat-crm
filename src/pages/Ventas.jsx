@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Eye, Search, Filter, DollarSign, TrendingUp, Package, Plus, Upload, Download } from "lucide-react";
+import { ArrowLeft, Eye, Search, DollarSign, TrendingUp, Package, Plus, Upload, Download } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import VentaForm from "@/components/ventas/VentaForm";
 

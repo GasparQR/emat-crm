@@ -3,14 +3,13 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { User, Package, DollarSign, Calendar, Plus } from "lucide-react";
+import { User, Package, Calendar, Plus } from "lucide-react";
 import moment from "moment";
 import { getNextBusinessDay } from "@/components/utils/dateUtils";
 

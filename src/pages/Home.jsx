@@ -11,9 +11,9 @@ import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { 
-  Plus, TrendingUp, Clock, Handshake, CheckCircle2, 
+  Plus, TrendingUp, Clock, 
   Kanban, List, Users, MessageSquare, BarChart3,
-  Calendar, AlertCircle, ArrowRight, Zap, XCircle, DollarSign, MessageCircle
+  Calendar, AlertCircle, ArrowRight, Zap, XCircle, DollarSign
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import moment from "moment";
