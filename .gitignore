@@ -1,6 +1,7 @@
-#env
+# Environment variables (but allow .env.example)
 .env
-.env.*
+.env.local
+.env.*.local
 
 # Logs
 logs
@@ -26,5 +27,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-.env

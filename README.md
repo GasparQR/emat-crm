@@ -1,39 +1,73 @@
-**Welcome to your Base44 project** 
+# EMAT CRM
 
-**About**
+Sistema CRM para WhatsApp Sales de EMAT (Empresa de Aislación Fibra Celulosa).
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+## Requisitos previos
 
-This project contains everything you need to run your app locally.
+- Node.js 18+
+- npm o yarn
 
-**Edit the code in your local development environment**
+## Instalación local
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
-
-**Prerequisites:** 
-
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
-
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+1. Clonar el repositorio
+```bash
+git clone https://github.com/GasparQR/emat-crm.git
+cd emat-crm
 ```
 
-Run the app: `npm run dev`
+2. Instalar dependencias
+```bash
+npm install
+```
 
-**Publish your changes**
+3. Crear archivo `.env.local`
+```bash
+cp .env.example .env.local
+```
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+4. Ejecutar en desarrollo
+```bash
+npm run dev
+```
 
-**Docs & Support**
+La aplicación estará disponible en `http://localhost:5173`
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+## Deploy en Vercel
 
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+### Pasos iniciales
+
+1. **Sincronizar con GitHub** ✓ (ya realizado)
+2. **Conectar Vercel a GitHub**: https://vercel.com/new
+3. **Importar proyecto** `GasparQR/emat-crm`
+
+### Configurar Variables de Entorno en Vercel
+
+En el dashboard de Vercel:
+1. Ir a **Settings → Environment Variables**
+2. Agregar las variables necesarias para tu backend
+3. Deploy automático al hacer push a `main`
+
+## Scripts disponibles
+
+```bash
+npm run dev          # Ejecutar en desarrollo
+npm run build        # Build para producción
+npm run preview      # Preview del build
+npm run lint         # Ejecutar ESLint
+npm run lint:fix     # Arreglar errores de ESLint
+npm run typecheck    # TypeScript check
+```
+
+## Stack tecnológico
+
+- **Frontend**: React 18 + Vite
+- **Estilos**: Tailwind CSS + shadcn/ui
+- **UI Components**: Radix UI
+- **Build**: Vite
+- **Deploy**: Vercel
+
+## Documentación
+
+- [Vite Docs](https://vitejs.dev)
+- [React Docs](https://react.dev)
+- [Tailwind CSS](https://tailwindcss.com)
