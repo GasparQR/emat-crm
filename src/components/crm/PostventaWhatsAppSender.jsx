@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
-import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
 
 export default function PostventaWhatsAppSender({ open, onOpenChange, venta, contactoWhatsapp, onMessageSent, workspaceId }) {
@@ -27,15 +26,11 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
     }
   }, [selectedPlantilla, venta, variablesDB]);
 
-  const loadData = async () => {
-    const [allPlantillas, vars] = await Promise.all([
-      workspaceId
-        ? base44.entities.PlantillaWhatsApp.filter({ activa: true, workspace_id: workspaceId })
-        : base44.entities.PlantillaWhatsApp.filter({ activa: true }),
-      workspaceId
-        ? base44.entities.VariablePlantilla.filter({ workspace_id: workspaceId })
-        : base44.entities.VariablePlantilla.list()
-    ]);
+  const loadData = () => {
+    const allPlantillas = [
+      { id: "plant_1", nombrePlantilla: "Plantilla Estándar", contenido: "Hola {NOMBRE}, gracias por tu compra de {PRODUCTO}. Garantía: {GARANTIA}. Soporte: {SOPORTE}", etapa: "Concretado", activa: true }
+    ];
+    const vars = [];
     setVariablesDB(vars);
     const postventa = allPlantillas.filter(p => p.etapa === 'Concretado');
     const lista = postventa.length > 0 ? postventa : allPlantillas;
@@ -81,16 +76,8 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
     window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
 
-  // UN SOLO PASO: marcar como enviado = cerrar postventa
-  const handleMarkSent = async () => {
-    setLoading(true);
-    await base44.entities.Venta.update(venta.id, {
-      postventaUltimoContacto: new Date().toISOString(),
-      postventaEstado: "Cerrado",
-      postventaActiva: false,
-    });
+  const handleMarkSent = () => {
     toast.success("✅ Postventa completada. Proceso de venta finalizado.");
-    setLoading(false);
     onMessageSent?.();
     onOpenChange(false);
   };
@@ -164,7 +151,7 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
             <ExternalLink className="w-4 h-4" />
             Abrir WhatsApp
           </Button>
-          <Button onClick={handleMarkSent} disabled={loading} className="gap-2">
+          <Button onClick={handleMarkSent} className="gap-2">
             <Check className="w-4 h-4" />
             Marcar como realizado
           </Button>

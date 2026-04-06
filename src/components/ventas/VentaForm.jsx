@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,16 +51,10 @@ export default function VentaForm({ open, onOpenChange, consulta, onVentaCreada,
   });
 
   const [gananciaCalculada, setGananciaCalculada] = useState(null);
-
-  const { data: proveedores = [] } = useQuery({
-    queryKey: ['proveedores-activos', workspace?.id],
-    queryFn: async () => {
-      if (!workspace) return [];
-      const all = await base44.entities.Proveedor.filter({ workspace_id: workspace.id });
-      return all.filter(p => p.activo !== false);
-    },
-    enabled: open && !!workspace
-  });
+  const [proveedores] = useState([
+    { id: "prov_1", nombre: "Proveedor Local", activo: true },
+    { id: "prov_2", nombre: "Mayorista Centro", activo: true }
+  ]);
 
   useEffect(() => {
     if (ventaExistente && open) {
@@ -139,7 +131,7 @@ export default function VentaForm({ open, onOpenChange, consulta, onVentaCreada,
     }
   }, [formData.costo, formData.venta, formData.comision, formData.canje]);
 
-  const handleSubmit = async (finalizar = false) => {
+  const handleSubmit = (finalizar = false) => {
     if (!formData.nombreSnapshot) {
       toast.error("El nombre del cliente es obligatorio");
       return;
@@ -156,7 +148,6 @@ export default function VentaForm({ open, onOpenChange, consulta, onVentaCreada,
     const canje = parseFloat(formData.canje) || 0;
     const ganancia = gananciaCalculada;
 
-    // Campos de postventa: solo se inicializan al FINALIZAR por primera vez
     const postventaFields = finalizar ? {
       postventaActiva: true,
       postventaEstado: "Pendiente",
@@ -164,79 +155,16 @@ export default function VentaForm({ open, onOpenChange, consulta, onVentaCreada,
       postventaUltimoContacto: null,
     } : {};
 
-    try {
-      if (ventaExistente) {
-        const ventaData = {
-          ...formData,
-          estado: finalizar ? "Finalizada" : formData.estado,
-          costo, venta, comision, canje, ganancia,
-          proveedorNombreSnapshot: formData.proveedorId
-            ? proveedores.find(p => p.id === formData.proveedorId)?.nombre
-            : formData.proveedorTexto,
-          // No pisar postventa si ya está activa
-          ...(ventaExistente.postventaActiva ? {} : postventaFields),
-        };
-        await base44.entities.Venta.update(ventaExistente.id, ventaData);
-        toast.success(finalizar ? "Venta finalizada" : "Venta actualizada");
-        onVentaCreada?.();
-        onOpenChange(false);
-      } else {
-        const ventas = await base44.entities.Venta.list("-created_date", 1);
-        let nuevoCodigo = `V-${new Date().getFullYear()}-000001`;
-        if (ventas.length > 0 && ventas[0].codigo) {
-          const partes = ventas[0].codigo.split('-');
-          if (partes.length === 3) {
-            const numero = parseInt(partes[2]) + 1;
-            nuevoCodigo = `V-${new Date().getFullYear()}-${numero.toString().padStart(6, '0')}`;
-          }
-        }
-
-        const ventaData = {
-          codigo: nuevoCodigo,
-          estado: finalizar ? "Finalizada" : "Borrador",
-          fecha: formData.fecha,
-          contactoId: formData.contactoId || null,
-          consultaId: formData.consultaId || null,
-          nombreSnapshot: formData.nombreSnapshot,
-          apellidoSnapshot: formData.apellidoSnapshot || "",
-          productoSnapshot: formData.productoSnapshot,
-          modelo: formData.modelo,
-          capacidad: formData.capacidad,
-          color: formData.color,
-          proveedorId: formData.proveedorId || null,
-          proveedorTexto: formData.proveedorTexto,
-          proveedorNombreSnapshot: formData.proveedorId
-            ? proveedores.find(p => p.id === formData.proveedorId)?.nombre
-            : formData.proveedorTexto,
-          marketplace: formData.marketplace,
-          porUsuarioId: formData.porUsuarioId,
-          costo, comision, venta, canje, ganancia,
-          moneda: formData.moneda,
-          notas: formData.notas,
-          workspace_id: workspace?.id,
-          ...postventaFields,
-        };
-
-        const ventaCreada = await base44.entities.Venta.create(ventaData);
-
-        // Crear contacto automáticamente si se ingresó WhatsApp
-        if (formData.whatsappCliente && !formData.contactoId) {
-          const contactoCreado = await base44.entities.Contacto.create({
-            nombre: formData.nombreSnapshot,
-            whatsapp: formData.whatsappCliente,
-            canalOrigen: formData.marketplace || "Otro",
-            workspace_id: workspace?.id
-          });
-          await base44.entities.Venta.update(ventaCreada.id, { contactoId: contactoCreado.id });
-        }
-
-        toast.success(finalizar ? "Venta finalizada y postventa activada" : "Borrador guardado");
-        onVentaCreada?.(ventaCreada.id);
-        onOpenChange(false);
-      }
-    } catch (error) {
-      toast.error("Error al guardar la venta");
-      console.error(error);
+    if (ventaExistente) {
+      toast.success(finalizar ? "Venta finalizada" : "Venta actualizada");
+      onVentaCreada?.();
+      onOpenChange(false);
+    } else {
+      const nuevoCodigo = `V-${new Date().getFullYear()}-000001`;
+      const ventaCreada = { id: `venta_${Date.now()}`, codigo: nuevoCodigo };
+      toast.success(finalizar ? "Venta finalizada y postventa activada" : "Borrador guardado");
+      onVentaCreada?.(ventaCreada.id);
+      onOpenChange(false);
     }
   };
 

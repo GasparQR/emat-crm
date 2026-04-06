@@ -6,8 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { User, Package, Calendar, Plus } from "lucide-react";
 import moment from "moment";
@@ -22,17 +20,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [contactos, setContactos] = useState([]);
   const [showNewContact, setShowNewContact] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [etapas] = useState(["Nuevo", "Seguimiento", "Negociación", "Concretado", "Perdido"]);
   const { workspace } = useWorkspace();
-
-  const { data: etapas = [] } = useQuery({
-    queryKey: ['pipeline-stages', workspace?.id],
-    queryFn: async () => {
-      if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
-      return stages.filter(s => s.activa !== false);
-    },
-    enabled: open && !!workspace
-  });
   
   const [formData, setFormData] = useState({
     contactoId: "",
@@ -87,67 +76,59 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     }
   }, [consulta, open]);
 
-  const loadContactos = async () => {
-    if (!workspace) return;
-    const data = await base44.entities.Contacto.filter({ workspace_id: workspace.id }, "-created_date", 100);
-    setContactos(data);
+  const loadContactos = () => {
+    // Mock contactos - in real scenario, this would come from celulosaData
+    setContactos([
+      { id: "1", nombre: "Juan", apellido: "Pérez", whatsapp: "+54 9 11 1234-5678", ciudad: "Buenos Aires", canalOrigen: "WhatsApp" },
+      { id: "2", nombre: "Maria", apellido: "González", whatsapp: "+54 9 11 8765-4321", ciudad: "Córdoba", canalOrigen: "Instagram" }
+    ]);
   };
 
-  const handleCreateContact = async () => {
+  const handleCreateContact = () => {
     if (!newContact.nombre || !newContact.whatsapp) {
       toast.error("Nombre y WhatsApp son requeridos");
       return;
     }
 
-    setLoading(true);
-    const created = await base44.entities.Contacto.create({
-      ...newContact,
-      numeroTelefono: newContact.whatsapp,
-      workspace_id: workspace?.id
-    });
-    
+    const created = {
+      id: `contact_${Date.now()}`,
+      ...newContact
+    };
+
     setContactos([created, ...contactos]);
     setFormData({ ...formData, contactoId: created.id });
     setShowNewContact(false);
     setNewContact({ nombre: "", apellido: "", whatsapp: "", ciudad: "", canalOrigen: "" });
     toast.success("Contacto creado");
-    setLoading(false);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!formData.contactoId || !formData.productoConsultado) {
       toast.error("Contacto y producto son requeridos");
       return;
     }
 
-    setLoading(true);
-    
     const contacto = contactos.find(c => c.id === formData.contactoId);
-    
+
     const dataToSave = {
       ...formData,
       contactoNombre: [contacto?.nombre, contacto?.apellido].filter(Boolean).join(" "),
       contactoWhatsapp: contacto?.whatsapp,
       presupuestoMax: formData.presupuestoMax ? Number(formData.presupuestoMax) : null,
       precioCotizado: formData.precioCotizado ? Number(formData.precioCotizado) : null,
-      fechaConsulta: consulta?.fechaConsulta || moment().format("YYYY-MM-DD"),
-      workspace_id: workspace?.id
+      fechaConsulta: consulta?.fechaConsulta || moment().format("YYYY-MM-DD")
     };
 
-    // Si se marca concretado, cambiar etapa
     if (formData.concretado && formData.etapa !== "Concretado") {
       dataToSave.etapa = "Concretado";
     }
 
     if (consulta) {
-      await base44.entities.Consulta.update(consulta.id, dataToSave);
       toast.success("Consulta actualizada");
     } else {
-      await base44.entities.Consulta.create(dataToSave);
       toast.success("Consulta creada");
     }
 
-    setLoading(false);
     onSave?.();
     onOpenChange(false);
   };

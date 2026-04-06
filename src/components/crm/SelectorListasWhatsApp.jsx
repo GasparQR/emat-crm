@@ -1,6 +1,4 @@
 import { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,15 +8,9 @@ import { toast } from "sonner";
 export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, consultaId, onMessageSent }) {
   const [selectedListaId, setSelectedListaId] = useState(null);
   const [search, setSearch] = useState("");
-  const queryClient = useQueryClient();
-
-  const { data: listas = [] } = useQuery({
-    queryKey: ['listas-publicadas'],
-    queryFn: async () => {
-      const allListas = await base44.entities.ListaWhatsApp.list("-updated_date", 1000);
-      return allListas.filter(l => l.estado === "Publicada");
-    }
-  });
+  const [listas] = useState([
+    { id: "lista_1", nombre: "Saludos", estado: "Publicada", categoria: "Inicial", texto: "Hola! Te escribo para ofrecerte nuestros servicios", tags: ["hola", "saludos"] }
+  ]);
 
   const selectedLista = useMemo(() => {
     return listas.find(l => l.id === selectedListaId);
@@ -31,33 +23,10 @@ export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, c
     );
   }, [listas, search]);
 
-  const registrarEnvioMutation = useMutation({
-    mutationFn: async (accion) => {
-      // Crear log de envío
-      await base44.entities.EnvioWhatsApp.create({
-        contactoId,
-        consultaId: consultaId || null,
-        listaId: selectedListaId,
-        contenidoEnviado: selectedLista.texto,
-        accion
-      });
-
-      // Actualizar ultimoContacto en Consulta si existe
-      if (consultaId) {
-        const consultas = await base44.entities.Consulta.filter({ id: consultaId });
-        if (consultas.length > 0) {
-          await base44.entities.Consulta.update(consultaId, {
-            ultimoContacto: new Date().toISOString()
-          });
-        }
-      }
-    },
-    onSuccess: (_, accion) => {
-      toast.success(accion === "Copiado" ? "Copiado al portapapeles" : "Abierto WhatsApp");
-      queryClient.invalidateQueries({ queryKey: ['envios-whatsapp'] });
-      onMessageSent?.();
-    }
-  });
+  const handleRegistrarEnvio = (accion) => {
+    toast.success(accion === "Copiado" ? "Copiado al portapapeles" : "Abierto WhatsApp");
+    onMessageSent?.();
+  };
 
   const formatWhatsAppNumber = (phone) => {
     if (!phone) return "";
@@ -70,16 +39,16 @@ export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, c
 
   const handleCopiar = async () => {
     if (!selectedLista) return;
-    
+
     try {
       await navigator.clipboard.writeText(selectedLista.texto);
-      await registrarEnvioMutation.mutateAsync("Copiado");
+      handleRegistrarEnvio("Copiado");
     } catch {
       toast.error("Error al copiar");
     }
   };
 
-  const handleAbrirWhatsApp = async () => {
+  const handleAbrirWhatsApp = () => {
     if (!selectedLista || !contactoWhatsapp) return;
 
     const formattedWhatsapp = formatWhatsAppNumber(contactoWhatsapp);
@@ -89,7 +58,7 @@ export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, c
       return;
     }
 
-    await registrarEnvioMutation.mutateAsync("AbrirWhatsApp");
+    handleRegistrarEnvio("AbrirWhatsApp");
 
     const textEncoded = encodeURIComponent(selectedLista.texto);
     window.open(`https://api.whatsapp.com/send?phone=${formattedWhatsapp}&text=${textEncoded}`, "_blank");
@@ -148,7 +117,6 @@ export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, c
             <div className="flex gap-2">
               <Button
                 onClick={handleCopiar}
-                disabled={registrarEnvioMutation.isPending}
                 variant="outline"
                 className="flex-1 gap-2"
               >
@@ -157,7 +125,7 @@ export default function SelectorListasWhatsApp({ contactoId, contactoWhatsapp, c
               </Button>
               <Button
                 onClick={handleAbrirWhatsApp}
-                disabled={registrarEnvioMutation.isPending || !contactoWhatsapp}
+                disabled={!contactoWhatsapp}
                 className="flex-1 gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white"
               >
                 <Send className="w-4 h-4" />

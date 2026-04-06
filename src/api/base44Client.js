@@ -128,5 +128,11 @@ export const base44 = {
     HistorialEnvios: createEntityProxy('HistorialEnvios'),
     Cliente: createEntityProxy('Cliente'),
     Presupuesto: createEntityProxy('Presupuesto'),
+    PlantillaWhatsApp: createEntityProxy('PlantillaWhatsApp'),
+    EnvioWhatsApp: createEntityProxy('EnvioWhatsApp'),
+    Mensaje: createEntityProxy('Mensaje'),
+    ListaWhatsApp: createEntityProxy('ListaWhatsApp'),
+    VariablePlantilla: createEntityProxy('VariablePlantilla'),
+    Usuario: createEntityProxy('Usuario'),
   }
 };

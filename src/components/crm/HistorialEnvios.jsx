@@ -1,26 +1,12 @@
-import { base44 } from "@/api/base44Client";
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { History } from "lucide-react";
 import moment from "moment";
 
 export default function HistorialEnvios({ contactoId, consultaId }) {
-  const { data: envios = [] } = useQuery({
-    queryKey: ['envios-whatsapp', contactoId, consultaId],
-    queryFn: async () => {
-      let query = { contactoId };
-      if (consultaId) {
-        query.consultaId = consultaId;
-      }
-      return await base44.entities.EnvioWhatsApp.filter(query, "-created_date", 100);
-    }
-  });
-
-  const { data: listas = [] } = useQuery({
-    queryKey: ['listas-whatsapp-map'],
-    queryFn: () => base44.entities.ListaWhatsApp.list("-updated_date", 1000)
-  });
+  const [envios] = useState([]);
+  const [listas] = useState([]);
 
   const getListaNombre = (listaId) => {
     const lista = listas.find(l => l.id === listaId);
