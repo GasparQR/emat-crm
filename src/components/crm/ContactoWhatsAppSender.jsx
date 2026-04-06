@@ -11,10 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-export default function ContactoWhatsAppSender({ open, onOpenChange, contacto }) {
+export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, onMessageSent }) {
   const [selectedPlantilla, setSelectedPlantilla] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [copied, setCopied] = useState(false);
+  const [usarPlantilla, setUsarPlantilla] = useState(true);
 
   const { workspace } = useWorkspace();
 
@@ -36,8 +37,14 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
 
   // Auto-select a suggested template when plantillas load or dialog opens
   useEffect(() => {
-    if (!open || plantillas.length === 0) return;
+    if (!open) return;
 
+    if (plantillas.length === 0) {
+      setUsarPlantilla(false);
+      return;
+    }
+
+    setUsarPlantilla(true);
     const activas = plantillas.filter((p) => p.activa !== false);
     const sugerida =
       activas.find((p) => p.etapa === "General" || !p.etapa) ||
@@ -48,10 +55,14 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
 
   // Re-build message text whenever template or contact changes
   useEffect(() => {
+    if (!usarPlantilla) {
+      setMensaje(prev => prev || `Hola ${contacto?.nombre || ""}, `);
+      return;
+    }
     if (selectedPlantilla && contacto) {
       setMensaje(reemplazarVariables(selectedPlantilla.contenido, contacto, variablesDB));
     }
-  }, [selectedPlantilla, contacto, variablesDB]);
+  }, [selectedPlantilla, contacto, variablesDB, usarPlantilla]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -59,6 +70,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
       setSelectedPlantilla(null);
       setMensaje("");
       setCopied(false);
+      setUsarPlantilla(true);
     }
   }, [open]);
 
@@ -99,7 +111,17 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
   };
 
   const handleOpenWhatsApp = () => {
+    if (!mensaje.trim()) {
+      toast.error("Escribe un mensaje primero");
+      return;
+    }
+
     const phone = formatPhone(contacto.whatsapp);
+    if (!phone) {
+      toast.error("Número de WhatsApp no válido");
+      return;
+    }
+
     const msg = String(mensaje || "")
       .normalize("NFC")
       .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
@@ -107,9 +129,14 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
     url.searchParams.set("phone", phone);
     url.searchParams.set("text", msg);
     window.open(url.toString(), "_blank", "noopener,noreferrer");
+
+    onMessageSent?.({ contacto, mensaje });
   };
 
   if (!contacto) return null;
+
+  const plantillasActivas = plantillas.filter((p) => p.activa !== false);
+  const hayPlantillas = plantillasActivas.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,39 +163,48 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
             )}
           </div>
 
-          {/* Template selector */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              Plantilla sugerida
-            </Label>
-            {plantillas.filter((p) => p.activa !== false).length === 0 ? (
-              <p className="text-sm text-slate-400 italic">
-                No hay plantillas disponibles. Podés crear una en la sección Plantillas.
-              </p>
-            ) : (
-              <Select
-                value={selectedPlantilla?.id}
-                onValueChange={(val) =>
-                  setSelectedPlantilla(plantillas.find((p) => p.id === val))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar plantilla" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plantillas
-                    .filter((p) => p.activa !== false)
-                    .map((p) => (
+          {/* Template selector - solo si hay plantillas */}
+          {hayPlantillas && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                Plantilla sugerida
+              </Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="usarPlantilla"
+                  checked={usarPlantilla}
+                  onChange={(e) => setUsarPlantilla(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="usarPlantilla" className="text-sm cursor-pointer">
+                  Usar una plantilla guardada
+                </label>
+              </div>
+
+              {usarPlantilla && (
+                <Select
+                  value={selectedPlantilla?.id || ""}
+                  onValueChange={(val) =>
+                    setSelectedPlantilla(plantillasActivas.find((p) => p.id === val))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar plantilla" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plantillasActivas.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.nombrePlantilla}
                         {p.etapa && p.etapa !== "General" && ` · ${p.etapa}`}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           {/* Message editor */}
           <div className="space-y-2">
@@ -180,6 +216,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
               className="resize-none w-full"
               placeholder="Escribe tu mensaje o selecciona una plantilla..."
             />
+            <p className="text-xs text-slate-500">{mensaje.length} caracteres</p>
           </div>
         </div>
 
@@ -190,7 +227,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
           </Button>
           <Button
             onClick={handleOpenWhatsApp}
-            disabled={!contacto.whatsapp}
+            disabled={!contacto.whatsapp || !mensaje.trim()}
             className="bg-[#25D366] hover:bg-[#20bd5a] text-white gap-2"
           >
             <ExternalLink className="w-4 h-4" />
