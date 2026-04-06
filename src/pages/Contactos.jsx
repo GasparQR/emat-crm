@@ -15,10 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, Phone, MessageCircle, Mail, MapPin, User, ArrowLeft, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
+import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
   const [selectedContacto, setSelectedContacto] = useState(null);
+  const [whatsappTarget, setWhatsappTarget] = useState(null);
   const [search, setSearch] = useState("");
   const [filtroFuente, setFiltroFuente] = useState("todos");
   const [filtroSegmento, setFiltroSegmento] = useState("todos");
@@ -284,7 +286,7 @@ export default function Contactos() {
                         <Button
                           size="sm"
                           className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-8 w-8 p-0"
-                          onClick={() => window.open(`https://wa.me/${contacto.whatsapp}`, "_blank")}
+                          onClick={() => setWhatsappTarget(contacto)}
                         >
                           <MessageCircle className="w-4 h-4" />
                         </Button>
@@ -375,6 +377,12 @@ export default function Contactos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* WhatsApp Sender Dialog */}
+      <ContactoWhatsAppSender
+        open={!!whatsappTarget}
+        onOpenChange={(open) => { if (!open) setWhatsappTarget(null); }}
+        contacto={whatsappTarget}
+      />
     </div>
   );
 }
