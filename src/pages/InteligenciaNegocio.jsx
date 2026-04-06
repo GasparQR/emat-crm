@@ -254,7 +254,7 @@ function AIInsights({ aiData }) {
     setDone(false);
     setAnalysis("");
 
-    const prompt = `Sos un analista de negocios senior especializado en comercio de tecnología (Apple reseller en Argentina).
+    const prompt = `Sos un analista de negocios senior especializado en comercialización de celulosa y materiales de construcción en Argentina.
 Analizá estos datos del CRM y dá recomendaciones concretas y accionables en español rioplatense informal pero profesional.
 
 DATOS DEL NEGOCIO (últimos 30 días):
