@@ -17,52 +17,10 @@ export function WorkspaceProvider({ children }) {
     bootstrapWorkspace();
   }, []);
 
-  const bootstrapWorkspace = async () => {
-    try {
-      const user = await base44.auth.me();
-      if (!user) {
-        setWorkspace(DEFAULT_WORKSPACE);
-        setWorkspaceLoading(false);
-        return;
-      }
-
-      // Try to find existing workspace
-      try {
-        const members = await base44.entities.WorkspaceMember.filter({ user_id: user.email });
-        if (members && members.length > 0) {
-          const adminMembership = members.find(m => m.role === "admin") || members[0];
-          const workspaces = await base44.entities.Workspace.filter({ id: adminMembership.workspace_id });
-          if (workspaces && workspaces.length > 0) {
-            setWorkspace(workspaces[0]);
-            return;
-          }
-        }
-      } catch (err) {
-        console.warn("Could not fetch existing workspace:", err);
-      }
-
-      // Create or use default workspace
-      try {
-        const newWorkspace = await base44.entities.Workspace.create({
-          name: user.full_name ? `Workspace de ${user.full_name}` : "EMAT Celulosa",
-          owner_user_id: user.email
-        });
-        await base44.entities.WorkspaceMember.create({
-          workspace_id: newWorkspace.id,
-          user_id: user.email,
-          role: "admin"
-        });
-        setWorkspace(newWorkspace);
-      } catch (err) {
-        console.warn("Could not create workspace:", err);
-        setWorkspace(DEFAULT_WORKSPACE);
-      }
-    } catch (err) {
-      console.error("Error bootstrapping workspace:", err);
-      setWorkspace(DEFAULT_WORKSPACE);
-    } finally {
-      setWorkspaceLoading(false);
-    }
+  const bootstrapWorkspace = () => {
+    // Use default workspace for now (local data storage)
+    setWorkspace(DEFAULT_WORKSPACE);
+    setWorkspaceLoading(false);
   };
 
   return (
