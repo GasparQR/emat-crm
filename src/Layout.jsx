@@ -19,7 +19,7 @@ const NAV_ITEMS = [
   { name: "Postventa", icon: CheckCircle2, page: "Postventa" },
   { name: "Proveedores", icon: Users, page: "Proveedores" },
   { name: "Contactos", icon: Users, page: "Contactos" },
-  { name: "Inteligencia", icon: BarChart3, page: "InteligenciaNegocio" },
+
   { name: "Ajustes", icon: Users, page: "Ajustes" },
 ];
 
