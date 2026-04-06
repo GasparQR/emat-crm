@@ -45,7 +45,7 @@ export default function Contactos() {
 
   const { data: contactos = [], refetch } = useQuery({
     queryKey: ['contactos', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "-created_date", 500) : [],
+    queryFn: () => workspace ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000) : [],
     enabled: !!workspace
   });
 
@@ -139,10 +139,11 @@ export default function Contactos() {
 
   const contactosFiltrados = contactos.filter(c => {
     if (search) {
-      const searchLower = search.toLowerCase();
-      if (!c.nombre?.toLowerCase().includes(searchLower) &&
+      const s = search.toLowerCase();
+      if (!c.nombre?.toLowerCase().includes(s) &&
+          !c.empresa?.toLowerCase().includes(s) &&
           !c.whatsapp?.includes(search) &&
-          !c.ciudad?.toLowerCase().includes(searchLower)) {
+          !c.ciudad?.toLowerCase().includes(s)) {
         return false;
       }
     }
@@ -229,14 +230,11 @@ export default function Contactos() {
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">{contacto.nombre} {contacto.apellido}</p>
-                        {contacto.tags?.length > 0 && (
-                          <div className="flex gap-1 mt-1">
-                            {contacto.tags.slice(0, 2).map((tag, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
+                        {contacto.empresa && contacto.empresa !== contacto.nombre && (
+                          <p className="text-xs text-slate-500">{contacto.empresa}</p>
+                        )}
+                        {contacto.segmento && (
+                          <Badge variant="secondary" className="text-xs mt-1">{contacto.segmento}</Badge>
                         )}
                       </div>
                     </div>
