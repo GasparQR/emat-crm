@@ -18,8 +18,8 @@ import { Plus, Edit, Trash2, Eye, Copy, MessageCircle, Sparkles, ArrowLeft } fro
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const CATEGORIAS = ["iPhone", "Mac", "iPad", "AirPods", "Apple Watch", "Accesorios", "General"];
-const ETAPAS = ["Nuevo", "Seguimiento", "Concretado", "Perdido", "General"];
+const CATEGORIAS = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "General"];
+const ETAPAS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA", "General"];
 
 const VARIABLES = [
   { key: "{NOMBRE}", desc: "Nombre del cliente" },
@@ -34,13 +34,13 @@ const VARIABLES = [
 
 const DATOS_PRUEBA = {
   "{NOMBRE}": "Juan",
-  "{PRODUCTO}": "iPhone 15 Pro Max",
-  "{VARIANTE}": "256GB Negro",
-  "{PRECIO}": "1.299",
-  "{MONEDA}": "US$",
-  "{GARANTIA}": "6 meses",
-  "{ENTREGA}": "24-48hs",
-  "{PAGO}": "Efectivo, transferencia o tarjeta"
+  "{PRODUCTO}": "Celulosa soplada",
+  "{VARIANTE}": "Techo inclinado 120mm",
+  "{PRECIO}": "850.000",
+  "{MONEDA}": "$",
+  "{GARANTIA}": "Incluida",
+  "{ENTREGA}": "A coordinar",
+  "{PAGO}": "Transferencia o efectivo"
 };
 
 export default function Plantillas() {
@@ -279,7 +279,7 @@ export default function Plantillas() {
                 <Input
                   value={formData.nombrePlantilla}
                   onChange={(e) => setFormData({ ...formData, nombrePlantilla: e.target.value })}
-                  placeholder="Ej: Bienvenida iPhone nuevo"
+                  placeholder="Ej: Seguimiento presupuesto celulosa"
                 />
               </div>
               <div className="space-y-2">
