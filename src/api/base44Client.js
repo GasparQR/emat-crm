@@ -1,62 +1,65 @@
 // Local data store using localStorage
-// This replaces base44 SDK for Celulosa CRM
+// Reemplaza base44 SDK — EMAT Celulosa CRM
 
 class LocalDataStore {
   constructor(entityName) {
     this.entityName = entityName;
+    this._key = `emat_${entityName}`;
   }
 
   getAll() {
-    const key = `emat_${this.entityName}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
+    try {
+      return JSON.parse(localStorage.getItem(this._key) || '[]');
+    } catch {
+      return [];
+    }
   }
 
   save(data) {
-    const key = `emat_${this.entityName}`;
-    localStorage.setItem(key, JSON.stringify(data));
+    localStorage.setItem(this._key, JSON.stringify(data));
   }
 
-  async filter(query = {}, sortField = null, limit = 100) {
+  async filter(query = {}, sortField = null, limit = 2000) {
     let items = this.getAll();
 
-    // Simple filter logic
-    if (query.workspace_id) {
-      items = items.filter(item => item.workspace_id === query.workspace_id);
-    }
-    if (query.user_id) {
-      items = items.filter(item => item.user_id === query.user_id);
-    }
-    if (query.id) {
-      items = items.filter(item => item.id === query.id);
-    }
+    // Filtrar por campos (ignorar workspace_id — single tenant)
+    Object.entries(query).forEach(([k, v]) => {
+      if (k === 'workspace_id') return;
+      items = items.filter(item => item[k] === v);
+    });
 
-    // Sort if requested
+    // Ordenar
     if (sortField) {
       const desc = sortField.startsWith('-');
-      const field = desc ? sortField.substring(1) : sortField;
+      const field = desc ? sortField.slice(1) : sortField;
       items.sort((a, b) => {
-        if (desc) return (b[field] ?? 0) - (a[field] ?? 0);
-        return (a[field] ?? 0) - (b[field] ?? 0);
+        const av = a[field] ?? '';
+        const bv = b[field] ?? '';
+        if (desc) return bv > av ? 1 : bv < av ? -1 : 0;
+        return av > bv ? 1 : av < bv ? -1 : 0;
       });
     }
 
-    // Apply limit
-    return items.slice(0, limit);
+    return limit ? items.slice(0, limit) : items;
   }
 
-  async list(sortField = null, limit = 100) {
+  async list(sortField = null, limit = 2000) {
     return this.filter({}, sortField, limit);
+  }
+
+  async get(id) {
+    const items = this.getAll();
+    return items.find(item => item.id === id) || null;
   }
 
   async create(data) {
     const items = this.getAll();
-    const id = `${this.entityName}_${Date.now()}`;
     const newItem = {
-      id,
+      id: `${this.entityName}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      workspace_id: 'local',
       ...data,
       created_date: new Date().toISOString(),
-      updated_date: new Date().toISOString()
+      updated_date: new Date().toISOString(),
     };
     items.push(newItem);
     this.save(items);
@@ -65,25 +68,20 @@ class LocalDataStore {
 
   async update(id, data) {
     const items = this.getAll();
-    const index = items.findIndex(item => item.id === id);
-    if (index !== -1) {
-      items[index] = {
-        ...items[index],
-        ...data,
-        updated_date: new Date().toISOString()
-      };
+    const idx = items.findIndex(item => item.id === id);
+    if (idx !== -1) {
+      items[idx] = { ...items[idx], ...data, updated_date: new Date().toISOString() };
       this.save(items);
-      return items[index];
+      return items[idx];
     }
     return null;
   }
 
   async delete(id) {
     const items = this.getAll();
-    const index = items.findIndex(item => item.id === id);
-    if (index !== -1) {
-      const deleted = items[index];
-      items.splice(index, 1);
+    const idx = items.findIndex(item => item.id === id);
+    if (idx !== -1) {
+      const [deleted] = items.splice(idx, 1);
       this.save(items);
       return deleted;
     }
@@ -91,11 +89,40 @@ class LocalDataStore {
   }
 }
 
+// ─── Auto-seed desde public/seed_data.json ──────────────────────────────────
+async function seedIfEmpty() {
+  const existing = localStorage.getItem('emat_Consulta');
+  if (existing && JSON.parse(existing).length > 0) return;
+
+  try {
+    const res = await fetch('/seed_data.json');
+    if (!res.ok) return;
+    const { presupuestos = [], clientes = [], stages = [] } = await res.json();
+
+    if (presupuestos.length > 0 && !localStorage.getItem('emat_Consulta')) {
+      localStorage.setItem('emat_Consulta', JSON.stringify(presupuestos));
+    }
+    if (clientes.length > 0 && !localStorage.getItem('emat_Contacto')) {
+      localStorage.setItem('emat_Contacto', JSON.stringify(clientes));
+    }
+    if (stages.length > 0 && !localStorage.getItem('emat_PipelineStage')) {
+      localStorage.setItem('emat_PipelineStage', JSON.stringify(stages));
+    }
+    console.log(`✅ EMAT CRM: datos cargados — ${presupuestos.length} presupuestos, ${clientes.length} clientes`);
+  } catch (e) {
+    console.warn('seed_data.json no disponible:', e.message);
+  }
+}
+
+seedIfEmpty();
+// ─────────────────────────────────────────────────────────────────────────────
+
 const createEntityProxy = (entityName) => {
   const store = new LocalDataStore(entityName);
   return {
     filter: (query, sortField, limit) => store.filter(query, sortField, limit),
     list: (sortField, limit) => store.list(sortField, limit),
+    get: (id) => store.get(id),
     create: (data) => store.create(data),
     update: (id, data) => store.update(id, data),
     delete: (id) => store.delete(id),
@@ -103,19 +130,25 @@ const createEntityProxy = (entityName) => {
   };
 };
 
-export const base44 = {
-  // Auth
-  auth: {
-    me: async () => {
-      return {
-        id: 'user_1',
-        name: 'Demo User',
-        email: 'demo@emat.com'
-      };
-    }
-  },
+const LOCAL_USER = {
+  id: 'admin',
+  full_name: 'EMAT Admin',
+  email: 'admin@ematcelulosa.com',
+  role: 'admin',
+  canEditContacts: true,
+  canSendMessages: true,
+  canViewReports: true,
+};
 
-  // Entities
+export const base44 = {
+  auth: {
+    me: async () => LOCAL_USER,
+    logout: () => {},
+    redirectToLogin: () => {},
+  },
+  appLogs: {
+    logUserInApp: () => Promise.resolve(),
+  },
   entities: {
     Workspace: createEntityProxy('Workspace'),
     WorkspaceMember: createEntityProxy('WorkspaceMember'),
@@ -134,5 +167,5 @@ export const base44 = {
     ListaWhatsApp: createEntityProxy('ListaWhatsApp'),
     VariablePlantilla: createEntityProxy('VariablePlantilla'),
     Usuario: createEntityProxy('Usuario'),
-  }
+  },
 };

@@ -1,46 +1,104 @@
-import { useState } from "react";
+import { useMemo } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Plus, BarChart3, Users, List } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { Plus, BarChart3, Users, List, TrendingUp, FileText, CheckCircle } from "lucide-react";
+
+const ASESOR_COLORS = {
+  ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
+  ROCIO: "#f43f5e", JULIAN: "#6366f1", PABLO: "#f97316",
+  ESTEBAN: "#06b6d4", MACA: "#d946ef",
+};
+const ESTADO_PIE_COLORS = {
+  "A COTIZAR": "#94a3b8", "NEGOCIACION": "#f59e0b", "GANADA": "#10b981",
+  "EJECUTADA": "#059669", "PAUSADA": "#6b7280", "PERDIDA": "#ef4444",
+};
 
 export default function Home() {
-  const [showForm, setShowForm] = useState(false);
+  const { workspace } = useWorkspace();
+  const { data: consultas = [] } = useQuery({
+    queryKey: ["consultas-home", workspace?.id],
+    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
+    enabled: !!workspace,
+  });
 
-  const stats = [
-    { title: "Clientes Activos", value: "1,246", icon: Users, color: "bg-blue-500" },
-    { title: "Presupuestos 2026", value: "177", icon: BarChart3, color: "bg-green-500" },
-    { title: "En Negociación", value: "45", icon: List, color: "bg-yellow-500" },
-    { title: "Ganados", value: "32", icon: Plus, color: "bg-purple-500" },
+  // KPIs
+  const hoy = new Date();
+  const hace7dias = new Date(hoy - 7 * 86400000).toISOString();
+  const mesActual = hoy.toLocaleString("es-AR", { month: "long" }).toUpperCase().replace("Á","A").replace("É","E").replace("Ó","O");
+
+  const kpis = useMemo(() => {
+    const recientes = consultas.filter(c => (c.created_date || "") >= hace7dias);
+    const ganadas = consultas.filter(c => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
+    const totalConEstado = consultas.filter(c => c.etapa && c.etapa !== "A COTIZAR");
+    const tasa = totalConEstado.length > 0 ? Math.round((ganadas.length / consultas.length) * 100) : 0;
+    const delMes = consultas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear());
+    const m2Mes = delMes.reduce((s, c) => s + (c.superficieM2 || 0), 0);
+    const importeMes = ganadas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear())
+      .reduce((s, c) => s + (c.importe || 0), 0);
+    const enSeguimiento = consultas.filter(c => c.proximoSeguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.etapa));
+    return { recientes: recientes.length, tasa, m2Mes: Math.round(m2Mes), importeMes, enSeguimiento: enSeguimiento.length, totalGanadas: ganadas.length };
+  }, [consultas]);
+
+  // Chart: presupuestos por asesor
+  const asesoresData = useMemo(() => {
+    const map = {};
+    consultas.forEach(c => {
+      if (!c.asesor) return;
+      if (!map[c.asesor]) map[c.asesor] = { asesor: c.asesor, total: 0, ganados: 0 };
+      map[c.asesor].total++;
+      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") map[c.asesor].ganados++;
+    });
+    return Object.values(map).sort((a,b) => b.total - a.total).slice(0,6);
+  }, [consultas]);
+
+  // Chart: distribución por estado
+  const estadoData = useMemo(() => {
+    const map = {};
+    consultas.forEach(c => {
+      const e = c.etapa || "Sin estado";
+      map[e] = (map[e] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [consultas]);
+
+  const statsCards = [
+    { title: "Presupuestos últimos 7 días", value: kpis.recientes, icon: FileText, color: "bg-blue-500" },
+    { title: "Tasa de conversión", value: `${kpis.tasa}%`, icon: TrendingUp, color: "bg-purple-500" },
+    { title: "m² este mes", value: kpis.m2Mes.toLocaleString("es-AR"), icon: BarChart3, color: "bg-green-500" },
+    { title: "En seguimiento", value: kpis.enSeguimiento, icon: CheckCircle, color: "bg-amber-500" },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-8">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">EMAT Celulosa CRM</h1>
-          <p className="text-lg text-slate-600">Gestión integral de presupuestos y clientes</p>
+      <div className="bg-white border-b border-slate-200 px-6 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">EMAT Celulosa CRM</h1>
+            <p className="text-slate-500 mt-1">{consultas.length} presupuestos cargados</p>
+          </div>
+          <Link to={createPageUrl("Consultas")}>
+            <Button className="gap-2"><Plus className="w-4 h-4" />Nuevo presupuesto</Button>
+          </Link>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat) => {
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statsCards.map(stat => {
             const Icon = stat.icon;
             return (
               <Card key={stat.title} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-slate-600">
-                      {stat.title}
-                    </CardTitle>
-                    <div className={`${stat.color} p-2 rounded-lg`}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
+                    <CardTitle className="text-sm font-medium text-slate-500">{stat.title}</CardTitle>
+                    <div className={`${stat.color} p-2 rounded-lg`}><Icon className="w-4 h-4 text-white" /></div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -51,73 +109,62 @@ export default function Home() {
           })}
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Acciones Rápidas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Link to={createPageUrl("Consultas")}>
-                <Button variant="outline" className="w-full justify-start">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nueva Consulta
-                </Button>
-              </Link>
-              <Link to={createPageUrl("Pipeline")}>
-                <Button variant="outline" className="w-full justify-start">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Ver Pipeline
-                </Button>
-              </Link>
-              <Link to={createPageUrl("Contactos")}>
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="w-4 h-4 mr-2" />
-                  Gestionar Contactos
-                </Button>
-              </Link>
+            <CardHeader><CardTitle className="text-base">Presupuestos por asesor</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={asesoresData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <XAxis dataKey="asesor" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="total" name="Total" fill="#94a3b8" radius={[4,4,0,0]} />
+                  <Bar dataKey="ganados" name="Ganados" fill="#10b981" radius={[4,4,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Información del Sistema</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="text-sm text-slate-600">Estado</p>
-                <p className="text-lg font-semibold text-green-600">✓ En línea</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Datos locales</p>
-                <p className="text-sm text-slate-700">Almacenados en el navegador (localStorage)</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">Versión</p>
-                <p className="text-sm text-slate-700">EMAT CRM v0.1.0</p>
-              </div>
+            <CardHeader><CardTitle className="text-base">Distribución por estado</CardTitle></CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={estadoData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                    {estadoData.map((entry, i) => (
+                      <Cell key={i} fill={ESTADO_PIE_COLORS[entry.name] || "#94a3b8"} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
         </div>
 
-        {/* Welcome Section */}
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 border-0 text-white">
-          <CardHeader>
-            <CardTitle className="text-white">Bienvenido a EMAT Celulosa CRM</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-blue-50 mb-4">
-              Sistema completo de gestión de presupuestos y clientes para empresas de fibra celulosa.
-              Con almacenamiento local, sin necesidad de backend.
-            </p>
-            <div className="space-y-2">
-              <p className="text-sm text-blue-100">✓ Gestión de clientes y contactos</p>
-              <p className="text-sm text-blue-100">✓ Pipeline de presupuestos en Kanban</p>
-              <p className="text-sm text-blue-100">✓ Seguimiento de ventas y postventa</p>
-              <p className="text-sm text-blue-100">✓ Reportes y análisis de negocios</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Accesos rápidos */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Pipeline", page: "Pipeline", icon: BarChart3, color: "bg-blue-50 text-blue-700 border-blue-200" },
+            { label: "Presupuestos", page: "Consultas", icon: FileText, color: "bg-slate-50 text-slate-700 border-slate-200" },
+            { label: "Contactos", page: "Contactos", icon: Users, color: "bg-purple-50 text-purple-700 border-purple-200" },
+            { label: "Reportes", page: "Reportes", icon: List, color: "bg-green-50 text-green-700 border-green-200" },
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <Link key={item.page} to={createPageUrl(item.page)}>
+                <Card className={`border-2 ${item.color} hover:shadow-md transition-all cursor-pointer`}>
+                  <CardContent className="flex flex-col items-center justify-center py-6 gap-2">
+                    <Icon className="w-6 h-6" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

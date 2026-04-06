@@ -139,11 +139,11 @@ export default function Pipeline() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="Instagram">Instagram</SelectItem>
+                  <SelectItem value="Meta">Meta</SelectItem>
                   <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="MercadoLibre">MercadoLibre</SelectItem>
+                  <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
                   <SelectItem value="Referido">Referido</SelectItem>
-                  <SelectItem value="Local">Local</SelectItem>
+                  <SelectItem value="REFERIDO">REFERIDO</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>

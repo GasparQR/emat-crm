@@ -1,422 +1,243 @@
 import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { User, Package, Calendar, Plus } from "lucide-react";
-import moment from "moment";
-import { getNextBusinessDay } from "@/components/utils/dateUtils";
 
-const CATEGORIAS = ["iPhone", "Mac", "iPad", "AirPods", "Apple Watch", "Accesorios", "Otro"];
-const CANALES = ["Instagram", "WhatsApp", "MercadoLibre", "Referido", "Local", "Otro"];
-const PRIORIDADES = ["Alta", "Media", "Baja"];
-const MOTIVOS_PERDIDA = ["Caro", "SinStock", "ComproOtro", "NoResponde", "Financiacion", "Otro"];
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "Otro"];
+const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
+const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
+const ESTADOS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
+const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const MOTIVOS_PERDIDA = [
+  "Sin respuesta","Se canceló la obra","Ganó la competencia",
+  "Eligió otro material","Costos","Distancia/Logística",
+  "Programada para más adelante","Presupuesto de prueba","Otro",
+];
+
+const emptyForm = () => ({
+  nroPpto: "",
+  contactoNombre: "",
+  contactoWhatsapp: "",
+  asesor: "",
+  tipoAplicacion: "",
+  ubicacionObra: "",
+  superficieM2: "",
+  fibraKg: "",
+  adhLts: "",
+  kmObra: "",
+  tipoCliente: "",
+  canalOrigen: "",
+  importe: "",
+  etapa: "A COTIZAR",
+  mes: MESES[new Date().getMonth()],
+  ano: new Date().getFullYear(),
+  fechaConsulta: new Date().toISOString().split("T")[0],
+  ultimoContacto: "",
+  proximoSeguimiento: "",
+  observaciones: "",
+  razonPerdida: "",
+});
 
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
-  const [contactos, setContactos] = useState([]);
-  const [showNewContact, setShowNewContact] = useState(false);
+  const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
-  const [etapas] = useState(["Nuevo", "Seguimiento", "Negociación", "Concretado", "Perdido"]);
   const { workspace } = useWorkspace();
-  
-  const [formData, setFormData] = useState({
-    contactoId: "",
-    productoConsultado: "",
-    categoriaProducto: "",
-    variante: "",
-    presupuestoMax: "",
-    moneda: "USD",
-    precioCotizado: "",
-    etapa: "Nuevo",
-    prioridad: "Media",
-    canalOrigen: "",
-    proximoSeguimiento: getNextBusinessDay(new Date(), 3),
-    motivoPerdida: ""
-  });
-
-  const [newContact, setNewContact] = useState({
-    nombre: "",
-    apellido: "",
-    whatsapp: "",
-    ciudad: "",
-    canalOrigen: ""
-  });
 
   useEffect(() => {
-    if (workspace) loadContactos();
-  }, [workspace]);
-
-  useEffect(() => {
-    if (consulta) {
-      setFormData({
-        ...consulta,
-        presupuestoMax: consulta.presupuestoMax || "",
-        precioCotizado: consulta.precioCotizado || "",
-        proximoSeguimiento: consulta.proximoSeguimiento || ""
-      });
-    } else {
-      setFormData({
-        contactoId: "",
-        productoConsultado: "",
-        categoriaProducto: "",
-        variante: "",
-        presupuestoMax: "",
-        moneda: "USD",
-        precioCotizado: "",
-        etapa: "Nuevo",
-        prioridad: "Media",
-        canalOrigen: "",
-        proximoSeguimiento: getNextBusinessDay(new Date(), 3),
-        motivoPerdida: ""
-      });
+    if (open) {
+      if (consulta) {
+        setFormData({ ...emptyForm(), ...consulta,
+          superficieM2: consulta.superficieM2 ?? "",
+          fibraKg: consulta.fibraKg ?? "",
+          adhLts: consulta.adhLts ?? "",
+          kmObra: consulta.kmObra ?? "",
+          importe: consulta.importe ?? "",
+        });
+      } else {
+        setFormData(emptyForm());
+      }
     }
   }, [consulta, open]);
 
-  const loadContactos = () => {
-    // Mock contactos - in real scenario, this would come from celulosaData
-    setContactos([
-      { id: "1", nombre: "Juan", apellido: "Pérez", whatsapp: "+54 9 11 1234-5678", ciudad: "Buenos Aires", canalOrigen: "WhatsApp" },
-      { id: "2", nombre: "Maria", apellido: "González", whatsapp: "+54 9 11 8765-4321", ciudad: "Córdoba", canalOrigen: "Instagram" }
-    ]);
+  const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async () => {
+    if (!formData.contactoNombre) { toast.error("El nombre es requerido"); return; }
+    setLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        workspace_id: workspace?.id || "local",
+        superficieM2: formData.superficieM2 !== "" ? parseFloat(formData.superficieM2) : null,
+        fibraKg: formData.fibraKg !== "" ? parseFloat(formData.fibraKg) : null,
+        adhLts: formData.adhLts !== "" ? parseFloat(formData.adhLts) : null,
+        kmObra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
+        importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
+        nroPpto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
+      };
+      if (consulta?.id) {
+        await base44.entities.Consulta.update(consulta.id, payload);
+        toast.success("Presupuesto actualizado");
+      } else {
+        await base44.entities.Consulta.create(payload);
+        toast.success("Presupuesto creado");
+      }
+      onSave?.();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error("Error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const handleCreateContact = () => {
-    if (!newContact.nombre || !newContact.whatsapp) {
-      toast.error("Nombre y WhatsApp son requeridos");
-      return;
-    }
-
-    const created = {
-      id: `contact_${Date.now()}`,
-      ...newContact
-    };
-
-    setContactos([created, ...contactos]);
-    setFormData({ ...formData, contactoId: created.id });
-    setShowNewContact(false);
-    setNewContact({ nombre: "", apellido: "", whatsapp: "", ciudad: "", canalOrigen: "" });
-    toast.success("Contacto creado");
-  };
-
-  const handleSubmit = () => {
-    if (!formData.contactoId || !formData.productoConsultado) {
-      toast.error("Contacto y producto son requeridos");
-      return;
-    }
-
-    const contacto = contactos.find(c => c.id === formData.contactoId);
-
-    const dataToSave = {
-      ...formData,
-      contactoNombre: [contacto?.nombre, contacto?.apellido].filter(Boolean).join(" "),
-      contactoWhatsapp: contacto?.whatsapp,
-      presupuestoMax: formData.presupuestoMax ? Number(formData.presupuestoMax) : null,
-      precioCotizado: formData.precioCotizado ? Number(formData.precioCotizado) : null,
-      fechaConsulta: consulta?.fechaConsulta || moment().format("YYYY-MM-DD")
-    };
-
-    if (formData.concretado && formData.etapa !== "Concretado") {
-      dataToSave.etapa = "Concretado";
-    }
-
-    if (consulta) {
-      toast.success("Consulta actualizada");
-    } else {
-      toast.success("Consulta creada");
-    }
-
-    onSave?.();
-    onOpenChange(false);
-  };
-
-  const selectedContact = contactos.find(c => c.id === formData.contactoId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {consulta ? "Editar Consulta" : "Nueva Consulta"}
+            {consulta ? `Editar Presupuesto #${consulta.nroPpto || ""}` : "Nuevo Presupuesto"}
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="contacto" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="contacto" className="gap-2">
-              <User className="w-4 h-4" /> Contacto
-            </TabsTrigger>
-            <TabsTrigger value="producto" className="gap-2">
-              <Package className="w-4 h-4" /> Producto
-            </TabsTrigger>
-            <TabsTrigger value="seguimiento" className="gap-2">
-              <Calendar className="w-4 h-4" /> Seguimiento
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-5 py-2">
+          {/* CLIENTE */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cliente</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
+                <Label>Nombre *</Label>
+                <Input value={formData.contactoNombre} onChange={e => set("contactoNombre", e.target.value)} placeholder="Ej: Juan Pérez" />
+              </div>
+              <div className="space-y-1">
+                <Label>WhatsApp</Label>
+                <Input value={formData.contactoWhatsapp} onChange={e => set("contactoWhatsapp", e.target.value)} placeholder="+54 9 351 123-4567" />
+              </div>
+              <div className="space-y-1">
+                <Label>Tipo de cliente</Label>
+                <Select value={formData.tipoCliente} onValueChange={v => set("tipoCliente", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{TIPOS_CLIENTE.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Canal de origen</Label>
+                <Select value={formData.canalOrigen} onValueChange={v => set("canalOrigen", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{CANALES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
-          <TabsContent value="contacto" className="space-y-4 mt-4">
-            {!showNewContact ? (
-              <>
-                <div className="space-y-2">
-                  <Label>Contacto existente</Label>
-                  <Select 
-                    value={formData.contactoId} 
-                    onValueChange={(val) => setFormData({ ...formData, contactoId: val })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar contacto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contactos.map(c => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.nombre} {c.apellido} - {c.whatsapp}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* OBRA */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Obra</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1 col-span-2">
+                <Label>Ubicación</Label>
+                <Input value={formData.ubicacionObra} onChange={e => set("ubicacionObra", e.target.value)} placeholder="Ej: Barrio Arguello, Córdoba" />
+              </div>
+              <div className="space-y-1">
+                <Label>Tipo de aplicación</Label>
+                <Select value={formData.tipoAplicacion} onValueChange={v => set("tipoAplicacion", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{TIPOS_APLICACION.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Km desde Córdoba</Label>
+                <Input type="number" value={formData.kmObra} onChange={e => set("kmObra", e.target.value)} placeholder="0" />
+              </div>
+            </div>
+          </div>
 
-                {selectedContact && (
-                   <div className="bg-slate-50 rounded-xl p-4">
-                     <p className="font-semibold">{selectedContact.nombre} {selectedContact.apellido}</p>
-                     <p className="text-sm text-slate-500">{selectedContact.whatsapp}</p>
-                     {selectedContact.ciudad && <p className="text-sm text-slate-500">{selectedContact.ciudad}</p>}
-                   </div>
-                 )}
+          {/* CANTIDADES */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cantidades</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label>Superficie (m²)</Label>
+                <Input type="number" value={formData.superficieM2} onChange={e => set("superficieM2", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1">
+                <Label>Fibra (kg)</Label>
+                <Input type="number" value={formData.fibraKg} onChange={e => set("fibraKg", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1">
+                <Label>Adhesivo (lts)</Label>
+                <Input type="number" value={formData.adhLts} onChange={e => set("adhLts", e.target.value)} placeholder="0" />
+              </div>
+            </div>
+          </div>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setShowNewContact(true)}
-                  className="w-full gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Crear nuevo contacto
-                </Button>
-              </>
-            ) : (
-              <div className="space-y-4 border rounded-xl p-4">
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-2">
-                     <Label>Nombre *</Label>
-                     <Input 
-                       value={newContact.nombre}
-                       onChange={(e) => setNewContact({ ...newContact, nombre: e.target.value })}
-                       placeholder="Juan"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>Apellido</Label>
-                     <Input 
-                       value={newContact.apellido}
-                       onChange={(e) => setNewContact({ ...newContact, apellido: e.target.value })}
-                       placeholder="Pérez"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <Label>WhatsApp *</Label>
-                    <Input 
-                      value={newContact.whatsapp}
-                      onChange={(e) => setNewContact({ ...newContact, whatsapp: e.target.value })}
-                      placeholder="+54 9 11 1234-5678"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ciudad</Label>
-                    <Input 
-                      value={newContact.ciudad}
-                      onChange={(e) => setNewContact({ ...newContact, ciudad: e.target.value })}
-                      placeholder="Buenos Aires"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Canal de origen</Label>
-                    <Select 
-                      value={newContact.canalOrigen} 
-                      onValueChange={(val) => setNewContact({ ...newContact, canalOrigen: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CANALES.map(c => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setShowNewContact(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="button" onClick={handleCreateContact} disabled={loading}>
-                    Crear contacto
-                  </Button>
-                </div>
+          {/* COMERCIAL */}
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Comercial</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>N° Presupuesto</Label>
+                <Input type="number" value={formData.nroPpto} onChange={e => set("nroPpto", e.target.value)} placeholder="4435" />
+              </div>
+              <div className="space-y-1">
+                <Label>Asesor</Label>
+                <Select value={formData.asesor} onValueChange={v => set("asesor", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Estado</Label>
+                <Select value={formData.etapa} onValueChange={v => set("etapa", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Importe ($)</Label>
+                <Input type="number" value={formData.importe} onChange={e => set("importe", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1">
+                <Label>Mes</Label>
+                <Select value={formData.mes} onValueChange={v => set("mes", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{MESES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Próximo seguimiento</Label>
+                <Input type="date" value={formData.proximoSeguimiento} onChange={e => set("proximoSeguimiento", e.target.value)} />
+              </div>
+            </div>
+            {formData.etapa === "PERDIDA" && (
+              <div className="space-y-1 mt-3">
+                <Label>Razón de pérdida</Label>
+                <Select value={formData.razonPerdida} onValueChange={v => set("razonPerdida", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar motivo" /></SelectTrigger>
+                  <SelectContent>{MOTIVOS_PERDIDA.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
             )}
-          </TabsContent>
+          </div>
 
-          <TabsContent value="producto" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2 col-span-2">
-                <Label>Producto consultado *</Label>
-                <Input 
-                  value={formData.productoConsultado}
-                  onChange={(e) => setFormData({ ...formData, productoConsultado: e.target.value })}
-                  placeholder="iPhone 15 Pro Max"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Categoría</Label>
-                <Select 
-                  value={formData.categoriaProducto} 
-                  onValueChange={(val) => setFormData({ ...formData, categoriaProducto: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Variante</Label>
-                <Input 
-                  value={formData.variante}
-                  onChange={(e) => setFormData({ ...formData, variante: e.target.value })}
-                  placeholder="256GB Negro"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Precio cotizado</Label>
-                <div className="flex gap-2">
-                  <Select 
-                    value={formData.moneda} 
-                    onValueChange={(val) => setFormData({ ...formData, moneda: val })}
-                  >
-                    <SelectTrigger className="w-24">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="USD">USD</SelectItem>
-                      <SelectItem value="ARS">ARS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input 
-                    type="number"
-                    value={formData.precioCotizado}
-                    onChange={(e) => setFormData({ ...formData, precioCotizado: e.target.value })}
-                    placeholder="1299"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Presupuesto máximo</Label>
-                <Input 
-                  type="number"
-                  value={formData.presupuestoMax}
-                  onChange={(e) => setFormData({ ...formData, presupuestoMax: e.target.value })}
-                  placeholder="1500"
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="seguimiento" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Etapa</Label>
-                <Select 
-                  value={formData.etapa} 
-                  onValueChange={(val) => setFormData({ ...formData, etapa: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {etapas.map(e => (
-                      <SelectItem key={e.nombre} value={e.nombre}>{e.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Prioridad</Label>
-                <Select 
-                  value={formData.prioridad} 
-                  onValueChange={(val) => setFormData({ ...formData, prioridad: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORIDADES.map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Canal de origen</Label>
-                <Select 
-                  value={formData.canalOrigen} 
-                  onValueChange={(val) => setFormData({ ...formData, canalOrigen: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CANALES.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Próximo seguimiento</Label>
-                <Input 
-                  type="date"
-                  value={formData.proximoSeguimiento}
-                  onChange={(e) => setFormData({ ...formData, proximoSeguimiento: e.target.value })}
-                />
-              </div>
-
-              {formData.etapa === "Perdido" && (
-                <div className="space-y-2 col-span-2">
-                  <Label>Motivo de pérdida</Label>
-                  <Select 
-                    value={formData.motivoPerdida} 
-                    onValueChange={(val) => setFormData({ ...formData, motivoPerdida: val })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar motivo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MOTIVOS_PERDIDA.map(m => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+          {/* OBSERVACIONES */}
+          <div className="space-y-1">
+            <Label>Observaciones</Label>
+            <Textarea value={formData.observaciones} onChange={e => set("observaciones", e.target.value)} placeholder="Notas sobre la obra, el cliente, seguimientos..." rows={3} />
+          </div>
+        </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={loading}>
-            {consulta ? "Guardar cambios" : "Crear consulta"}
+            {loading ? "Guardando..." : consulta ? "Guardar cambios" : "Crear presupuesto"}
           </Button>
         </DialogFooter>
       </DialogContent>

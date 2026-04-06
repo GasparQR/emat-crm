@@ -1,140 +1,129 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Calendar, MoreHorizontal, CheckCircle, XCircle } from "lucide-react";
+import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, User } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 
-const prioridadColors = {
-  Alta: "bg-red-50 text-red-700 border-red-200",
-  Media: "bg-amber-50 text-amber-700 border-amber-200",
-  Baja: "bg-slate-50 text-slate-600 border-slate-200"
+const ASESOR_COLORS = {
+  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
+  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
+  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500",
 };
 
 const MOTIVOS_PERDIDA = [
-  { value: "Caro", label: "Caro" },
-  { value: "SinStock", label: "Sin stock" },
-  { value: "ComproOtro", label: "Compró otro" },
-  { value: "NoResponde", label: "No responde" },
-  { value: "Financiacion", label: "Financiación" },
+  { value: "Sin respuesta", label: "Sin respuesta" },
+  { value: "Se canceló la obra", label: "Canceló la obra" },
+  { value: "Ganó la competencia", label: "Ganó competencia" },
+  { value: "Eligió otro material", label: "Otro material" },
+  { value: "Costos", label: "Costos" },
+  { value: "Distancia/Logística", label: "Distancia" },
   { value: "Otro", label: "Otro" },
 ];
 
-export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onConcretarVenta, onMarcarPerdido, isDragging }) {
+export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPerdido, isDragging }) {
   const seguimientoVencido = consulta.proximoSeguimiento &&
-    moment(consulta.proximoSeguimiento).isBefore(moment(), 'day');
+    moment(consulta.proximoSeguimiento).isBefore(moment(), "day");
   const seguimientoHoy = consulta.proximoSeguimiento &&
-    moment(consulta.proximoSeguimiento).isSame(moment(), 'day');
+    moment(consulta.proximoSeguimiento).isSame(moment(), "day");
+
+  const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+  const asesorInitial = consulta.asesor ? consulta.asesor[0] : "?";
 
   return (
     <div className={cn(
       "bg-white rounded-xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group",
-      isDragging && "shadow-xl rotate-2 scale-105",
-      seguimientoVencido && "ring-2 ring-red-200"
+      isDragging && "shadow-xl rotate-2 scale-105 opacity-90",
+      seguimientoVencido && "ring-2 ring-red-200",
     )}>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+      {/* Header: asesor avatar + nombre + menú */}
+      <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-900 text-sm">
-            {consulta.contactoNombre || "Sin nombre"}
-          </span>
+          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0", asesorColor)}>
+            {asesorInitial}
+          </div>
+          <div>
+            <p className="font-semibold text-slate-900 text-sm leading-tight line-clamp-1">
+              {consulta.contactoNombre || "Sin nombre"}
+            </p>
+            {consulta.nroPpto && (
+              <p className="text-xs text-slate-400">#{consulta.nroPpto}</p>
+            )}
+          </div>
         </div>
-        <Badge variant="outline" className={cn("text-xs", prioridadColors[consulta.prioridad])}>
-          {consulta.prioridad}
-        </Badge>
-      </div>
-
-      {/* Producto */}
-      <p className="text-sm text-slate-600 mb-2 line-clamp-1">
-        {consulta.productoConsultado}
-        {consulta.variante && <span className="text-slate-400"> · {consulta.variante}</span>}
-      </p>
-
-      {/* Precio */}
-      {consulta.precioCotizado && (
-        <p className="text-lg font-bold text-slate-900 mb-3">
-          {consulta.moneda === "USD" ? "US$" : "$"} {consulta.precioCotizado.toLocaleString()}
-        </p>
-      )}
-
-      {/* Tags */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {consulta.canalOrigen && (
-          <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">
-            {consulta.canalOrigen}
-          </Badge>
-        )}
-        {consulta.categoriaProducto && (
-          <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">
-            {consulta.categoriaProducto}
-          </Badge>
-        )}
-      </div>
-
-      {/* Seguimiento */}
-      {consulta.proximoSeguimiento && (
-        <div className={cn(
-          "flex items-center gap-1.5 text-xs mb-3 px-2 py-1 rounded-lg w-fit",
-          seguimientoVencido ? "bg-red-50 text-red-600" :
-          seguimientoHoy ? "bg-amber-50 text-amber-600" :
-          "bg-slate-50 text-slate-500"
-        )}>
-          <Calendar className="w-3 h-3" />
-          {seguimientoVencido ? "Vencido: " : seguimientoHoy ? "Hoy" : ""}
-          {!seguimientoHoy && moment(consulta.proximoSeguimiento).format("DD/MM")}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
-        <Button
-          size="sm"
-          onClick={(e) => { e.stopPropagation(); onWhatsApp?.(consulta); }}
-          className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white gap-1.5 h-8"
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-          WhatsApp
-        </Button>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => { e.stopPropagation(); }}
-              className="h-8 w-8 p-0"
-            >
-              <MoreHorizontal className="w-4 h-4 text-slate-400" />
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
+              <MoreHorizontal className="w-3.5 h-3.5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit?.(consulta); }}>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={e => { e.stopPropagation(); onEdit?.(consulta); }}>
               Editar
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => { e.stopPropagation(); onConcretarVenta?.(consulta); }}
-              className="text-emerald-600"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Concretar Venta
-            </DropdownMenuItem>
+            {consulta.contactoWhatsapp && (
+              <DropdownMenuItem onClick={e => { e.stopPropagation(); onWhatsApp?.(consulta); }}>
+                <MessageCircle className="w-4 h-4 mr-2 text-[#25D366]" />
+                WhatsApp
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
-            {/* Marcar como perdido con submenú de motivos */}
-            {MOTIVOS_PERDIDA.map(motivo => (
+            <p className="text-xs text-slate-400 px-2 py-1">Marcar como perdido</p>
+            {MOTIVOS_PERDIDA.map(m => (
               <DropdownMenuItem
-                key={motivo.value}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMarcarPerdido?.(consulta, motivo.value);
-                }}
-                className="text-red-600"
+                key={m.value}
+                className="text-red-600 text-xs"
+                onClick={e => { e.stopPropagation(); onMarcarPerdido?.(consulta, m.value); }}
               >
-                <XCircle className="w-4 h-4 mr-2" />
-                Perdido — {motivo.label}
+                {m.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      {/* Ubicación */}
+      {consulta.ubicacionObra && (
+        <div className="flex items-center gap-1 text-xs text-slate-500 mb-2">
+          <MapPin className="w-3 h-3 flex-shrink-0" />
+          <span className="line-clamp-1">{consulta.ubicacionObra}</span>
+        </div>
+      )}
+
+      {/* Superficie + tipo */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        {consulta.superficieM2 && (
+          <div className="flex items-center gap-1 text-xs text-slate-600 bg-slate-50 rounded px-2 py-0.5">
+            <Ruler className="w-3 h-3" />
+            {consulta.superficieM2} m²
+          </div>
+        )}
+        {consulta.tipoAplicacion && (
+          <Badge variant="secondary" className="text-xs py-0">{consulta.tipoAplicacion}</Badge>
+        )}
+      </div>
+
+      {/* Importe */}
+      {consulta.importe && (
+        <p className="text-base font-bold text-slate-900 mb-2">
+          ${Number(consulta.importe).toLocaleString("es-AR")}
+        </p>
+      )}
+
+      {/* Footer: canal + seguimiento */}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+        {consulta.canalOrigen ? (
+          <span className="text-xs text-slate-400">{consulta.canalOrigen}</span>
+        ) : <span />}
+        {consulta.proximoSeguimiento ? (
+          <div className={cn(
+            "flex items-center gap-1 text-xs font-medium",
+            seguimientoVencido ? "text-red-500" : seguimientoHoy ? "text-amber-600" : "text-slate-400"
+          )}>
+            <Calendar className="w-3 h-3" />
+            {moment(consulta.proximoSeguimiento).format("DD/MM")}
+          </div>
+        ) : null}
       </div>
     </div>
   );
