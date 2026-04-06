@@ -19,7 +19,18 @@ import { toast } from "sonner";
 import DetalleContactoDialog from "@/components/crm/DetalleContactoDialog";
 import DialogSelectorListasWhatsApp from "@/components/crm/DialogSelectorListasWhatsApp";
 
-const CANALES = ["Instagram", "WhatsApp", "MercadoLibre", "Referido", "Local", "Otro"];
+const CANALES = [
+  "Base de Datos Agrovial",
+  "Base de Datos Desarrollistas",
+  "Base de Datos Aislaciones",
+  "Base de Datos Avícolas",
+  "REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"
+];
+
+const SEGMENTOS = [
+  "Agricultura", "Avícola", "Construcción", "Desarrollista",
+  "Industria", "Comercial", "Residencial", "Otro"
+];
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +39,7 @@ export default function Contactos() {
   const [selectedContacto, setSelectedContacto] = useState(null);
   const [search, setSearch] = useState("");
   const [filtroCanal, setFiltroCanal] = useState("todos");
+  const [filtroSegmento, setFiltroSegmento] = useState("todos");
   const [formData, setFormData] = useState({
     nombre: "",
     apellido: "",
@@ -148,6 +160,7 @@ export default function Contactos() {
       }
     }
     if (filtroCanal !== "todos" && c.canalOrigen !== filtroCanal) return false;
+    if (filtroSegmento !== "todos" && c.segmento !== filtroSegmento) return false;
     return true;
   });
 
@@ -195,13 +208,24 @@ export default function Contactos() {
             />
           </div>
           <Select value={filtroCanal} onValueChange={setFiltroCanal}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Canal" />
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Fuente" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos los canales</SelectItem>
+              <SelectItem value="todos">Todas las fuentes</SelectItem>
               {CANALES.map(c => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Segmento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {SEGMENTOS.map(s => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -240,10 +264,16 @@ export default function Contactos() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-slate-400" />
-                      {contacto.whatsapp}
-                    </div>
+                    {contacto.whatsapp ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        {contacto.whatsapp}
+                      </div>
+                    ) : contacto.email ? (
+                      <span className="text-xs text-slate-500">{contacto.email}</span>
+                    ) : (
+                      <span className="text-slate-300">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {contacto.ciudad ? (
