@@ -42,7 +42,7 @@ export default function Layout({ children, currentPageName }) {
           >
             <Menu className="w-5 h-5" />
           </Button>
-          <span className="font-bold text-slate-900">AltatechCRM</span>
+          <span className="font-bold text-slate-900">EMAT CRM</span>
         </div>
       </header>
 
@@ -63,10 +63,10 @@ export default function Layout({ children, currentPageName }) {
         <div className={cn("p-4 flex items-center border-b border-slate-100", sidebarCollapsed ? "justify-center" : "justify-between")}>
           {!sidebarCollapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center flex-shrink-0">
-                <span className="text-white font-bold text-sm">A</span>
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-sm">E</span>
               </div>
-              <span className="font-bold text-slate-900">AltatechCRM</span>
+              <span className="font-bold text-slate-900">EMAT CRM</span>
             </div>
           )}
           <div className="flex items-center gap-1">
@@ -116,10 +116,10 @@ export default function Layout({ children, currentPageName }) {
         {/* Quick Stats */}
         {!sidebarCollapsed && (
           <div className="p-4 border-t border-slate-100">
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 text-white">
-              <p className="text-xs text-slate-400 mb-1">Mini CRM</p>
-              <p className="text-sm font-medium">Seguimiento de ventas</p>
-              <p className="text-xs text-slate-400 mt-2">Altatech · Tecnología</p>
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white">
+              <p className="text-xs text-blue-200 mb-1">CRM Celulosa</p>
+              <p className="text-sm font-medium">Gestión de Presupuestos</p>
+              <p className="text-xs text-blue-200 mt-2">EMAT · Celulosa & Fibras</p>
             </div>
           </div>
         )}
