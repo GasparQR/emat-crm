@@ -90,31 +90,35 @@ class LocalDataStore {
 }
 
 // ─── Auto-seed desde public/seed_data.json ──────────────────────────────────
-async function seedIfEmpty() {
-  const existing = localStorage.getItem('emat_Consulta');
-  if (existing && JSON.parse(existing).length > 0) return;
+// Cambiar SEED_VERSION cada vez que se regenera seed_data.json para forzar recarga
+const SEED_VERSION = 'v3';
+
+async function seedIfNeeded() {
+  const currentVersion = localStorage.getItem('emat_seed_version');
+  if (currentVersion === SEED_VERSION) return; // ya tiene datos actualizados
 
   try {
     const res = await fetch('/seed_data.json');
     if (!res.ok) return;
     const { presupuestos = [], clientes = [], stages = [] } = await res.json();
 
-    if (presupuestos.length > 0 && !localStorage.getItem('emat_Consulta')) {
+    if (presupuestos.length > 0) {
       localStorage.setItem('emat_Consulta', JSON.stringify(presupuestos));
     }
-    if (clientes.length > 0 && !localStorage.getItem('emat_Contacto')) {
+    if (clientes.length > 0) {
       localStorage.setItem('emat_Contacto', JSON.stringify(clientes));
     }
-    if (stages.length > 0 && !localStorage.getItem('emat_PipelineStage')) {
+    if (stages.length > 0) {
       localStorage.setItem('emat_PipelineStage', JSON.stringify(stages));
     }
-    console.log(`✅ EMAT CRM: datos cargados — ${presupuestos.length} presupuestos, ${clientes.length} clientes`);
+    localStorage.setItem('emat_seed_version', SEED_VERSION);
+    console.log(`✅ EMAT CRM ${SEED_VERSION}: ${presupuestos.length} presupuestos, ${clientes.length} clientes cargados`);
   } catch (e) {
     console.warn('seed_data.json no disponible:', e.message);
   }
 }
 
-seedIfEmpty();
+seedIfNeeded();
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createEntityProxy = (entityName) => {
