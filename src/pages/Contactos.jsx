@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -14,95 +13,76 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Edit, Phone, MessageCircle, MapPin, User, ArrowLeft, Trash2, ListCheck } from "lucide-react";
+import { Plus, Search, Phone, MessageCircle, Mail, MapPin, User, ArrowLeft, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
-import DetalleContactoDialog from "@/components/crm/DetalleContactoDialog";
-import DialogSelectorListasWhatsApp from "@/components/crm/DialogSelectorListasWhatsApp";
-
-const CANALES = [
-  "Base de Datos Agrovial",
-  "Base de Datos Desarrollistas",
-  "Base de Datos Aislaciones",
-  "Base de Datos Avícolas",
-  "REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"
-];
-
-const SEGMENTOS = [
-  "Agricultura", "Avícola", "Construcción", "Desarrollista",
-  "Industria", "Comercial", "Residencial", "Otro"
-];
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
-  const [showDetalleDialog, setShowDetalleDialog] = useState(false);
-  const [showListasDialog, setShowListasDialog] = useState(false);
   const [selectedContacto, setSelectedContacto] = useState(null);
   const [search, setSearch] = useState("");
-  const [filtroCanal, setFiltroCanal] = useState("todos");
+  const [filtroFuente, setFiltroFuente] = useState("todos");
   const [filtroSegmento, setFiltroSegmento] = useState("todos");
   const [formData, setFormData] = useState({
-    nombre: "",
-    apellido: "",
-    whatsapp: "",
-    numeroTelefono: "",
-    ciudad: "",
-    canalOrigen: "",
-    notas: "",
-    tags: []
+    nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
+    email: "", ciudad: "", provincia: "", segmento: "",
+    canalOrigen: "", notas: ""
   });
 
   const queryClient = useQueryClient();
-  const { data: currentUser } = useCurrentUser();
   const { workspace } = useWorkspace();
 
-  const { data: contactos = [], refetch } = useQuery({
-    queryKey: ['contactos', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000) : [],
-    enabled: !!workspace
+  const { data: contactos = [], refetch, isLoading } = useQuery({
+    queryKey: ["contactos", workspace?.id],
+    queryFn: () => workspace
+      ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
+      : [],
+    enabled: !!workspace,
   });
 
-  const { data: consultas = [] } = useQuery({
-    queryKey: ['consultas-contactos', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 1000) : [],
-    enabled: !!workspace
-  });
+  // Extraer fuentes y segmentos dinámicamente de los datos
+  const { fuentes, segmentos } = useMemo(() => {
+    const fMap = {}, sMap = {};
+    contactos.forEach(c => {
+      if (c.canalOrigen) fMap[c.canalOrigen] = (fMap[c.canalOrigen] || 0) + 1;
+      if (c.segmento) sMap[c.segmento] = (sMap[c.segmento] || 0) + 1;
+    });
+    return {
+      fuentes: Object.entries(fMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
+      segmentos: Object.entries(sMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
+    };
+  }, [contactos]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Contacto.create({ ...data, workspace_id: workspace?.id }),
+    mutationFn: (data) => base44.entities.Contacto.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['contactos', workspace?.id] });
-       toast.success("Contacto creado");
+      queryClient.invalidateQueries({ queryKey: ["contactos"] });
+      toast.success("Contacto creado");
       resetForm();
-    }
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.Contacto.update(id, data),
     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['contactos', workspace?.id] });
-       toast.success("Contacto actualizado");
+      queryClient.invalidateQueries({ queryKey: ["contactos"] });
+      toast.success("Contacto actualizado");
       resetForm();
-    }
+    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Contacto.delete(id),
     onSuccess: () => {
-       queryClient.invalidateQueries({ queryKey: ['contactos', workspace?.id] });
-       toast.success("Contacto eliminado");
-    }
+      queryClient.invalidateQueries({ queryKey: ["contactos"] });
+      toast.success("Contacto eliminado");
+    },
   });
 
   const resetForm = () => {
     setFormData({
-      nombre: "",
-      apellido: "",
-      whatsapp: "",
-      numeroTelefono: "",
-      ciudad: "",
-      canalOrigen: "",
-      notas: "",
-      tags: []
+      nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
+      email: "", ciudad: "", provincia: "", segmento: "",
+      canalOrigen: "", notas: ""
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -112,66 +92,48 @@ export default function Contactos() {
     setSelectedContacto(contacto);
     setFormData({
       nombre: contacto.nombre || "",
-      apellido: contacto.apellido || "",
+      empresa: contacto.empresa || "",
       whatsapp: contacto.whatsapp || "",
-      numeroTelefono: contacto.numeroTelefono || "",
+      telefonoDisplay: contacto.telefonoDisplay || "",
+      email: contacto.email || "",
       ciudad: contacto.ciudad || "",
+      provincia: contacto.provincia || "",
+      segmento: contacto.segmento || "",
       canalOrigen: contacto.canalOrigen || "",
       notas: contacto.notas || "",
-      tags: contacto.tags || []
     });
     setShowForm(true);
   };
 
   const handleSubmit = () => {
-    if (!formData.nombre || !formData.whatsapp) {
-      toast.error("Nombre y WhatsApp son requeridos");
+    if (!formData.nombre) {
+      toast.error("El nombre es requerido");
       return;
     }
-
-    const dataToSave = {
-      ...formData,
-      numeroTelefono: formData.numeroTelefono || formData.whatsapp
-    };
-
     if (selectedContacto) {
-      updateMutation.mutate({ id: selectedContacto.id, data: dataToSave });
+      updateMutation.mutate({ id: selectedContacto.id, data: formData });
     } else {
-      createMutation.mutate(dataToSave);
+      createMutation.mutate(formData);
     }
   };
 
-  const getConsultasCount = (contactoId) => {
-    return consultas.filter(c => c.contactoId === contactoId).length;
-  };
-
-  const getConcretadosCount = (contactoId) => {
-    return consultas.filter(c => c.contactoId === contactoId && c.etapa === "Concretado").length;
-  };
-
+  // Filtrar
   const contactosFiltrados = contactos.filter(c => {
     if (search) {
       const s = search.toLowerCase();
-      if (!c.nombre?.toLowerCase().includes(s) &&
-          !c.empresa?.toLowerCase().includes(s) &&
-          !c.whatsapp?.includes(search) &&
-          !c.ciudad?.toLowerCase().includes(s)) {
-        return false;
-      }
+      if (
+        !c.nombre?.toLowerCase().includes(s) &&
+        !c.empresa?.toLowerCase().includes(s) &&
+        !c.telefonoDisplay?.toLowerCase().includes(s) &&
+        !c.whatsapp?.includes(search) &&
+        !c.email?.toLowerCase().includes(s) &&
+        !c.ciudad?.toLowerCase().includes(s)
+      ) return false;
     }
-    if (filtroCanal !== "todos" && c.canalOrigen !== filtroCanal) return false;
+    if (filtroFuente !== "todos" && c.canalOrigen !== filtroFuente) return false;
     if (filtroSegmento !== "todos" && c.segmento !== filtroSegmento) return false;
     return true;
   });
-
-  const formatPhoneNumber = (phone) => {
-    if (!phone) return "";
-    let clean = phone.replace(/\D/g, "");
-    if (!clean.startsWith("54")) {
-      clean = "54" + clean;
-    }
-    return clean;
-  };
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6">
@@ -181,19 +143,17 @@ export default function Contactos() {
           <div>
             <Link to={createPageUrl("Home")}>
               <Button variant="ghost" className="gap-2 mb-2 -ml-2">
-                <ArrowLeft className="w-4 h-4" />
-                Volver
+                <ArrowLeft className="w-4 h-4" />Volver
               </Button>
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">Contactos</h1>
-            <p className="text-slate-500">{contactosFiltrados.length} contactos</p>
+            <p className="text-slate-500">
+              {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${contactos.length} contactos`}
+            </p>
           </div>
-          {currentUser?.canEditContacts && (
-            <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nuevo contacto
-            </Button>
-          )}
+          <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
+            <Plus className="w-4 h-4" />Nuevo contacto
+          </Button>
         </div>
 
         {/* Filtros */}
@@ -201,31 +161,31 @@ export default function Contactos() {
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Buscar por nombre, teléfono o ciudad..."
+              placeholder="Buscar nombre, empresa, teléfono, email, ciudad..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
-          <Select value={filtroCanal} onValueChange={setFiltroCanal}>
+          <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Segmento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los segmentos</SelectItem>
+              {segmentos.map(s => (
+                <SelectItem key={s.label} value={s.label}>{s.label} ({s.count})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filtroFuente} onValueChange={setFiltroFuente}>
             <SelectTrigger className="w-52">
               <SelectValue placeholder="Fuente" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todas las fuentes</SelectItem>
-              {CANALES.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Segmento" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
-              {SEGMENTOS.map(s => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+              {fuentes.map(f => (
+                <SelectItem key={f.label} value={f.label}>{f.label} ({f.count})</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -237,128 +197,125 @@ export default function Contactos() {
             <TableHeader>
               <TableRow className="bg-slate-50/50">
                 <TableHead className="font-semibold">Contacto</TableHead>
-                <TableHead className="font-semibold">WhatsApp</TableHead>
-                <TableHead className="font-semibold">Ciudad</TableHead>
-                <TableHead className="font-semibold">Canal</TableHead>
-                <TableHead className="font-semibold">Consultas</TableHead>
+                <TableHead className="font-semibold">Teléfono / Email</TableHead>
+                <TableHead className="font-semibold">Ubicación</TableHead>
+                <TableHead className="font-semibold">Segmento</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contactosFiltrados.map(contacto => (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
+                </TableRow>
+              ) : contactosFiltrados.map(contacto => (
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
+                  {/* Contacto */}
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                        <User className="w-5 h-5 text-slate-500" />
+                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-slate-500">
+                          {(contacto.nombre || "?")[0].toUpperCase()}
+                        </span>
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{contacto.nombre} {contacto.apellido}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate">{contacto.nombre}</p>
                         {contacto.empresa && contacto.empresa !== contacto.nombre && (
-                          <p className="text-xs text-slate-500">{contacto.empresa}</p>
-                        )}
-                        {contacto.segmento && (
-                          <Badge variant="secondary" className="text-xs mt-1">{contacto.segmento}</Badge>
+                          <p className="text-xs text-slate-500 truncate">{contacto.empresa}</p>
                         )}
                       </div>
                     </div>
                   </TableCell>
+
+                  {/* Teléfono / Email */}
                   <TableCell>
-                    {contacto.whatsapp ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        {contacto.whatsapp}
+                    <div className="space-y-1">
+                      {(contacto.telefonoDisplay || contacto.whatsapp) ? (
+                        <div className="flex items-center gap-1.5 text-sm text-slate-700">
+                          <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                          <span className="truncate">{contacto.telefonoDisplay || contacto.whatsapp}</span>
+                        </div>
+                      ) : null}
+                      {contacto.email ? (
+                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                          <Mail className="w-3 h-3 text-slate-300 flex-shrink-0" />
+                          <span className="truncate">{contacto.email}</span>
+                        </div>
+                      ) : null}
+                      {!contacto.telefonoDisplay && !contacto.whatsapp && !contacto.email && (
+                        <span className="text-slate-300 text-xs">Sin datos de contacto</span>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  {/* Ubicación */}
+                  <TableCell>
+                    {contacto.ciudad ? (
+                      <div className="flex items-center gap-1 text-sm text-slate-600">
+                        <MapPin className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{contacto.ciudad}</span>
                       </div>
-                    ) : contacto.email ? (
-                      <span className="text-xs text-slate-500">{contacto.email}</span>
+                    ) : contacto.provincia ? (
+                      <span className="text-sm text-slate-500">{contacto.provincia}</span>
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
                   </TableCell>
+
+                  {/* Segmento */}
                   <TableCell>
-                    {contacto.ciudad ? (
-                      <div className="flex items-center gap-1 text-slate-600">
-                        <MapPin className="w-3 h-3" />
-                        {contacto.ciudad}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
+                    {contacto.segmento ? (
+                      <Badge variant="secondary" className="text-xs">{contacto.segmento}</Badge>
+                    ) : <span className="text-slate-300">-</span>}
                   </TableCell>
-                  <TableCell>
-                    {contacto.canalOrigen ? (
-                      <Badge variant="secondary">{contacto.canalOrigen}</Badge>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{getConsultasCount(contacto.id)}</span>
-                      <span className="text-slate-400">/</span>
-                      <span className="text-emerald-600">{getConcretadosCount(contacto.id)} ✓</span>
-                    </div>
-                  </TableCell>
+
+                  {/* Acciones */}
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {currentUser?.canEditContacts && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0"
+                        onClick={() => handleEdit(contacto)}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      {contacto.whatsapp && (
                         <Button
                           size="sm"
-                          variant="ghost"
+                          className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-8 w-8 p-0"
+                          onClick={() => window.open(`https://wa.me/${contacto.whatsapp}`, "_blank")}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {!contacto.whatsapp && contacto.email && (
+                        <Button
+                          size="sm"
+                          variant="outline"
                           className="h-8 w-8 p-0"
-                          onClick={() => {
-                            setSelectedContacto(contacto);
-                            setShowDetalleDialog(true);
-                          }}
+                          onClick={() => window.open(`mailto:${contacto.email}`, "_blank")}
                         >
-                          <Edit className="w-4 h-4" />
+                          <Mail className="w-4 h-4" />
                         </Button>
                       )}
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="h-8 px-2 text-[#25D366] border-[#25D366] hover:bg-[#25D366] hover:text-white"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
                         onClick={() => {
-                          setSelectedContacto(contacto);
-                          setShowListasDialog(true);
+                          if (window.confirm("¿Eliminar este contacto?")) deleteMutation.mutate(contacto.id);
                         }}
                       >
-                        <ListCheck className="w-4 h-4 mr-1" />
-                        Lista
+                        <Trash2 className="w-4 h-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-8 w-8 p-0"
-                        onClick={() => {
-                          const phone = formatPhoneNumber(contacto.whatsapp);
-                          window.open(`https://wa.me/${phone}`, "_blank");
-                        }}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
-                      {currentUser?.canEditContacts && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
-                          onClick={() => {
-                            if (window.confirm("¿Estás seguro de eliminar este contacto?")) {
-                              deleteMutation.mutate(contacto.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
-              {contactosFiltrados.length === 0 && (
+              {!isLoading && contactosFiltrados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
-                    No hay contactos
-                  </TableCell>
+                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -368,97 +325,56 @@ export default function Contactos() {
 
       {/* Form Dialog */}
       <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); else setShowForm(true); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {selectedContacto ? "Editar contacto" : "Nuevo contacto"}
-            </DialogTitle>
+            <DialogTitle>{selectedContacto ? "Editar contacto" : "Nuevo contacto"}</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label>Nombre *</Label>
-                <Input
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Juan"
-                />
+                <Input value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder="Juan Pérez" />
               </div>
-              <div className="space-y-2">
-                <Label>Apellido</Label>
-                <Input
-                  value={formData.apellido}
-                  onChange={(e) => setFormData({ ...formData, apellido: e.target.value })}
-                  placeholder="Pérez"
-                />
+              <div className="space-y-1">
+                <Label>Empresa</Label>
+                <Input value={formData.empresa} onChange={e => setFormData({ ...formData, empresa: e.target.value })} placeholder="Constructora SA" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>WhatsApp *</Label>
-              <Input
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                placeholder="+54 9 11 1234-5678"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Teléfono (para WhatsApp)</Label>
+                <Input value={formData.whatsapp} onChange={e => setFormData({ ...formData, whatsapp: e.target.value })} placeholder="5493511234567" />
+              </div>
+              <div className="space-y-1">
+                <Label>Email</Label>
+                <Input value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="juan@email.com" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Ciudad</Label>
-              <Input
-                value={formData.ciudad}
-                onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
-                placeholder="Buenos Aires"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Ciudad</Label>
+                <Input value={formData.ciudad} onChange={e => setFormData({ ...formData, ciudad: e.target.value })} placeholder="Córdoba" />
+              </div>
+              <div className="space-y-1">
+                <Label>Provincia</Label>
+                <Input value={formData.provincia} onChange={e => setFormData({ ...formData, provincia: e.target.value })} placeholder="Córdoba" />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label>Canal de origen</Label>
-              <Select 
-                value={formData.canalOrigen} 
-                onValueChange={(val) => setFormData({ ...formData, canalOrigen: val })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CANALES.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-1">
+              <Label>Segmento</Label>
+              <Input value={formData.segmento} onChange={e => setFormData({ ...formData, segmento: e.target.value })} placeholder="Construcción y Desarrollo" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label>Notas</Label>
-              <Textarea
-                value={formData.notas}
-                onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
-                placeholder="Notas adicionales..."
-                rows={3}
-              />
+              <Textarea value={formData.notas} onChange={e => setFormData({ ...formData, notas: e.target.value })} placeholder="Observaciones..." rows={3} />
             </div>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>Cancelar</Button>
-            <Button onClick={handleSubmit}>
-              {selectedContacto ? "Guardar cambios" : "Crear contacto"}
-            </Button>
+            <Button onClick={handleSubmit}>{selectedContacto ? "Guardar" : "Crear contacto"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <DetalleContactoDialog
-        contacto={selectedContacto}
-        open={showDetalleDialog}
-        onOpenChange={setShowDetalleDialog}
-      />
-
-      <DialogSelectorListasWhatsApp
-        open={showListasDialog}
-        onOpenChange={setShowListasDialog}
-        contactoId={selectedContacto?.id}
-        contactoWhatsapp={selectedContacto?.whatsapp}
-        onMessageSent={refetch}
-      />
     </div>
   );
 }
