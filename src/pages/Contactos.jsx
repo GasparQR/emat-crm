@@ -16,6 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, Phone, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { getNextBusinessDay } from "@/components/utils/dateUtils";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -32,6 +34,7 @@ export default function Contactos() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const { data: currentUser } = useCurrentUser();
 
   const { data: contactos = [], refetch, isLoading } = useQuery({
     queryKey: ["contactos", workspace?.id],
@@ -129,7 +132,10 @@ export default function Contactos() {
     return;
   }
 
+  const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
   const now = new Date();
+  const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
+
   createConsultaMutation.mutate({
     contactoNombre: c.nombre,
     empresa: c.empresa || "",
@@ -141,6 +147,7 @@ export default function Contactos() {
     fechaConsulta: now.toISOString().split("T")[0],
     mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
     ano: now.getFullYear(),
+    proximoSeguimiento,
   });
 };
 
