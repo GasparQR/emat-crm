@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -128,6 +128,15 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
     const url = new URL("https://api.whatsapp.com/send");
     url.searchParams.set("phone", phone);
     url.searchParams.set("text", msg);
+
+    if (onMessageSent) {
+      onMessageSent({
+        contacto,
+        mensaje,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     window.open(url.toString(), "_blank", "noopener,noreferrer");
 
     onMessageSent?.({ contacto, mensaje });
