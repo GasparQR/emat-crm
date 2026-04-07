@@ -434,10 +434,10 @@ export default function Reportes() {
                   <CardTitle className="text-base">Presupuestos por mes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={porMesData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={porMesData} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
                       <YAxis tick={{ fontSize: 11 }} />
                       <Tooltip />
                       <Legend />
@@ -454,23 +454,22 @@ export default function Reportes() {
                   <CardTitle className="text-base">Distribucion por estado</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={260}>
+                  <ResponsiveContainer width="100%" height={280}>
                     <PieChart>
                       <Pie
                         data={estadoDistData}
                         cx="50%"
-                        cy="50%"
-                        outerRadius={90}
+                        cy="45%"
+                        outerRadius={85}
                         dataKey="value"
                         nameKey="name"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
                       >
                         {estadoDistData.map((entry, i) => (
                           <Cell key={i} fill={ESTADO_COLORS[entry.name] || "#94a3b8"} />
                         ))}
                       </Pie>
                       <Tooltip />
+                      <Legend />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -496,10 +495,10 @@ export default function Reportes() {
                 <CardTitle className="text-base">Total vs. Ganados por asesor</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={asesoresData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                <ResponsiveContainer width="100%" height={Math.max(320, asesoresData.length * 50)}>
+                  <BarChart data={asesoresData} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="asesor" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="asesor" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend />
@@ -555,14 +554,14 @@ export default function Reportes() {
                   <CardTitle className="text-base">Presupuestos por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={Math.max(280, tipoAplicacionData.length * 42)}>
                     <BarChart
                       data={tipoAplicacionData}
                       layout="vertical"
-                      margin={{ top: 5, right: 20, left: 80, bottom: 5 }}
+                      margin={{ top: 5, right: 20, left: 110, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
                       <Tooltip />
                       <Bar dataKey="cantidad" name="Cantidad" fill="#3b82f6" radius={[0,4,4,0]} />
@@ -576,14 +575,14 @@ export default function Reportes() {
                   <CardTitle className="text-base">m² por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={280}>
+                  <ResponsiveContainer width="100%" height={Math.max(280, tipoAplicacionData.length * 42)}>
                     <BarChart
                       data={tipoAplicacionData}
                       layout="vertical"
-                      margin={{ top: 5, right: 20, left: 80, bottom: 5 }}
+                      margin={{ top: 5, right: 20, left: 110, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
                       <Tooltip formatter={(v) => [`${fmt(Math.round(v))} m²`, "m²"]} />
                       <Bar dataKey="m2" name="m²" fill="#06b6d4" radius={[0,4,4,0]} />
@@ -598,14 +597,14 @@ export default function Reportes() {
                 <CardTitle className="text-base">Top 10 ubicaciones de obra</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={Math.max(320, ubicacionData.length * 42)}>
                   <BarChart
                     data={ubicacionData}
                     layout="vertical"
-                    margin={{ top: 5, right: 20, left: 110, bottom: 5 }}
+                    margin={{ top: 5, right: 20, left: 140, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={140} />
                     <XAxis type="number" tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Bar dataKey="value" name="Presupuestos" fill="#f59e0b" radius={[0,4,4,0]} />
@@ -619,10 +618,10 @@ export default function Reportes() {
                 <CardTitle className="text-base">Evolucion mensual de presupuestos</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Line
@@ -772,23 +771,22 @@ export default function Reportes() {
                   {perdidasData.motivosPie.length === 0 ? (
                     <p className="text-sm text-slate-400 text-center py-8">Sin datos de motivos</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={280}>
                       <PieChart>
                         <Pie
                           data={perdidasData.motivosPie}
                           cx="50%"
-                          cy="50%"
-                          outerRadius={90}
+                          cy="45%"
+                          outerRadius={85}
                           dataKey="value"
                           nameKey="name"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={false}
                         >
                           {perdidasData.motivosPie.map((_, i) => (
                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip />
+                        <Legend />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
@@ -803,10 +801,10 @@ export default function Reportes() {
                   {perdidasData.porAsesor.length === 0 ? (
                     <p className="text-sm text-slate-400 text-center py-8">Sin datos</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={260}>
-                      <BarChart data={perdidasData.porAsesor} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <ResponsiveContainer width="100%" height={Math.max(320, perdidasData.porAsesor.length * 50)}>
+                      <BarChart data={perdidasData.porAsesor} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="asesor" tick={{ fontSize: 11 }} />
+                        <XAxis dataKey="asesor" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
                         <YAxis tick={{ fontSize: 11 }} />
                         <Tooltip />
                         <Bar dataKey="perdidas" name="Perdidos" fill="#ef4444" radius={[4,4,0,0]}>
@@ -827,14 +825,14 @@ export default function Reportes() {
                   <CardTitle className="text-base">Pérdidas por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={220}>
+                  <ResponsiveContainer width="100%" height={Math.max(240, perdidasData.porTipo.length * 42)}>
                     <BarChart
                       data={perdidasData.porTipo}
                       layout="vertical"
-                      margin={{ top: 5, right: 20, left: 90, bottom: 5 }}
+                      margin={{ top: 5, right: 20, left: 110, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
                       <Tooltip />
                       <Bar dataKey="value" name="Perdidos" fill="#ef4444" radius={[0,4,4,0]} />
