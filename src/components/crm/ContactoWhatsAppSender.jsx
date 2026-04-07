@@ -16,7 +16,6 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
   const [mensaje, setMensaje] = useState("");
   const [copied, setCopied] = useState(false);
   const [usarPlantilla, setUsarPlantilla] = useState(true);
-  const freeTextInitializedRef = useRef(false);
 
   const { workspace } = useWorkspace();
 
@@ -38,7 +37,9 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
 
   // Auto-select a suggested template when plantillas load or dialog opens
   useEffect(() => {
-    if (!open || plantillas.length === 0) {
+    if (!open) return;
+
+    if (plantillas.length === 0) {
       setUsarPlantilla(false);
       return;
     }
@@ -55,14 +56,9 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
   // Re-build message text whenever template or contact changes
   useEffect(() => {
     if (!usarPlantilla) {
-      if (!freeTextInitializedRef.current) {
-        setMensaje(`Hola ${contacto?.nombre || ""}, `);
-        freeTextInitializedRef.current = true;
-      }
+      setMensaje(prev => prev || `Hola ${contacto?.nombre || ""}, `);
       return;
     }
-
-    freeTextInitializedRef.current = false;
     if (selectedPlantilla && contacto) {
       setMensaje(reemplazarVariables(selectedPlantilla.contenido, contacto, variablesDB));
     }
@@ -75,7 +71,6 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
       setMensaje("");
       setCopied(false);
       setUsarPlantilla(true);
-      freeTextInitializedRef.current = false;
     }
   }, [open]);
 
@@ -143,6 +138,8 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
     }
 
     window.open(url.toString(), "_blank", "noopener,noreferrer");
+
+    onMessageSent?.({ contacto, mensaje });
   };
 
   if (!contacto) return null;
@@ -175,12 +172,12 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
             )}
           </div>
 
-          {/* Template selector - only shown when templates exist */}
+          {/* Template selector - solo si hay plantillas */}
           {hayPlantillas && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-500" />
-                Usar plantilla
+                Plantilla sugerida
               </Label>
               <div className="flex items-center gap-2">
                 <input

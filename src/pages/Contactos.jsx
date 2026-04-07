@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Phone, MessageCircle, Mail, MapPin, User, ArrowLeft, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Phone, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 
@@ -37,6 +37,24 @@ export default function Contactos() {
     queryKey: ["contactos", workspace?.id],
     queryFn: () => workspace
       ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
+      : [],
+    enabled: !!workspace,
+  });
+
+  const { data: pipelineStages = [] } = useQuery({
+    queryKey: ["pipeline-stages", workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const { data: consultas = [] } = useQuery({
+    queryKey: ["consultas-pipeline", workspace?.id],
+    queryFn: () => workspace
+      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500)
       : [],
     enabled: !!workspace,
   });
@@ -80,25 +98,41 @@ export default function Contactos() {
     },
   });
 
-  const crearConsultaMutation = useMutation({
+  const createConsultaMutation = useMutation({
     mutationFn: (data) => base44.entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
-      toast.success("Lead creado automáticamente en el Pipeline");
+      toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactoNombre}`);
+    },
+    onError: (e) => {
+      toast.error("Error al crear consulta: " + e.message);
     },
   });
 
-  const handleWhatsappSent = ({ contacto, mensaje }) => {
-    crearConsultaMutation.mutate({
-      contactoNombre: contacto.nombre || "",
-      empresa: contacto.empresa || "",
-      telefonoContacto: contacto.whatsapp || "",
-      email: contacto.email || "",
-      etapa: "Nuevo",
-      canalOrigen: "WhatsApp",
+  const handleMessageSent = ({ contacto: c, mensaje }) => {
+    const primeraEtapa = pipelineStages[0]?.nombre || "Nuevo";
+
+    const yaExiste = consultas.some(
+      q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
+    );
+
+    if (yaExiste) {
+      toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
+      return;
+    }
+
+    const now = new Date();
+    createConsultaMutation.mutate({
+      contactoNombre: c.nombre,
+      empresa: c.empresa || "",
+      contactoWhatsapp: c.whatsapp || "",
+      email: c.email || "",
+      canalOrigen: c.canalOrigen || "WhatsApp",
+      etapa: primeraEtapa,
       primerMensaje: mensaje || "",
-      ciudad: contacto.ciudad || "",
-      segmento: contacto.segmento || "",
+      fechaConsulta: now.toISOString().split("T")[0],
+      mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
+      ano: now.getFullYear(),
     });
   };
 
@@ -404,7 +438,7 @@ export default function Contactos() {
         open={!!whatsappTarget}
         onOpenChange={(open) => { if (!open) setWhatsappTarget(null); }}
         contacto={whatsappTarget}
-        onMessageSent={handleWhatsappSent}
+        onMessageSent={handleMessageSent}
       />
     </div>
   );
