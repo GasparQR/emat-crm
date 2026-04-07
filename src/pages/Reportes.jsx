@@ -50,6 +50,8 @@ const ESTADO_BADGE = {
 
 const MESES_ORDEN = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const CHART_COLORS = ["#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#a855f7","#22d3ee","#f43f5e"];
+const UNKNOWN_MONTH_INDEX = 99;
+const MIN_ADVISOR_BUDGETS = 3;
 
 const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
 const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
@@ -72,6 +74,11 @@ export default function Reportes() {
 
   const anos = useMemo(
     () => [...new Set(consultas.map((c) => c.ano).filter(Boolean))].sort((a, b) => b - a),
+    [consultas]
+  );
+
+  const asesoresUnicos = useMemo(
+    () => [...new Set(consultas.map((c) => c.asesor).filter(Boolean))].sort(),
     [consultas]
   );
 
@@ -122,7 +129,9 @@ export default function Reportes() {
     });
     return Object.values(map).sort((a, b) => {
       if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
-      return (MESES_ORDEN.indexOf(a.mes) || 0) - (MESES_ORDEN.indexOf(b.mes) || 0);
+      const idxA = MESES_ORDEN.indexOf(a.mes);
+      const idxB = MESES_ORDEN.indexOf(b.mes);
+      return (idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA) - (idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB);
     });
   }, [filtradas]);
 
@@ -154,7 +163,10 @@ export default function Reportes() {
   }, [filtradas]);
 
   const mejorAsesor = useMemo(
-    () => [...asesoresData].sort((a, b) => parseFloat(b.tasa) - parseFloat(a.tasa))[0] || null,
+    () =>
+      [...asesoresData]
+        .filter((a) => a.total >= MIN_ADVISOR_BUDGETS)
+        .sort((a, b) => parseFloat(b.tasa) - parseFloat(a.tasa))[0] || null,
     [asesoresData]
   );
 
@@ -192,19 +204,26 @@ export default function Reportes() {
     });
     return Object.values(map).sort((a, b) => {
       if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
-      return (MESES_ORDEN.indexOf(a.mes) || 0) - (MESES_ORDEN.indexOf(b.mes) || 0);
+      const idxA = MESES_ORDEN.indexOf(a.mes);
+      const idxB = MESES_ORDEN.indexOf(b.mes);
+      return (idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA) - (idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB);
     });
   }, [filtradas]);
 
   // TAB 4 - PIPELINE & SEGUIMIENTO
   const pipelineData = useMemo(() => {
-    const etapas = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA"];
+    const etapas = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
     return etapas.map((e) => ({
       etapa: e,
       cantidad: filtradas.filter((c) => c.etapa === e).length,
       fill: ESTADO_COLORS[e],
     }));
   }, [filtradas]);
+
+  const maxPipelineVal = useMemo(
+    () => Math.max(...pipelineData.map((x) => x.cantidad), 1),
+    [pipelineData]
+  );
 
   const seguimientoInfo = useMemo(() => {
     const hoy = moment();
@@ -223,7 +242,7 @@ export default function Reportes() {
     );
     const tiemposEnPipeline = filtradas
       .filter((c) => (c.etapa === "GANADA" || c.etapa === "EJECUTADA") && c.created_date)
-      .map((c) => moment().diff(moment(c.created_date), "days"))
+      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
       .filter((d) => d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
@@ -266,7 +285,7 @@ export default function Reportes() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-slate-500">Cargando reportes\u2026</p>
+        <p className="text-slate-500">Cargando reportes…</p>
       </div>
     );
   }
@@ -286,7 +305,7 @@ export default function Reportes() {
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">Reportes & Analytics</h1>
             <p className="text-sm text-slate-500 mt-1">
-              {filtradas.length} presupuesto{filtradas.length !== 1 ? "s" : ""} en el per\u00edodo seleccionado
+              {filtradas.length} presupuesto{filtradas.length !== 1 ? "s" : ""} en el período seleccionado
             </p>
           </div>
 
@@ -297,9 +316,9 @@ export default function Reportes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="7">\u00daltimos 7 d\u00edas</SelectItem>
-                <SelectItem value="30">\u00daltimos 30 d\u00edas</SelectItem>
-                <SelectItem value="90">\u00daltimos 90 d\u00edas</SelectItem>
+                <SelectItem value="7">Últimos 7 días</SelectItem>
+                <SelectItem value="30">Últimos 30 días</SelectItem>
+                <SelectItem value="90">Últimos 90 días</SelectItem>
               </SelectContent>
             </Select>
 
@@ -309,7 +328,7 @@ export default function Reportes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los asesores</SelectItem>
-                {["ANDRES","TRISTAN","VALENTINA","ROCIO","JULIAN","PABLO","ESTEBAN","MACA"].map((a) => (
+                {asesoresUnicos.map((a) => (
                   <SelectItem key={a} value={a}>{a}</SelectItem>
                 ))}
               </SelectContent>
@@ -317,10 +336,10 @@ export default function Reportes() {
 
             <Select value={filtroAno} onValueChange={setFiltroAno}>
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="A\u00f1o" />
+                <SelectValue placeholder="Año" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos los a\u00f1os</SelectItem>
+                <SelectItem value="todos">Todos los años</SelectItem>
                 {anos.map((a) => (
                   <SelectItem key={a} value={String(a)}>{a}</SelectItem>
                 ))}
@@ -336,7 +355,7 @@ export default function Reportes() {
             <TabsTrigger value="asesores">Asesores</TabsTrigger>
             <TabsTrigger value="comercial">Comercial</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-            <TabsTrigger value="perdidas">P\u00e9rdidas</TabsTrigger>
+            <TabsTrigger value="perdidas">Pérdidas</TabsTrigger>
           </TabsList>
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
@@ -356,7 +375,7 @@ export default function Reportes() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversi\u00f3n
+                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversión
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -367,7 +386,7 @@ export default function Reportes() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Target className="w-3.5 h-3.5" />m\u00b2 cotizados
+                    <Target className="w-3.5 h-3.5" />m² cotizados
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -432,7 +451,7 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Distribuci\u00f3n por estado</CardTitle>
+                  <CardTitle className="text-base">Distribución por estado</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={260}>
@@ -465,7 +484,7 @@ export default function Reportes() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">{mejorAsesor.asesor}</span> tiene la mejor tasa de conversi\u00f3n:{" "}
+                  <span className="font-semibold">{mejorAsesor.asesor}</span> tiene la mejor tasa de conversión:{" "}
                   <span className="font-bold text-blue-700">{mejorAsesor.tasa}%</span>
                   {" "}({mejorAsesor.ganados} ganados de {mejorAsesor.total} presupuestos).
                 </p>
@@ -511,7 +530,7 @@ export default function Reportes() {
                       <span className="font-semibold text-green-700">{a.ganados}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Conversi\u00f3n</span>
+                      <span className="text-slate-500">Conversión</span>
                       <span className="font-semibold text-emerald-600">{a.tasa}%</span>
                     </div>
                     <div className="flex justify-between">
@@ -519,7 +538,7 @@ export default function Reportes() {
                       <span className="font-semibold">{fmtPesos(a.importe)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">m\u00b2 cotizados</span>
+                      <span className="text-slate-500">m² cotizados</span>
                       <span className="font-semibold">{fmt(Math.round(a.m2))}</span>
                     </div>
                   </CardContent>
@@ -528,12 +547,12 @@ export default function Reportes() {
             </div>
           </TabsContent>
 
-          {/* TAB 3: AN\u00c1LISIS COMERCIAL */}
+          {/* TAB 3: ANÁLISIS COMERCIAL */}
           <TabsContent value="comercial" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Presupuestos por tipo de aplicaci\u00f3n</CardTitle>
+                  <CardTitle className="text-base">Presupuestos por tipo de aplicación</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
@@ -554,7 +573,7 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">m\u00b2 por tipo de aplicaci\u00f3n</CardTitle>
+                  <CardTitle className="text-base">m² por tipo de aplicación</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
@@ -566,8 +585,8 @@ export default function Reportes() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v) => [`${fmt(Math.round(v))} m\u00b2`, "m\u00b2"]} />
-                      <Bar dataKey="m2" name="m\u00b2" fill="#06b6d4" radius={[0,4,4,0]} />
+                      <Tooltip formatter={(v) => [`${fmt(Math.round(v))} m²`, "m²"]} />
+                      <Bar dataKey="m2" name="m²" fill="#06b6d4" radius={[0,4,4,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -597,7 +616,7 @@ export default function Reportes() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Evoluci\u00f3n mensual de presupuestos</CardTitle>
+                <CardTitle className="text-base">Evolución mensual de presupuestos</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={240}>
@@ -629,8 +648,7 @@ export default function Reportes() {
               <CardContent>
                 <div className="flex flex-col gap-3">
                   {pipelineData.map((d) => {
-                    const maxVal = Math.max(...pipelineData.map((x) => x.cantidad), 1);
-                    const pct = (d.cantidad / maxVal) * 100;
+                    const pct = (d.cantidad / maxPipelineVal) * 100;
                     return (
                       <div key={d.etapa} className="flex items-center gap-3">
                         <span className="w-28 text-sm font-medium text-slate-600 text-right">{d.etapa}</span>
@@ -665,7 +683,7 @@ export default function Reportes() {
               <Card className="border-amber-200 bg-amber-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-amber-700 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />Pr\u00f3ximos 7 d\u00edas
+                    <Calendar className="w-4 h-4" />Próximos 7 días
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -682,9 +700,9 @@ export default function Reportes() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-4xl font-bold text-slate-900">
-                    {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "\u2014"}
+                    {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "—"}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">d\u00edas desde creaci\u00f3n (ganados/ejecutados)</p>
+                  <p className="text-xs text-slate-500 mt-1">días desde creación (ganados/ejecutados)</p>
                 </CardContent>
               </Card>
             </div>
@@ -700,7 +718,7 @@ export default function Reportes() {
                       <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                         <div>
                           <p className="font-medium text-sm text-slate-800">{c.contactoNombre || "Sin nombre"}</p>
-                          <p className="text-xs text-slate-500">#{c.nroPpto} \u00b7 {c.asesor}</p>
+                          <p className="text-xs text-slate-500">#{c.nroPpto} · {c.asesor}</p>
                         </div>
                         <div className="text-right">
                           <Badge className={ESTADO_BADGE[c.etapa] || "bg-slate-100 text-slate-600"}>
@@ -718,7 +736,7 @@ export default function Reportes() {
             )}
           </TabsContent>
 
-          {/* TAB 5: P\u00c9RDIDAS */}
+          {/* TAB 5: PÉRDIDAS */}
           <TabsContent value="perdidas" className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Card className="border-red-200 bg-red-50">
@@ -735,7 +753,7 @@ export default function Reportes() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />Tasa de conversi\u00f3n
+                    <CheckCircle className="w-4 h-4" />Tasa de conversión
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -748,7 +766,7 @@ export default function Reportes() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Motivos de p\u00e9rdida</CardTitle>
+                  <CardTitle className="text-base">Motivos de pérdida</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {perdidasData.motivosPie.length === 0 ? (
@@ -779,7 +797,7 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">P\u00e9rdidas por asesor</CardTitle>
+                  <CardTitle className="text-base">Pérdidas por asesor</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {perdidasData.porAsesor.length === 0 ? (
@@ -806,7 +824,7 @@ export default function Reportes() {
             {perdidasData.porTipo.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">P\u00e9rdidas por tipo de aplicaci\u00f3n</CardTitle>
+                  <CardTitle className="text-base">Pérdidas por tipo de aplicación</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={220}>
