@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-export default function ContactoWhatsAppSender({ open, onOpenChange, contacto }) {
+export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, onMessageSent }) {
   const [selectedPlantilla, setSelectedPlantilla] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [copied, setCopied] = useState(false);
@@ -106,6 +106,15 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto })
     const url = new URL("https://api.whatsapp.com/send");
     url.searchParams.set("phone", phone);
     url.searchParams.set("text", msg);
+
+    if (onMessageSent) {
+      onMessageSent({
+        contacto,
+        mensaje,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
 

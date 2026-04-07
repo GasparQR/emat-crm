@@ -80,6 +80,28 @@ export default function Contactos() {
     },
   });
 
+  const crearConsultaMutation = useMutation({
+    mutationFn: (data) => base44.entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
+      toast.success("Lead creado automáticamente en el Pipeline");
+    },
+  });
+
+  const handleWhatsappSent = ({ contacto, mensaje }) => {
+    crearConsultaMutation.mutate({
+      contactoNombre: contacto.nombre || "",
+      empresa: contacto.empresa || "",
+      telefonoContacto: contacto.whatsapp || "",
+      email: contacto.email || "",
+      etapa: "Nuevo",
+      canalOrigen: "WhatsApp",
+      primerMensaje: mensaje || "",
+      ciudad: contacto.ciudad || "",
+      segmento: contacto.segmento || "",
+    });
+  };
+
   const resetForm = () => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
@@ -382,6 +404,7 @@ export default function Contactos() {
         open={!!whatsappTarget}
         onOpenChange={(open) => { if (!open) setWhatsappTarget(null); }}
         contacto={whatsappTarget}
+        onMessageSent={handleWhatsappSent}
       />
     </div>
   );
