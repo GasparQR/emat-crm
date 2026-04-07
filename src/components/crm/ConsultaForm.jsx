@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
@@ -242,7 +242,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>N° Presupuesto</Label>
-                <Input type="number" value={formData.nroPpto} readOnly className="bg-slate-50" />
+                <Input type="number" value={formData.nroPpto} readOnly aria-readonly="true" className="bg-slate-50" />
               </div>
               <div className="space-y-1">
                 <Label>Asesor</Label>

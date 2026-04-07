@@ -6,6 +6,7 @@ import { createPageUrl } from "@/utils";
 import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
 import ConsultaForm from "@/components/crm/ConsultaForm";
+import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import VentaForm from "@/components/ventas/VentaForm";
 import { Button } from "@/components/ui/button";
@@ -165,14 +166,9 @@ export default function Pipeline() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Asesor</SelectItem>
-                  <SelectItem value="ANDRES">ANDRES</SelectItem>
-                  <SelectItem value="TRISTAN">TRISTAN</SelectItem>
-                  <SelectItem value="VALENTINA">VALENTINA</SelectItem>
-                  <SelectItem value="ROCIO">ROCIO</SelectItem>
-                  <SelectItem value="JULIAN">JULIAN</SelectItem>
-                  <SelectItem value="PABLO">PABLO</SelectItem>
-                  <SelectItem value="ESTEBAN">ESTEBAN</SelectItem>
-                  <SelectItem value="MACA">MACA</SelectItem>
+                  {ASESORES.map(a => (
+                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
