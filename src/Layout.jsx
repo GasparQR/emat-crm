@@ -15,9 +15,7 @@ const NAV_ITEMS = [
   { name: "Pipeline", icon: Kanban, page: "Pipeline" },
   { name: "Hoy", icon: Calendar, page: "Hoy" },
   { name: "Presupuestos", icon: List, page: "Consultas" },
-  { name: "Ventas", icon: LayoutDashboard, page: "Ventas" },
   { name: "Contactos", icon: Users, page: "Contactos" },
-
   { name: "Ajustes", icon: Users, page: "Ajustes" },
 ];
 
