@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Phone, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Phone, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
@@ -32,11 +32,15 @@ export default function Contactos() {
     canalOrigen: "", notas: ""
   });
 
+  // Pipeline dialog state
+  const [pipelineDialog, setPipelineDialog] = useState(null); // { contacto, mensaje }
+  const [etapaSeleccionada, setEtapaSeleccionada] = useState("");
+
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
 
-  const { data: contactos = [], refetch, isLoading } = useQuery({
+  const { data: contactos = [], isLoading } = useQuery({
     queryKey: ["contactos", workspace?.id],
     queryFn: () => workspace
       ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
@@ -62,7 +66,6 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
-  // Extraer fuentes y segmentos dinámicamente de los datos
   const { fuentes, segmentos } = useMemo(() => {
     const fMap = {}, sMap = {};
     contactos.forEach(c => {
@@ -106,50 +109,60 @@ export default function Contactos() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
       toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactoNombre}`);
+      setPipelineDialog(null);
+      setEtapaSeleccionada("");
     },
     onError: (e) => {
       toast.error("Error al crear consulta: " + e.message);
     },
   });
 
+  // Al enviar WhatsApp: abrir diálogo de etapa en lugar de crear automáticamente
   const handleMessageSent = ({ contacto: c, mensaje }) => {
-  // Buscar la etapa con orden 1, si no existe entonces orden 0, si tampoco existe tomar la primera
-  const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre 
-    || pipelineStages.find(s => s.orden === 0)?.nombre 
-    || pipelineStages[0]?.nombre;
+    if (pipelineStages.length === 0) {
+      toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
+      return;
+    }
+    // Pre-seleccionar la primera etapa
+    const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre
+      || pipelineStages.find(s => s.orden === 0)?.nombre
+      || pipelineStages[0]?.nombre;
+    setEtapaSeleccionada(primeraEtapa || "");
+    setPipelineDialog({ contacto: c, mensaje });
+  };
 
-  if (!primeraEtapa) {
-    toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
-    return;
-  }
+  // Confirmar creación en pipeline con la etapa elegida
+  const handleConfirmPipeline = () => {
+    if (!etapaSeleccionada || !pipelineDialog) return;
+    const { contacto: c, mensaje } = pipelineDialog;
 
-  const yaExiste = consultas.some(
-    q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
-  );
+    // Chequeo de duplicado en CUALQUIER etapa
+    const consultaExistente = consultas.find(q => q.contactoNombre === c.nombre);
+    if (consultaExistente) {
+      toast.info(`${c.nombre} ya tiene una consulta en etapa "${consultaExistente.etapa}". No se creó un duplicado.`);
+      setPipelineDialog(null);
+      setEtapaSeleccionada("");
+      return;
+    }
 
-  if (yaExiste) {
-    toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
-    return;
-  }
+    const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
+    const now = new Date();
+    const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
 
-  const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
-  const now = new Date();
-  const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
-
-  createConsultaMutation.mutate({
-    contactoNombre: c.nombre,
-    empresa: c.empresa || "",
-    contactoWhatsapp: c.whatsapp || "",
-    email: c.email || "",
-    canalOrigen: c.canalOrigen || "WhatsApp",
-    etapa: primeraEtapa,
-    primerMensaje: mensaje || "",
-    fechaConsulta: now.toISOString().split("T")[0],
-    mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
-    ano: now.getFullYear(),
-    proximoSeguimiento,
-  });
-};
+    createConsultaMutation.mutate({
+      contactoNombre: c.nombre,
+      empresa: c.empresa || "",
+      contactoWhatsapp: c.whatsapp || "",
+      email: c.email || "",
+      canalOrigen: c.canalOrigen || "WhatsApp",
+      etapa: etapaSeleccionada,
+      primerMensaje: mensaje || "",
+      fechaConsulta: now.toISOString().split("T")[0],
+      mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
+      ano: now.getFullYear(),
+      proximoSeguimiento,
+    });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -190,7 +203,6 @@ export default function Contactos() {
     }
   };
 
-  // Filtrar
   const contactosFiltrados = contactos.filter(c => {
     if (search) {
       const s = search.toLowerCase();
@@ -208,9 +220,15 @@ export default function Contactos() {
     return true;
   });
 
+  // Consulta existente del contacto en pipeline (para mostrar warning en el diálogo)
+  const consultaExistenteEnDialog = pipelineDialog
+    ? consultas.find(q => q.contactoNombre === pipelineDialog.contacto.nombre)
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50/50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -231,17 +249,17 @@ export default function Contactos() {
 
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input
-              placeholder="Buscar nombre, empresa, teléfono, email, ciudad..."
+              placeholder="Buscar contacto..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
             />
           </div>
           <Select value={filtroSegmento} onValueChange={setFiltroSegmento}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Segmento" />
             </SelectTrigger>
             <SelectContent>
@@ -252,7 +270,7 @@ export default function Contactos() {
             </SelectContent>
           </Select>
           <Select value={filtroFuente} onValueChange={setFiltroFuente}>
-            <SelectTrigger className="w-52">
+            <SelectTrigger className="w-44">
               <SelectValue placeholder="Fuente" />
             </SelectTrigger>
             <SelectContent>
@@ -264,14 +282,14 @@ export default function Contactos() {
           </Select>
         </div>
 
-        {/* Tabla — 4 columnas con anchos fijos que suman 100% */}
+        {/* Tabla */}
         <Card className="overflow-hidden">
           <Table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[36%]" /> {/* Contacto: nombre + empresa + ciudad */}
-              <col className="w-[22%]" /> {/* Teléfono */}
-              <col className="w-[19%]" /> {/* Segmento */}
-              <col className="w-[23%]" /> {/* Acciones */}
+              <col className="w-[36%]" />
+              <col className="w-[22%]" />
+              <col className="w-[19%]" />
+              <col className="w-[23%]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
@@ -288,8 +306,6 @@ export default function Contactos() {
                 </TableRow>
               ) : contactosFiltrados.map(contacto => (
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
-
-                  {/* Contacto: nombre + empresa + ciudad/provincia fusionados */}
                   <TableCell className="py-2">
                     <div className="min-w-0">
                       <p className="font-medium text-slate-900 truncate text-sm">{contacto.nombre}</p>
@@ -304,8 +320,6 @@ export default function Contactos() {
                       )}
                     </div>
                   </TableCell>
-
-                  {/* Teléfono — solo número */}
                   <TableCell className="py-2">
                     {(contacto.telefonoDisplay || contacto.whatsapp) ? (
                       <span className="text-sm text-slate-700 truncate block">
@@ -315,8 +329,6 @@ export default function Contactos() {
                       <span className="text-slate-300 text-xs">-</span>
                     )}
                   </TableCell>
-
-                  {/* Segmento */}
                   <TableCell className="py-2">
                     {contacto.segmento ? (
                       <Badge variant="secondary" className="text-xs truncate max-w-full block w-fit">{contacto.segmento}</Badge>
@@ -324,8 +336,6 @@ export default function Contactos() {
                       <span className="text-slate-300">-</span>
                     )}
                   </TableCell>
-
-                  {/* Acciones */}
                   <TableCell className="py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEdit(contacto)}>
@@ -346,7 +356,6 @@ export default function Contactos() {
                       </Button>
                     </div>
                   </TableCell>
-
                 </TableRow>
               ))}
               {!isLoading && contactosFiltrados.length === 0 && (
@@ -411,6 +420,7 @@ export default function Contactos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* WhatsApp Sender Dialog */}
       <ContactoWhatsAppSender
         open={!!whatsappTarget}
@@ -418,6 +428,75 @@ export default function Contactos() {
         contacto={whatsappTarget}
         onMessageSent={handleMessageSent}
       />
+
+      {/* Pipeline Stage Dialog — se abre luego de enviar WhatsApp */}
+      <Dialog
+        open={!!pipelineDialog}
+        onOpenChange={(open) => {
+          if (!open) { setPipelineDialog(null); setEtapaSeleccionada(""); }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Agregar al pipeline</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-slate-600">
+              Mensaje enviado a <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>. ¿En qué etapa querés registrar esta consulta?
+            </p>
+
+            {/* Warning si ya existe en pipeline */}
+            {consultaExistenteEnDialog && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Este contacto ya tiene una consulta en etapa <strong>"{consultaExistenteEnDialog.etapa}"</strong>. No se creará un duplicado.
+                </span>
+              </div>
+            )}
+
+            {!consultaExistenteEnDialog && (
+              <div className="space-y-1">
+                <Label>Etapa</Label>
+                <Select value={etapaSeleccionada} onValueChange={setEtapaSeleccionada}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccioná una etapa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pipelineStages.map(s => (
+                      <SelectItem key={s.nombre} value={s.nombre}>{s.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setPipelineDialog(null); setEtapaSeleccionada(""); }}
+            >
+              Omitir
+            </Button>
+            {!consultaExistenteEnDialog && (
+              <Button
+                onClick={handleConfirmPipeline}
+                disabled={!etapaSeleccionada || createConsultaMutation.isPending}
+              >
+                {createConsultaMutation.isPending ? "Creando..." : "Agregar al pipeline"}
+              </Button>
+            )}
+            {consultaExistenteEnDialog && (
+              <Button onClick={() => { setPipelineDialog(null); setEtapaSeleccionada(""); }}>
+                Entendido
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
