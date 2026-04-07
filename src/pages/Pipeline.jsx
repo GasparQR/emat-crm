@@ -21,6 +21,7 @@ export default function Pipeline() {
   const [selectedConsulta, setSelectedConsulta] = useState(null);
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
+  const [filtroAsesor, setFiltroAsesor] = useState("todos");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
@@ -106,6 +107,7 @@ export default function Pipeline() {
   const consultasFiltradas = consultas.filter(c => {
     if (filtroCanal !== "todos" && c.canalOrigen !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
+    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
   });
 
@@ -155,6 +157,22 @@ export default function Pipeline() {
                   <SelectItem value="Alta">Alta</SelectItem>
                   <SelectItem value="Media">Media</SelectItem>
                   <SelectItem value="Baja">Baja</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
+                <SelectTrigger className="w-32 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Asesor</SelectItem>
+                  <SelectItem value="ANDRES">ANDRES</SelectItem>
+                  <SelectItem value="TRISTAN">TRISTAN</SelectItem>
+                  <SelectItem value="VALENTINA">VALENTINA</SelectItem>
+                  <SelectItem value="ROCIO">ROCIO</SelectItem>
+                  <SelectItem value="JULIAN">JULIAN</SelectItem>
+                  <SelectItem value="PABLO">PABLO</SelectItem>
+                  <SelectItem value="ESTEBAN">ESTEBAN</SelectItem>
+                  <SelectItem value="MACA">MACA</SelectItem>
                 </SelectContent>
               </Select>
             </div>
