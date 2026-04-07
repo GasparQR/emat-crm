@@ -1,4 +1,5 @@
 import React from 'react';
+import './ConsultaCard.css';
 
 const ConsultaCard = ({ ubicacion, superficie, tipo, observacion }) => {
     return (
