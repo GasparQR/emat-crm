@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 
 const WorkspaceContext = createContext(null);
 

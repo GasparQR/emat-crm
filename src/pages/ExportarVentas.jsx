@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Download, FileSpreadsheet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { useQuery } from "@tanstack/react-query";
@@ -23,12 +23,12 @@ export default function ExportarVentas() {
 
   const { data: proveedores = [] } = useQuery({
     queryKey: ['proveedores'],
-    queryFn: () => base44.entities.Proveedor.filter({ activo: true }),
+    queryFn: () => crm.entities.Proveedor.filter({ activo: true }),
   });
 
   const { data: usuarios = [] } = useQuery({
     queryKey: ['usuarios'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => crm.entities.User.list(),
   });
 
   const buildQuery = () => {
@@ -81,7 +81,7 @@ export default function ExportarVentas() {
     setLoading(true);
     try {
       const query = buildQuery();
-      const ventas = await base44.entities.Venta.filter(query);
+      const ventas = await crm.entities.Venta.filter(query);
 
       if (ventas.length === 0) {
         toast.error("No hay ventas para exportar con los filtros seleccionados");
@@ -128,7 +128,7 @@ export default function ExportarVentas() {
     setLoading(true);
     try {
       const query = buildQuery();
-      const ventas = await base44.entities.Venta.filter(query);
+      const ventas = await crm.entities.Venta.filter(query);
 
       if (ventas.length === 0) {
         toast.error("No hay ventas para exportar con los filtros seleccionados");

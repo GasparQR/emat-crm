@@ -1,8 +1,8 @@
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 
 // Obtiene todas las ventas existentes y devuelve un mapa de año -> max secuencia
 export async function getMaxSecuenciasPorAnio() {
-  const todasLasVentas = await base44.entities.Venta.list("-codigo", 10000, {});
+  const todasLasVentas = await crm.entities.Venta.list("-codigo", 10000, {});
   
   const maxPorAnio = {};
   

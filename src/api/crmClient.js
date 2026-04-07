@@ -1,5 +1,4 @@
-// Local data store using localStorage
-// Reemplaza base44 SDK — EMAT Celulosa CRM
+// Local data store using localStorage — EMAT Celulosa CRM
 
 class LocalDataStore {
   constructor(entityName) {
@@ -144,7 +143,7 @@ const LOCAL_USER = {
   canViewReports: true,
 };
 
-export const base44 = {
+export const crm = {
   auth: {
     me: async () => LOCAL_USER,
     logout: () => {},

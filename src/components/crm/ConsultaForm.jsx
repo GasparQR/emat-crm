@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,10 +83,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nroPpto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
       };
       if (consulta?.id) {
-        await base44.entities.Consulta.update(consulta.id, payload);
+        await crm.entities.Consulta.update(consulta.id, payload);
         toast.success("Presupuesto actualizado");
       } else {
-        await base44.entities.Consulta.create(payload);
+        await crm.entities.Consulta.create(payload);
         toast.success("Presupuesto creado");
       }
       onSave?.();

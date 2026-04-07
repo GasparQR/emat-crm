@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -36,14 +36,14 @@ export default function ConfigurarPipeline() {
     queryKey: ['pipeline-stages', workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      const stages = await crm.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
     enabled: !!workspace
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PipelineStage.create({ ...data, workspace_id: workspace?.id }),
+    mutationFn: (data) => crm.entities.PipelineStage.create({ ...data, workspace_id: workspace?.id }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-stages', workspace?.id] });
       toast.success("Etapa creada");
@@ -53,7 +53,7 @@ export default function ConfigurarPipeline() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PipelineStage.update(id, data),
+    mutationFn: ({ id, data }) => crm.entities.PipelineStage.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-stages', workspace?.id] });
       toast.success("Etapa actualizada");
@@ -64,7 +64,7 @@ export default function ConfigurarPipeline() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PipelineStage.update(id, { activa: false }),
+    mutationFn: (id) => crm.entities.PipelineStage.update(id, { activa: false }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-stages', workspace?.id] });
       toast.success("Etapa eliminada");
@@ -116,8 +116,8 @@ export default function ConfigurarPipeline() {
     const etapaTarget = etapas[targetIndex];
 
     await Promise.all([
-      base44.entities.PipelineStage.update(etapaActual.id, { orden: etapaTarget.orden }),
-      base44.entities.PipelineStage.update(etapaTarget.id, { orden: etapaActual.orden })
+      crm.entities.PipelineStage.update(etapaActual.id, { orden: etapaTarget.orden }),
+      crm.entities.PipelineStage.update(etapaTarget.id, { orden: etapaActual.orden })
     ]);
 
     queryClient.invalidateQueries({ queryKey: ['pipeline-stages', workspace?.id] });

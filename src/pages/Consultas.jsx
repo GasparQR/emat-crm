@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -48,13 +48,13 @@ export default function Consultas() {
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
     queryFn: () => workspace
-      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
+      ? crm.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
       : [],
     enabled: !!workspace,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Consulta.delete(id),
+    mutationFn: (id) => crm.entities.Consulta.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consultas-list"] });
       toast.success("Presupuesto eliminado");

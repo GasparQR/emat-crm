@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -67,7 +67,7 @@ export default function Reportes() {
     queryKey: ["consultas-reportes", workspace?.id],
     queryFn: () =>
       workspace
-        ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
+        ? crm.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
         : [],
     enabled: !!workspace,
   });

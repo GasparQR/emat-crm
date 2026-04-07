@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function Home() {
   const { workspace } = useWorkspace();
   const { data: consultas = [] } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
+    queryFn: () => workspace ? crm.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
     enabled: !!workspace,
   });
 

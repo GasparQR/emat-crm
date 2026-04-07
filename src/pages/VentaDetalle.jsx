@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -22,27 +22,27 @@ export default function VentaDetalle() {
 
   const { data: venta, isLoading } = useQuery({
     queryKey: ['venta', ventaId],
-    queryFn: () => base44.entities.Venta.filter({ id: ventaId }),
+    queryFn: () => crm.entities.Venta.filter({ id: ventaId }),
     select: (data) => data[0],
     enabled: !!ventaId
   });
 
   const { data: contacto } = useQuery({
     queryKey: ['contacto', venta?.contactoId],
-    queryFn: () => base44.entities.Contacto.filter({ id: venta.contactoId }),
+    queryFn: () => crm.entities.Contacto.filter({ id: venta.contactoId }),
     select: (data) => data[0],
     enabled: !!venta?.contactoId
   });
 
   const { data: consulta } = useQuery({
     queryKey: ['consulta', venta?.consultaId],
-    queryFn: () => base44.entities.Consulta.filter({ id: venta.consultaId }),
+    queryFn: () => crm.entities.Consulta.filter({ id: venta.consultaId }),
     select: (data) => data[0],
     enabled: !!venta?.consultaId
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Venta.delete(id),
+    mutationFn: (id) => crm.entities.Venta.delete(id),
     onSuccess: () => {
       toast.success("Venta eliminada");
       window.location.href = createPageUrl("Ventas");
@@ -50,7 +50,7 @@ export default function VentaDetalle() {
   });
 
   const updateEstadoMutation = useMutation({
-    mutationFn: ({ id, estado }) => base44.entities.Venta.update(id, { estado }),
+    mutationFn: ({ id, estado }) => crm.entities.Venta.update(id, { estado }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venta', ventaId] });
       toast.success("Estado actualizado");

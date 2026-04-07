@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Database, Trash2, Loader2, Calendar, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,7 +31,7 @@ export default function Configuracion() {
   const handleSaveDays = async () => {
     setSavingDays(true);
     try {
-      await base44.auth.updateMe({
+      await crm.auth.updateMe({
         consulta_follow_up_days: Number(consultaDays),
         postventa_follow_up_days: Number(postventaDays)
       });
@@ -46,9 +46,9 @@ export default function Configuracion() {
     setExporting(true);
     try {
       // Fetch all data from your API
-      const consultas = await base44.consultas.getAll();
-      const ventas = await base44.ventas.getAll();
-      const seguimientos = await base44.seguimientos.getAll();
+      const consultas = await crm.consultas.getAll();
+      const ventas = await crm.ventas.getAll();
+      const seguimientos = await crm.seguimientos.getAll();
 
       // Create workbook with multiple sheets
       const workbook = XLSX.utils.book_new();

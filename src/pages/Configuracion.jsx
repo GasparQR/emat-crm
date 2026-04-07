@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Bell, User, Shield, Database, Trash2, Users, Loader2, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,7 +34,7 @@ export default function Configuracion() {
   const handleSaveDays = async () => {
     setSavingDays(true);
     try {
-      await base44.auth.updateMe({
+      await crm.auth.updateMe({
         consulta_follow_up_days: Number(consultaDays),
         postventa_follow_up_days: Number(postventaDays)
       });
@@ -59,7 +59,7 @@ export default function Configuracion() {
 
     setIsLoading(true);
     try {
-      await base44.users.inviteUser(inviteEmail, inviteRole);
+      await crm.users.inviteUser(inviteEmail, inviteRole);
       toast.success(`Invitación enviada a ${inviteEmail}`);
       setInviteEmail("");
       setInviteRole("user");

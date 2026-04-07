@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -25,11 +25,11 @@ export default function Variables() {
 
   const { data: variables = [] } = useQuery({
     queryKey: ['variables'],
-    queryFn: () => base44.entities.VariablePlantilla.list("-created_date")
+    queryFn: () => crm.entities.VariablePlantilla.list("-created_date")
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.VariablePlantilla.create(data),
+    mutationFn: (data) => crm.entities.VariablePlantilla.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['variables'] });
       toast.success("Variable creada");
@@ -38,7 +38,7 @@ export default function Variables() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.VariablePlantilla.update(id, data),
+    mutationFn: ({ id, data }) => crm.entities.VariablePlantilla.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['variables'] });
       toast.success("Variable actualizada");
@@ -47,7 +47,7 @@ export default function Variables() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.VariablePlantilla.delete(id),
+    mutationFn: (id) => crm.entities.VariablePlantilla.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['variables'] });
       toast.success("Variable eliminada");

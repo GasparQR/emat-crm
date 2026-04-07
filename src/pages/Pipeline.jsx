@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -27,7 +27,7 @@ export default function Pipeline() {
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500) : [],
+    queryFn: () => workspace ? crm.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500) : [],
     enabled: !!workspace
   });
 
@@ -35,14 +35,14 @@ export default function Pipeline() {
     queryKey: ['pipeline-stages', workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      const stages = await crm.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
     enabled: !!workspace
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Consulta.update(id, data),
+    mutationFn: ({ id, data }) => crm.entities.Consulta.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', workspace?.id] });
     }
@@ -88,7 +88,7 @@ export default function Pipeline() {
 
   const handleVentaCreada = async (ventaId) => {
     if (selectedConsulta) {
-      await base44.entities.Consulta.update(selectedConsulta.id, {
+      await crm.entities.Consulta.update(selectedConsulta.id, {
         etapa: "Concretado",
         concretado: true
       });
@@ -96,7 +96,7 @@ export default function Pipeline() {
       toast.success("Venta registrada y consulta marcada como Concretado");
     }
     if (ventaId) {
-      await base44.entities.Venta.update(ventaId, { estado: "Finalizada" });
+      await crm.entities.Venta.update(ventaId, { estado: "Finalizada" });
     }
     setShowVentaForm(false);
     setSelectedConsulta(null);

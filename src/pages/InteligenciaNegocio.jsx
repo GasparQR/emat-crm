@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -381,13 +381,13 @@ export default function InteligenciaNegocio() {
 
   const { data: ventas = [] } = useQuery({
     queryKey: ["ib-ventas", workspace?.id],
-    queryFn: () => workspace ? base44.entities.Venta.filter({ workspace_id: workspace.id, estado: "Finalizada" }, "-fecha", 1000) : [],
+    queryFn: () => workspace ? crm.entities.Venta.filter({ workspace_id: workspace.id, estado: "Finalizada" }, "-fecha", 1000) : [],
     enabled: !!workspace
   });
 
   const { data: consultas = [] } = useQuery({
     queryKey: ["ib-consultas", workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 2000) : [],
+    queryFn: () => workspace ? crm.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 2000) : [],
     enabled: !!workspace
   });
 

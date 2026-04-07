@@ -12,7 +12,7 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { normalizeRow } from "@/components/utils/importNormalization";
 import ImportPreviewTable from "@/components/ventas/ImportPreviewTable";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { toast } from "sonner";
 import { getMaxSecuenciasPorAnio, generateNextVentaCode } from "@/components/utils/ventaCodeGenerator";
 
@@ -200,7 +200,7 @@ export default function ImportarVentas() {
       });
 
       // Crear todas las ventas (ya no hay duplicados porque los códigos son nuevos)
-      await base44.entities.Venta.bulkCreate(datosLimpios);
+      await crm.entities.Venta.bulkCreate(datosLimpios);
       
       toast.success(`${datosLimpios.length} ventas importadas correctamente`);
       

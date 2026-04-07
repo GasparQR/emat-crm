@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { crm } from "@/api/crmClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -61,18 +61,18 @@ export default function Plantillas() {
 
   const { data: plantillas = [], refetch } = useQuery({
     queryKey: ['plantillas', workspace?.id, currentUser?.email],
-    queryFn: () => workspace && currentUser ? base44.entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id, created_by: currentUser.email }, "-created_date") : [],
+    queryFn: () => workspace && currentUser ? crm.entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id, created_by: currentUser.email }, "-created_date") : [],
     enabled: !!workspace && !!currentUser
   });
 
   const { data: variablesDB = [] } = useQuery({
     queryKey: ['variables', workspace?.id],
-    queryFn: () => workspace ? base44.entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
+    queryFn: () => workspace ? crm.entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
     enabled: !!workspace
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.PlantillaWhatsApp.create({ ...data, workspace_id: workspace?.id }),
+    mutationFn: (data) => crm.entities.PlantillaWhatsApp.create({ ...data, workspace_id: workspace?.id }),
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['plantillas', workspace?.id] });
        toast.success("Plantilla creada");
@@ -81,7 +81,7 @@ export default function Plantillas() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.PlantillaWhatsApp.update(id, data),
+    mutationFn: ({ id, data }) => crm.entities.PlantillaWhatsApp.update(id, data),
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['plantillas', workspace?.id] });
        toast.success("Plantilla actualizada");
@@ -90,7 +90,7 @@ export default function Plantillas() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.PlantillaWhatsApp.delete(id),
+    mutationFn: (id) => crm.entities.PlantillaWhatsApp.delete(id),
     onSuccess: () => {
        queryClient.invalidateQueries({ queryKey: ['plantillas', workspace?.id] });
        toast.success("Plantilla eliminada");
