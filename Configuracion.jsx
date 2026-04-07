@@ -46,9 +46,9 @@ export default function Configuracion() {
     setExporting(true);
     try {
       // Fetch all data from your API
-      const consultas = await crm.consultas.getAll();
-      const ventas = await crm.ventas.getAll();
-      const seguimientos = await crm.seguimientos.getAll();
+      const consultas = await crm.entities.Consulta.list();
+      const ventas = await crm.entities.Venta.list();
+      const seguimientos = await crm.entities.HistorialEnvios.list();
 
       // Create workbook with multiple sheets
       const workbook = XLSX.utils.book_new();

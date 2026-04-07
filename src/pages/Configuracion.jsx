@@ -59,8 +59,8 @@ export default function Configuracion() {
 
     setIsLoading(true);
     try {
-      await crm.users.inviteUser(inviteEmail, inviteRole);
-      toast.success(`Invitación enviada a ${inviteEmail}`);
+      await crm.entities.Usuario.create({ email: inviteEmail, role: inviteRole, workspace_id: "local" });
+      toast.success(`Usuario ${inviteEmail} creado con rol ${inviteRole}`);
       setInviteEmail("");
       setInviteRole("user");
     } catch (error) {
