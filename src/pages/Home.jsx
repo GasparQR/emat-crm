@@ -130,16 +130,42 @@ export default function Home() {
           <Card>
             <CardHeader><CardTitle className="text-base">Distribución por estado</CardTitle></CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={estadoData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
-                    {estadoData.map((entry, i) => (
-                      <Cell key={i} fill={ESTADO_PIE_COLORS[entry.name] || "#94a3b8"} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex flex-col gap-4">
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <Pie 
+                      data={estadoData} 
+                      cx="50%" 
+                      cy="50%" 
+                      outerRadius={70}
+                      innerRadius={30}
+                      dataKey="value" 
+                      nameKey="name"
+                      label={false}
+                    >
+                      {estadoData.map((entry, i) => (
+                        <Cell key={i} fill={ESTADO_PIE_COLORS[entry.name] || "#94a3b8"} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value) => `${value} presupuestos`}
+                      labelFormatter={(name) => `${name}`}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {estadoData.map((entry, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: ESTADO_PIE_COLORS[entry.name] || "#94a3b8" }}
+                      />
+                      <span className="text-slate-700 truncate">{entry.name}</span>
+                      <span className="text-slate-500 font-medium ml-auto">{entry.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
