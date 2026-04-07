@@ -127,12 +127,21 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
+                    <Card>
             <CardHeader><CardTitle className="text-base">Distribución por estado</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={estadoData} cx="50%" cy="50%" outerRadius={80} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+                  <Pie 
+                    data={estadoData} 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={Math.min(70, 60)} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} 
+                    labelLine={false}
+                  >
                     {estadoData.map((entry, i) => (
                       <Cell key={i} fill={ESTADO_PIE_COLORS[entry.name] || "#94a3b8"} />
                     ))}
@@ -142,7 +151,6 @@ export default function Home() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </div>
 
         {/* Accesos rápidos */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
