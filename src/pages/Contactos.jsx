@@ -112,44 +112,48 @@ export default function Contactos() {
     },
   });
 
-  const handleMessageSent = ({ contacto: c, mensaje }) => {
-  // Buscar la etapa con orden 1, si no existe entonces orden 0, si tampoco existe tomar la primera
-  const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre 
-    || pipelineStages.find(s => s.orden === 0)?.nombre 
-    || pipelineStages[0]?.nombre;
+  const handleMessageSent = () => {
+    // WhatsApp was opened — no automatic lead creation
+  };
 
-  if (!primeraEtapa) {
-    toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
-    return;
-  }
+  const handleCreateLead = ({ contacto: c, mensaje }) => {
+    // Buscar la etapa con orden 1, si no existe entonces orden 0, si tampoco existe tomar la primera
+    const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre
+      || pipelineStages.find(s => s.orden === 0)?.nombre
+      || pipelineStages[0]?.nombre;
 
-  const yaExiste = consultas.some(
-    q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
-  );
+    if (!primeraEtapa) {
+      toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
+      return;
+    }
 
-  if (yaExiste) {
-    toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
-    return;
-  }
+    const yaExiste = consultas.some(
+      q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
+    );
 
-  const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
-  const now = new Date();
-  const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
+    if (yaExiste) {
+      toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
+      return;
+    }
 
-  createConsultaMutation.mutate({
-    contactoNombre: c.nombre,
-    empresa: c.empresa || "",
-    contactoWhatsapp: c.whatsapp || "",
-    email: c.email || "",
-    canalOrigen: c.canalOrigen || "WhatsApp",
-    etapa: primeraEtapa,
-    primerMensaje: mensaje || "",
-    fechaConsulta: now.toISOString().split("T")[0],
-    mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
-    ano: now.getFullYear(),
-    proximoSeguimiento,
-  });
-};
+    const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
+    const now = new Date();
+    const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
+
+    createConsultaMutation.mutate({
+      contactoNombre: c.nombre,
+      empresa: c.empresa || "",
+      contactoWhatsapp: c.whatsapp || "",
+      email: c.email || "",
+      canalOrigen: c.canalOrigen || "WhatsApp",
+      etapa: primeraEtapa,
+      primerMensaje: mensaje || "",
+      fechaConsulta: now.toISOString().split("T")[0],
+      mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
+      ano: now.getFullYear(),
+      proximoSeguimiento,
+    });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -417,6 +421,7 @@ export default function Contactos() {
         onOpenChange={(open) => { if (!open) setWhatsappTarget(null); }}
         contacto={whatsappTarget}
         onMessageSent={handleMessageSent}
+        onCreateLead={handleCreateLead}
       />
     </div>
   );

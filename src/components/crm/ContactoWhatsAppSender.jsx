@@ -8,10 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
+import { MessageCircle, Copy, ExternalLink, Check, Sparkles, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
-export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, onMessageSent }) {
+export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, onMessageSent, onCreateLead }) {
   const [selectedPlantilla, setSelectedPlantilla] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [copied, setCopied] = useState(false);
@@ -129,17 +129,13 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
     url.searchParams.set("phone", phone);
     url.searchParams.set("text", msg);
 
-    if (onMessageSent) {
-      onMessageSent({
-        contacto,
-        mensaje,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
     window.open(url.toString(), "_blank", "noopener,noreferrer");
 
-    onMessageSent?.({ contacto, mensaje });
+    onMessageSent?.({ contacto, mensaje, timestamp: new Date().toISOString() });
+  };
+
+  const handleCreateLead = () => {
+    onCreateLead({ contacto, mensaje });
   };
 
   if (!contacto) return null;
@@ -234,6 +230,16 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
             {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             {copied ? "Copiado" : "Copiar"}
           </Button>
+          {onCreateLead && (
+            <Button
+              variant="outline"
+              onClick={handleCreateLead}
+              className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              <UserPlus className="w-4 h-4" />
+              Crear como Lead
+            </Button>
+          )}
           <Button
             onClick={handleOpenWhatsApp}
             disabled={!contacto.whatsapp || !mensaje.trim()}
