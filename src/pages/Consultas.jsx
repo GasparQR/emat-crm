@@ -102,10 +102,10 @@ export default function Consultas() {
 
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
+            <div className="relative flex-1 min-w-[180px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
-                placeholder="Buscar por nombre, N° o ubicación..."
+                placeholder="Buscar nombre, N° o ubicación..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-9"
@@ -136,85 +136,113 @@ export default function Consultas() {
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* Tabla — 6 columnas con anchos fijos que suman 100% */}
       <div className="p-6">
         <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 overflow-hidden">
-          <Table>
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[30%]" /> {/* Cliente + ubicación + #ppto */}
+              <col className="w-[8%]"  /> {/* Asesor (avatar) */}
+              <col className="w-[14%]" /> {/* m² / Tipo */}
+              <col className="w-[14%]" /> {/* Importe */}
+              <col className="w-[14%]" /> {/* Estado */}
+              <col className="w-[14%]" /> {/* Seguimiento */}
+              <col className="w-[6%]"  /> {/* Acciones */}
+            </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
-                <TableHead className="font-semibold">N° / Cliente</TableHead>
+                <TableHead className="font-semibold">Cliente</TableHead>
                 <TableHead className="font-semibold">Asesor</TableHead>
-                <TableHead className="font-semibold">Ubicación</TableHead>
                 <TableHead className="font-semibold">m² / Tipo</TableHead>
                 <TableHead className="font-semibold">Importe</TableHead>
                 <TableHead className="font-semibold">Estado</TableHead>
                 <TableHead className="font-semibold">Seguimiento</TableHead>
-                <TableHead className="font-semibold text-right">Acciones</TableHead>
+                <TableHead className="font-semibold text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
                 const seguimientoVencido = c.proximoSeguimiento && moment(c.proximoSeguimiento).isBefore(moment(), "day");
                 const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
                 return (
                   <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEdit(c)}>
-                    <TableCell>
-                      <p className="font-medium text-slate-900">{c.contactoNombre}</p>
-                      {c.nroPpto && <p className="text-xs text-slate-400">#{c.nroPpto} · {c.mes} {c.ano}</p>}
+
+                    {/* Cliente: nombre + #ppto + ubicación fusionados */}
+                    <TableCell className="py-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactoNombre}</p>
+                        {c.nroPpto && (
+                          <p className="text-xs text-slate-400 truncate">#{c.nroPpto} · {c.mes} {c.ano}</p>
+                        )}
+                        {c.ubicacionObra && (
+                          <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
+                            <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                            {c.ubicacionObra}
+                          </p>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell>
+
+                    {/* Asesor — solo avatar */}
+                    <TableCell className="py-2">
                       {c.asesor && (
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}>
-                            {c.asesor[0]}
-                          </div>
-                          <span className="text-sm">{c.asesor}</span>
+                        <div
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}
+                          title={c.asesor}
+                        >
+                          {c.asesor[0]}
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>
-                      {c.ubicacionObra ? (
-                        <div className="flex items-center gap-1 text-sm text-slate-600">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
-                          <span className="line-clamp-1">{c.ubicacionObra}</span>
-                        </div>
-                      ) : <span className="text-slate-400">-</span>}
-                    </TableCell>
-                    <TableCell>
+
+                    {/* m² / Tipo */}
+                    <TableCell className="py-2">
                       <div className="space-y-1">
                         {c.superficieM2 && (
                           <div className="flex items-center gap-1 text-sm font-medium">
-                            <Ruler className="w-3 h-3 text-slate-400" />
-                            {c.superficieM2} m²
+                            <Ruler className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                            <span className="truncate">{c.superficieM2} m²</span>
                           </div>
                         )}
-                        {c.tipoAplicacion && <Badge variant="secondary" className="text-xs">{c.tipoAplicacion}</Badge>}
+                        {c.tipoAplicacion && (
+                          <Badge variant="secondary" className="text-xs truncate max-w-full block w-fit">{c.tipoAplicacion}</Badge>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>
+
+                    {/* Importe */}
+                    <TableCell className="py-2">
                       {c.importe ? (
-                        <span className="font-bold text-slate-900">${Number(c.importe).toLocaleString("es-AR")}</span>
+                        <span className="font-bold text-slate-900 text-sm truncate block">
+                          ${Number(c.importe).toLocaleString("es-AR")}
+                        </span>
                       ) : <span className="text-slate-400">-</span>}
                     </TableCell>
-                    <TableCell>
+
+                    {/* Estado */}
+                    <TableCell className="py-2">
                       <Badge className={cn("text-xs", ESTADO_COLORS[c.etapa] || "bg-slate-100 text-slate-700")}>
                         {c.etapa}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+
+                    {/* Seguimiento */}
+                    <TableCell className="py-2">
                       {c.proximoSeguimiento ? (
                         <div className={cn("flex items-center gap-1 text-sm", seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500")}>
-                          <Calendar className="w-3.5 h-3.5" />
+                          <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                           {moment(c.proximoSeguimiento).format("DD/MM/YY")}
                         </div>
                       ) : <span className="text-slate-400">-</span>}
                     </TableCell>
-                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+
+                    {/* Acciones */}
+                    <TableCell className="py-2 text-right" onClick={e => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
                             <MoreHorizontal className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -232,11 +260,12 @@ export default function Consultas() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
+
                   </TableRow>
                 );
               })}
               {!isLoading && filtradas.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
