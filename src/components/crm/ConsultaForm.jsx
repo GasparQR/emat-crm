@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,7 @@ const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", 
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
-const ESTADOS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
+const ESTADOS_FALLBACK = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const MOTIVOS_PERDIDA = [
   "Sin respuesta","Se canceló la obra","Ganó la competencia",
@@ -50,6 +51,20 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [loading, setLoading] = useState(false);
   const { workspace } = useWorkspace();
 
+  const { data: pipelineStages = [] } = useQuery({
+    queryKey: ["pipeline-stages", workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const estadosDisponibles = pipelineStages.length > 0
+    ? pipelineStages.map(s => s.nombre)
+    : ESTADOS_FALLBACK;
+
   useEffect(() => {
     if (open) {
       if (consulta) {
@@ -61,10 +76,26 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           importe: consulta.importe ?? "",
         });
       } else {
-        setFormData(emptyForm());
+        const defaultEtapa = estadosDisponibles[0] ?? "A COTIZAR";
+        setFormData({ ...emptyForm(), etapa: defaultEtapa });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consulta, open]);
+
+  // When pipeline stages load after the form opens for a new record,
+  // update the default etapa to the first available stage.
+  useEffect(() => {
+    if (open && !consulta && pipelineStages.length > 0) {
+      setFormData(prev => {
+        const fallbackValues = ESTADOS_FALLBACK;
+        if (fallbackValues.includes(prev.etapa) && !pipelineStages.some(s => s.nombre === prev.etapa)) {
+          return { ...prev, etapa: pipelineStages[0].nombre };
+        }
+        return prev;
+      });
+    }
+  }, [pipelineStages, open, consulta]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -197,7 +228,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Estado</Label>
                 <Select value={formData.etapa} onValueChange={v => set("etapa", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                  <SelectContent>{estadosDisponibles.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -216,7 +247,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Input type="date" value={formData.proximoSeguimiento} onChange={e => set("proximoSeguimiento", e.target.value)} />
               </div>
             </div>
-            {formData.etapa === "PERDIDA" && (
+            {formData.etapa?.toUpperCase().includes("PERDID") && (
               <div className="space-y-1 mt-3">
                 <Label>Razón de pérdida</Label>
                 <Select value={formData.razonPerdida} onValueChange={v => set("razonPerdida", v)}>

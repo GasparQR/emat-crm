@@ -16,7 +16,7 @@ import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
 
-const ESTADOS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
+const ESTADOS_FALLBACK = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
 const ESTADO_COLORS = {
@@ -52,6 +52,20 @@ export default function Consultas() {
       : [],
     enabled: !!workspace,
   });
+
+  const { data: pipelineStages = [] } = useQuery({
+    queryKey: ["pipeline-stages", workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const estadosDisponibles = pipelineStages.length > 0
+    ? pipelineStages.map(s => s.nombre)
+    : ESTADOS_FALLBACK;
 
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Consulta.delete(id),
@@ -115,7 +129,7 @@ export default function Consultas() {
               <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
-                {ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                {estadosDisponibles.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
