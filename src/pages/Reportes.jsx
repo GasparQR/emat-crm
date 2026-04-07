@@ -375,7 +375,7 @@ export default function Reportes() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversión
+                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversion
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -451,7 +451,7 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Distribución por estado</CardTitle>
+                  <CardTitle className="text-base">Distribucion por estado</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={260}>
@@ -484,7 +484,7 @@ export default function Reportes() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
                 <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
                 <p className="text-sm text-blue-800">
-                  <span className="font-semibold">{mejorAsesor.asesor}</span> tiene la mejor tasa de conversión:{" "}
+                  <span className="font-semibold">{mejorAsesor.asesor}</span> tiene la mejor tasa de conversion:{" "}
                   <span className="font-bold text-blue-700">{mejorAsesor.tasa}%</span>
                   {" "}({mejorAsesor.ganados} ganados de {mejorAsesor.total} presupuestos).
                 </p>
@@ -530,7 +530,7 @@ export default function Reportes() {
                       <span className="font-semibold text-green-700">{a.ganados}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Conversión</span>
+                      <span className="text-slate-500">Conversion</span>
                       <span className="font-semibold text-emerald-600">{a.tasa}%</span>
                     </div>
                     <div className="flex justify-between">
@@ -552,7 +552,7 @@ export default function Reportes() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Presupuestos por tipo de aplicación</CardTitle>
+                  <CardTitle className="text-base">Presupuestos por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
@@ -573,7 +573,7 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">m² por tipo de aplicación</CardTitle>
+                  <CardTitle className="text-base">m² por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
@@ -616,7 +616,7 @@ export default function Reportes() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Evolución mensual de presupuestos</CardTitle>
+                <CardTitle className="text-base">Evolucion mensual de presupuestos</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={240}>
@@ -683,7 +683,7 @@ export default function Reportes() {
               <Card className="border-amber-200 bg-amber-50">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-amber-700 flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />Próximos 7 días
+                    <Calendar className="w-4 h-4" />Proximos 7 días
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -702,7 +702,7 @@ export default function Reportes() {
                   <p className="text-4xl font-bold text-slate-900">
                     {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "—"}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">días desde creación (ganados/ejecutados)</p>
+                  <p className="text-xs text-slate-500 mt-1">días desde creacion (ganados/ejecutados)</p>
                 </CardContent>
               </Card>
             </div>
@@ -753,7 +753,7 @@ export default function Reportes() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4" />Tasa de conversión
+                    <CheckCircle className="w-4 h-4" />Tasa de conversion
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -824,7 +824,7 @@ export default function Reportes() {
             {perdidasData.porTipo.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Pérdidas por tipo de aplicación</CardTitle>
+                  <CardTitle className="text-base">Pérdidas por tipo de aplicacion</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={220}>
