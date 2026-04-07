@@ -53,7 +53,8 @@ const CHART_COLORS = ["#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6
 
 const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
 const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
-
+const fmtMonthYear = (mes, ano) =>
+  mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
   const [periodo, setPeriodo] = useState("todos");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
@@ -113,7 +114,7 @@ export default function Reportes() {
   const porMesData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const key = c.mes && c.ano ? `${c.mes.slice(0,3)} ${c.ano}` : "Sin fecha";
+      const key = fmtMonthYear(c.mes, c.ano);
       if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, ganados: 0, perdidos: 0, otros: 0 };
       if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") map[key].ganados++;
       else if (c.etapa === "PERDIDA") map[key].perdidos++;
@@ -185,7 +186,7 @@ export default function Reportes() {
     const map = {};
     filtradas.forEach((c) => {
       if (!c.mes || !c.ano) return;
-      const key = `${c.mes.slice(0,3)} ${c.ano}`;
+      const key = fmtMonthYear(c.mes, c.ano);
       if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, total: 0 };
       map[key].total++;
     });
@@ -683,7 +684,7 @@ export default function Reportes() {
                   <p className="text-4xl font-bold text-slate-900">
                     {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "\u2014"}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">d\u00edas (ganados/ejecutados)</p>
+                  <p className="text-xs text-slate-500 mt-1">d\u00edas desde creaci\u00f3n (ganados/ejecutados)</p>
                 </CardContent>
               </Card>
             </div>
