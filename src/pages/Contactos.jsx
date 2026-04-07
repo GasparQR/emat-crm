@@ -151,7 +151,6 @@ export default function Contactos() {
   });
 };
 
-
   const resetForm = () => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
@@ -265,14 +264,19 @@ export default function Contactos() {
           </Select>
         </div>
 
-        {/* Tabla */}
-        <Card>
-          <Table>
+        {/* Tabla — 4 columnas con anchos fijos que suman 100% */}
+        <Card className="overflow-hidden">
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[36%]" /> {/* Contacto: nombre + empresa + ciudad */}
+              <col className="w-[22%]" /> {/* Teléfono */}
+              <col className="w-[19%]" /> {/* Segmento */}
+              <col className="w-[23%]" /> {/* Acciones */}
+            </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
                 <TableHead className="font-semibold">Contacto</TableHead>
-                <TableHead className="font-semibold">Teléfono / Email</TableHead>
-                <TableHead className="font-semibold">Ubicación</TableHead>
+                <TableHead className="font-semibold">Teléfono</TableHead>
                 <TableHead className="font-semibold">Segmento</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
@@ -280,116 +284,74 @@ export default function Contactos() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
+                  <TableCell colSpan={4} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
                 </TableRow>
               ) : contactosFiltrados.map(contacto => (
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
-                  {/* Contacto */}
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-slate-500">
-                          {(contacto.nombre || "?")[0].toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate">{contacto.nombre}</p>
-                        {contacto.empresa && contacto.empresa !== contacto.nombre && (
-                          <p className="text-xs text-slate-500 truncate">{contacto.empresa}</p>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
 
-                  {/* Teléfono / Email */}
-                  <TableCell>
-                    <div className="space-y-1">
-                      {(contacto.telefonoDisplay || contacto.whatsapp) ? (
-                        <div className="flex items-center gap-1.5 text-sm text-slate-700">
-                          <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                          <span className="truncate">{contacto.telefonoDisplay || contacto.whatsapp}</span>
-                        </div>
-                      ) : null}
-                      {contacto.email ? (
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <Mail className="w-3 h-3 text-slate-300 flex-shrink-0" />
-                          <span className="truncate">{contacto.email}</span>
-                        </div>
-                      ) : null}
-                      {!contacto.telefonoDisplay && !contacto.whatsapp && !contacto.email && (
-                        <span className="text-slate-300 text-xs">Sin datos de contacto</span>
+                  {/* Contacto: nombre + empresa + ciudad/provincia fusionados */}
+                  <TableCell className="py-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-900 truncate text-sm">{contacto.nombre}</p>
+                      {contacto.empresa && contacto.empresa !== contacto.nombre && (
+                        <p className="text-xs text-slate-500 truncate">{contacto.empresa}</p>
+                      )}
+                      {(contacto.ciudad || contacto.provincia) && (
+                        <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
+                          <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                          {contacto.ciudad || contacto.provincia}
+                        </p>
                       )}
                     </div>
                   </TableCell>
 
-                  {/* Ubicación */}
-                  <TableCell>
-                    {contacto.ciudad ? (
-                      <div className="flex items-center gap-1 text-sm text-slate-600">
-                        <MapPin className="w-3 h-3 flex-shrink-0" />
-                        <span className="truncate">{contacto.ciudad}</span>
-                      </div>
-                    ) : contacto.provincia ? (
-                      <span className="text-sm text-slate-500">{contacto.provincia}</span>
+                  {/* Teléfono — solo número */}
+                  <TableCell className="py-2">
+                    {(contacto.telefonoDisplay || contacto.whatsapp) ? (
+                      <span className="text-sm text-slate-700 truncate block">
+                        {contacto.telefonoDisplay || contacto.whatsapp}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 text-xs">-</span>
+                    )}
+                  </TableCell>
+
+                  {/* Segmento */}
+                  <TableCell className="py-2">
+                    {contacto.segmento ? (
+                      <Badge variant="secondary" className="text-xs truncate max-w-full block w-fit">{contacto.segmento}</Badge>
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
                   </TableCell>
 
-                  {/* Segmento */}
-                  <TableCell>
-                    {contacto.segmento ? (
-                      <Badge variant="secondary" className="text-xs">{contacto.segmento}</Badge>
-                    ) : <span className="text-slate-300">-</span>}
-                  </TableCell>
-
                   {/* Acciones */}
-                  <TableCell className="text-right">
+                  <TableCell className="py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0"
-                        onClick={() => handleEdit(contacto)}
-                      >
-                        <Edit className="w-4 h-4" />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEdit(contacto)}>
+                        <Edit className="w-3.5 h-3.5" />
                       </Button>
                       {contacto.whatsapp && (
-                        <Button
-                          size="sm"
-                          className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-8 w-8 p-0"
-                          onClick={() => setWhatsappTarget(contacto)}
-                        >
-                          <MessageCircle className="w-4 h-4" />
+                        <Button size="sm" className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-7 w-7 p-0" onClick={() => setWhatsappTarget(contacto)}>
+                          <MessageCircle className="w-3.5 h-3.5" />
                         </Button>
                       )}
                       {!contacto.whatsapp && contacto.email && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                          onClick={() => window.open(`mailto:${contacto.email}`, "_blank")}
-                        >
-                          <Mail className="w-4 h-4" />
+                        <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => window.open(`mailto:${contacto.email}`, "_blank")}>
+                          <Mail className="w-3.5 h-3.5" />
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600"
-                        onClick={() => {
-                          if (window.confirm("¿Eliminar este contacto?")) deleteMutation.mutate(contacto.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-600" onClick={() => { if (window.confirm("¿Eliminar este contacto?")) deleteMutation.mutate(contacto.id); }}>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </TableCell>
+
                 </TableRow>
               ))}
               {!isLoading && contactosFiltrados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
+                  <TableCell colSpan={4} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
                 </TableRow>
               )}
             </TableBody>
