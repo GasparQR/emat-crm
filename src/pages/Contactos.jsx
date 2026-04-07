@@ -151,7 +151,6 @@ export default function Contactos() {
   });
 };
 
-
   const resetForm = () => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
@@ -267,7 +266,14 @@ export default function Contactos() {
 
         {/* Tabla */}
         <Card>
-          <Table>
+          <Table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[28%]" />
+              <col className="w-[27%]" />
+              <col className="w-[17%]" />
+              <col className="w-[13%]" />
+              <col className="w-[15%]" />
+            </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
                 <TableHead className="font-semibold">Contacto</TableHead>
@@ -302,7 +308,7 @@ export default function Contactos() {
                   </TableCell>
 
                   {/* Teléfono / Email */}
-                  <TableCell>
+                  <TableCell className="max-w-0">
                     <div className="space-y-1">
                       {(contacto.telefonoDisplay || contacto.whatsapp) ? (
                         <div className="flex items-center gap-1.5 text-sm text-slate-700">
@@ -323,23 +329,23 @@ export default function Contactos() {
                   </TableCell>
 
                   {/* Ubicación */}
-                  <TableCell>
+                  <TableCell className="max-w-0">
                     {contacto.ciudad ? (
                       <div className="flex items-center gap-1 text-sm text-slate-600">
                         <MapPin className="w-3 h-3 flex-shrink-0" />
                         <span className="truncate">{contacto.ciudad}</span>
                       </div>
                     ) : contacto.provincia ? (
-                      <span className="text-sm text-slate-500">{contacto.provincia}</span>
+                      <span className="text-sm text-slate-500 truncate block">{contacto.provincia}</span>
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
                   </TableCell>
 
                   {/* Segmento */}
-                  <TableCell>
+                  <TableCell className="max-w-0">
                     {contacto.segmento ? (
-                      <Badge variant="secondary" className="text-xs">{contacto.segmento}</Badge>
+                      <Badge variant="secondary" className="text-xs truncate max-w-full block">{contacto.segmento}</Badge>
                     ) : <span className="text-slate-300">-</span>}
                   </TableCell>
 
