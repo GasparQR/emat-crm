@@ -84,137 +84,11 @@ export default function Configuracion() {
           <p className="text-slate-500 mt-1">Gestión de usuarios y preferencias</p>
         </div>
 
-        {/* Usuarios */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              Gestión de usuarios
-            </CardTitle>
-            <CardDescription>Invita a otros usuarios al equipo</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleInviteUser} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Email del usuario</Label>
-                <Input
-                  type="email"
-                  placeholder="usuario@email.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Rol</Label>
-                <Select value={inviteRole} onValueChange={setInviteRole} disabled={currentUser?.role !== "admin"}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="user">Usuario</SelectItem>
-                    {currentUser?.role === "admin" && (
-                      <SelectItem value="admin">Administrador</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                {currentUser?.role !== "admin" && (
-                  <p className="text-xs text-slate-400">Solo puedes invitar usuarios regulares</p>
-                )}
-              </div>
-              <Button type="submit" disabled={isLoading} className="w-full gap-2">
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Enviar invitación
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        
 
-        {/* Perfil */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              Perfil
-            </CardTitle>
-            <CardDescription>Información personal</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nombre completo</Label>
-              <Input placeholder="Tu nombre" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" placeholder="tu@email.com" disabled />
-              <p className="text-xs text-slate-400">El email no se puede modificar</p>
-            </div>
-            <Button>Guardar cambios</Button>
-          </CardContent>
-        </Card>
+     
 
-        {/* Notificaciones */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              Notificaciones
-            </CardTitle>
-            <CardDescription>Gestiona cómo recibes notificaciones</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Seguimientos vencidos</p>
-                <p className="text-sm text-slate-500">Notificación diaria de seguimientos pendientes</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Nuevas consultas</p>
-                <p className="text-sm text-slate-500">Notificación cuando se crea una consulta</p>
-              </div>
-              <Switch />
-            </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Ventas concretadas</p>
-                <p className="text-sm text-slate-500">Notificación cuando se cierra una venta</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Preferencias */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              Preferencias
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Modo oscuro</p>
-                <p className="text-sm text-slate-500">Interfaz con tema oscuro</p>
-              </div>
-              <Switch />
-            </div>
-            <Separator />
-            <div className="space-y-2">
-              <Label>Moneda por defecto</Label>
-              <select className="w-full rounded-lg border border-slate-200 px-3 py-2">
-                <option value="USD">Dólares (USD)</option>
-                <option value="ARS">Pesos argentinos (ARS)</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-
+        
         {/* Días hábiles */}
         <Card>
           <CardHeader>
@@ -283,7 +157,7 @@ export default function Configuracion() {
         </Card>
 
         <div className="text-center text-sm text-slate-400 py-4">
-          TechCRM v1.0 - Mini CRM para ventas por WhatsApp
+          Pragma CRM v1.0 - Mini CRM para ventas por WhatsApp
         </div>
       </div>
     </div>
