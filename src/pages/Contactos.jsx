@@ -144,20 +144,6 @@ export default function Contactos() {
   });
 };
 
-    const now = new Date();
-    createConsultaMutation.mutate({
-      contactoNombre: c.nombre,
-      empresa: c.empresa || "",
-      contactoWhatsapp: c.whatsapp || "",
-      email: c.email || "",
-      canalOrigen: c.canalOrigen || "WhatsApp",
-      etapa: primeraEtapa,
-      primerMensaje: mensaje || "",
-      fechaConsulta: now.toISOString().split("T")[0],
-      mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
-      ano: now.getFullYear(),
-    });
-  };
 
   const resetForm = () => {
     setFormData({
