@@ -3,8 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts";
-import { TrendingUp, DollarSign, Users, Package, ArrowLeft, ShoppingBag, Truck, AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid,
+} from "recharts";
+import {
+  TrendingUp, ArrowLeft, Target, Layers,
+  DollarSign, Calendar, CheckCircle, Clock, XCircle, AlertCircle,
+} from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -12,243 +19,262 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 
-const COLORS = ["#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#a855f7", "#22d3ee", "#f43f5e"];
+const ASESOR_COLORS = {
+  ANDRES: "#3b82f6",
+  TRISTAN: "#a855f7",
+  VALENTINA: "#ec4899",
+  ROCIO: "#f43f5e",
+  JULIAN: "#6366f1",
+  PABLO: "#f97316",
+  ESTEBAN: "#06b6d4",
+  MACA: "#d946ef",
+};
 
+const ESTADO_COLORS = {
+  "A COTIZAR": "#94a3b8",
+  "NEGOCIACION": "#f59e0b",
+  "GANADA": "#10b981",
+  "EJECUTADA": "#059669",
+  "PAUSADA": "#6b7280",
+  "PERDIDA": "#ef4444",
+};
+
+const ESTADO_BADGE = {
+  "A COTIZAR": "bg-slate-100 text-slate-700",
+  "NEGOCIACION": "bg-amber-100 text-amber-700",
+  "GANADA": "bg-green-100 text-green-700",
+  "EJECUTADA": "bg-emerald-100 text-emerald-800",
+  "PAUSADA": "bg-gray-100 text-gray-600",
+  "PERDIDA": "bg-red-100 text-red-700",
+};
+
+const MESES_ORDEN = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const CHART_COLORS = ["#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#a855f7","#22d3ee","#f43f5e"];
+
+const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
+const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+const fmtMonthYear = (mes, ano) =>
+  mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
-  const [periodo, setPeriodo] = useState("30");
-  const [filtroCanal, setFiltroCanal] = useState("todos");
-  const [filtroVendedor, setFiltroVendedor] = useState("todos");
+  const [periodo, setPeriodo] = useState("todos");
+  const [filtroAsesor, setFiltroAsesor] = useState("todos");
+  const [filtroAno, setFiltroAno] = useState("todos");
   const { workspace } = useWorkspace();
 
-  const { data: ventas = [], isLoading: isLoadingVentas } = useQuery({
-    queryKey: ['ventas-reportes', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Venta.filter({ workspace_id: workspace.id }, "-fecha", 500) : [],
-    enabled: !!workspace
+  const { data: consultas = [], isLoading } = useQuery({
+    queryKey: ["consultas-reportes", workspace?.id],
+    queryFn: () =>
+      workspace
+        ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
+        : [],
+    enabled: !!workspace,
   });
 
-  const { data: consultas = [] } = useQuery({
-    queryKey: ['consultas-reportes', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 1000) : [],
-    enabled: !!workspace
-  });
+  const anos = useMemo(
+    () => [...new Set(consultas.map((c) => c.ano).filter(Boolean))].sort((a, b) => b - a),
+    [consultas]
+  );
 
-  const { data: proveedores = [] } = useQuery({
-    queryKey: ['proveedores-reportes', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Proveedor.filter({ workspace_id: workspace.id }) : [],
-    enabled: !!workspace
-  });
-
-  const { data: users = [] } = useQuery({
-    queryKey: ['users-reportes'],
-    queryFn: () => base44.entities.User.list(),
-  });
-
-  const dias = parseInt(periodo);
-  const fechaCorte = moment().subtract(dias, 'days');
-
-  // Filtros aplicados
-  const ventasFiltradas = useMemo(() => {
-    let filtered = ventas.filter(v => v.estado === "Finalizada" && moment(v.fecha).isAfter(fechaCorte));
-    if (filtroCanal !== "todos") filtered = filtered.filter(v => v.marketplace === filtroCanal);
-    if (filtroVendedor !== "todos") filtered = filtered.filter(v => v.porUsuarioId === filtroVendedor);
-    return filtered;
-  }, [ventas, fechaCorte, filtroCanal, filtroVendedor]);
-
-  const consultasFiltradas = useMemo(() => {
-    let filtered = consultas.filter(c => moment(c.created_date).isAfter(fechaCorte));
-    if (filtroCanal !== "todos") filtered = filtered.filter(c => c.canalOrigen === filtroCanal);
-    if (filtroVendedor !== "todos") filtered = filtered.filter(c => c.created_by === filtroVendedor);
-    return filtered;
-  }, [consultas, fechaCorte, filtroCanal, filtroVendedor]);
-
-  // === DASHBOARD EJECUTIVO ===
-  const totalGanancia = ventasFiltradas.reduce((sum, v) => sum + (v.ganancia || 0), 0);
-  const totalVentas = ventasFiltradas.length;
-  const totalConsultas = consultasFiltradas.length;
-  const tasaConversion = totalConsultas > 0 ? (totalVentas / totalConsultas * 100).toFixed(1) : 0;
-  const ticketPromedio = totalVentas > 0 ? ventasFiltradas.reduce((sum, v) => sum + (v.venta || 0), 0) / totalVentas : 0;
-  const gananciaPorConsulta = totalConsultas > 0 ? totalGanancia / totalConsultas : 0;
-
-  // Producto más rentable
-  const gananciaPorProducto = ventasFiltradas.reduce((acc, v) => {
-    const prod = v.productoSnapshot || "Sin especificar";
-    acc[prod] = (acc[prod] || 0) + (v.ganancia || 0);
-    return acc;
-  }, {});
-  const productoMasRentable = Object.entries(gananciaPorProducto).sort(([, a], [, b]) => b - a)[0];
-
-  // Canal más rentable
-  const gananciaPorCanal = ventasFiltradas.reduce((acc, v) => {
-    const canal = v.marketplace || "Sin especificar";
-    acc[canal] = (acc[canal] || 0) + (v.ganancia || 0);
-    return acc;
-  }, {});
-  const canalMasRentable = Object.entries(gananciaPorCanal).sort(([, a], [, b]) => b - a)[0];
-
-  // Proveedor más rentable
-  const gananciaPorProveedor = ventasFiltradas.reduce((acc, v) => {
-    const prov = v.proveedorNombreSnapshot || "Sin especificar";
-    acc[prov] = (acc[prov] || 0) + (v.ganancia || 0);
-    return acc;
-  }, {});
-  const proveedorMasRentable = Object.entries(gananciaPorProveedor).sort(([, a], [, b]) => b - a)[0];
-
-  // === EMBUDO ===
-  const funnelData = [
-    { name: "Consultas", value: totalConsultas, fill: "#94a3b8" },
-    { name: "Ventas", value: totalVentas, fill: "#10b981" }
-  ];
-
-  // === CANALES ===
-  const canalesData = useMemo(() => {
-    const canales = {};
-    consultasFiltradas.forEach(c => {
-      const canal = c.canalOrigen || "Sin especificar";
-      if (!canales[canal]) canales[canal] = { consultas: 0, ventas: 0, gananciaTotal: 0, tiempos: [] };
-      canales[canal].consultas++;
-      if (c.etapa === "Concretado") {
-        const venta = ventasFiltradas.find(v => v.consultaId === c.id);
-        if (venta) {
-          canales[canal].ventas++;
-          canales[canal].gananciaTotal += venta.ganancia || 0;
-          const dias = moment(venta.fecha).diff(moment(c.created_date), 'days');
-          if (dias >= 0) canales[canal].tiempos.push(dias);
-        }
+  const filtradas = useMemo(() => {
+    const hoy = moment();
+    return consultas.filter((c) => {
+      if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
+      if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
+      if (periodo !== "todos") {
+        const dias = parseInt(periodo);
+        if (!c.created_date || !moment(c.created_date).isAfter(hoy.clone().subtract(dias, "days")))
+          return false;
       }
+      return true;
     });
+  }, [consultas, filtroAsesor, filtroAno, periodo]);
 
-    return Object.entries(canales).map(([name, data]) => ({
-      name,
-      consultas: data.consultas,
-      ventas: data.ventas,
-      conversion: data.consultas > 0 ? (data.ventas / data.consultas * 100).toFixed(1) : 0,
-      gananciaTotal: data.gananciaTotal,
-      gananciaProm: data.ventas > 0 ? data.gananciaTotal / data.ventas : 0,
-      tiempoProm: data.tiempos.length > 0 ? (data.tiempos.reduce((a, b) => a + b, 0) / data.tiempos.length).toFixed(0) : 0
-    })).sort((a, b) => b.gananciaTotal - a.gananciaTotal);
-  }, [consultasFiltradas, ventasFiltradas]);
+  // TAB 1 - DASHBOARD EJECUTIVO
+  const kpis = useMemo(() => {
+    const ganadas = filtradas.filter((c) => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
+    const conEstado = filtradas.filter((c) => c.etapa);
+    const tasa =
+      conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
+    const m2Total = filtradas.reduce((s, c) => s + (c.superficieM2 || 0), 0);
+    const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
+    const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
+    const enSeguimiento = filtradas.filter(
+      (c) => c.proximoSeguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+    );
+    return {
+      total: filtradas.length,
+      tasa,
+      m2Total: Math.round(m2Total),
+      importeGanado,
+      ticketPromedio,
+      enSeguimiento: enSeguimiento.length,
+    };
+  }, [filtradas]);
 
-  // === PRODUCTOS ===
-  const productosData = useMemo(() => {
-    const productos = {};
-    ventasFiltradas.forEach(v => {
-      const prod = v.productoSnapshot || "Sin especificar";
-      if (!productos[prod]) productos[prod] = { gananciaTotal: 0, costo: 0, venta: 0, count: 0 };
-      productos[prod].gananciaTotal += v.ganancia || 0;
-      productos[prod].costo += v.costo || 0;
-      productos[prod].venta += v.venta || 0;
-      productos[prod].count++;
+  const porMesData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const key = fmtMonthYear(c.mes, c.ano);
+      if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, ganados: 0, perdidos: 0, otros: 0 };
+      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") map[key].ganados++;
+      else if (c.etapa === "PERDIDA") map[key].perdidos++;
+      else map[key].otros++;
     });
+    return Object.values(map).sort((a, b) => {
+      if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
+      return (MESES_ORDEN.indexOf(a.mes) || 0) - (MESES_ORDEN.indexOf(b.mes) || 0);
+    });
+  }, [filtradas]);
 
-    return Object.entries(productos).map(([name, data]) => ({
-      name,
-      gananciaTotal: data.gananciaTotal,
-      margen: data.venta > 0 ? ((data.gananciaTotal / data.venta) * 100).toFixed(1) : 0,
-      count: data.count
-    })).sort((a, b) => b.gananciaTotal - a.gananciaTotal).slice(0, 10);
-  }, [ventasFiltradas]);
+  const estadoDistData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const e = c.etapa || "Sin estado";
+      map[e] = (map[e] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [filtradas]);
 
-  // === PROVEEDORES ===
-  const proveedoresData = useMemo(() => {
-    const provs = {};
-    ventasFiltradas.forEach(v => {
-      const prov = v.proveedorNombreSnapshot || "Sin especificar";
-      if (!provs[prov]) provs[prov] = { compras: 0, costoTotal: 0, ventaTotal: 0, gananciaTotal: 0, ultimaCompra: null };
-      provs[prov].compras++;
-      provs[prov].costoTotal += v.costo || 0;
-      provs[prov].ventaTotal += v.venta || 0;
-      provs[prov].gananciaTotal += v.ganancia || 0;
-      if (!provs[prov].ultimaCompra || moment(v.fecha).isAfter(provs[prov].ultimaCompra)) {
-        provs[prov].ultimaCompra = v.fecha;
+  // TAB 2 - ASESORES
+  const asesoresData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const a = c.asesor || "Sin asignar";
+      if (!map[a]) map[a] = { asesor: a, total: 0, ganados: 0, importe: 0, m2: 0 };
+      map[a].total++;
+      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") {
+        map[a].ganados++;
+        map[a].importe += c.importe || 0;
       }
+      map[a].m2 += c.superficieM2 || 0;
     });
+    return Object.values(map)
+      .map((d) => ({ ...d, tasa: d.total > 0 ? ((d.ganados / d.total) * 100).toFixed(1) : 0 }))
+      .sort((a, b) => b.total - a.total);
+  }, [filtradas]);
 
-    return Object.entries(provs).map(([name, data]) => ({
-      name,
-      compras: data.compras,
-      costoTotal: data.costoTotal,
-      ventaTotal: data.ventaTotal,
-      gananciaTotal: data.gananciaTotal,
-      margen: data.ventaTotal > 0 ? ((data.gananciaTotal / data.ventaTotal) * 100).toFixed(1) : 0,
-      ultimaCompra: data.ultimaCompra
-    })).sort((a, b) => b.gananciaTotal - a.gananciaTotal);
-  }, [ventasFiltradas]);
+  const mejorAsesor = useMemo(
+    () => [...asesoresData].sort((a, b) => parseFloat(b.tasa) - parseFloat(a.tasa))[0] || null,
+    [asesoresData]
+  );
 
-  // === PÉRDIDAS ===
+  // TAB 3 - ANÁLISIS COMERCIAL
+  const tipoAplicacionData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const t = c.tipoAplicacion || "Sin especificar";
+      if (!map[t]) map[t] = { name: t, cantidad: 0, m2: 0 };
+      map[t].cantidad++;
+      map[t].m2 += c.superficieM2 || 0;
+    });
+    return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
+  }, [filtradas]);
+
+  const ubicacionData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const u = c.ubicacionObra || "Sin especificar";
+      map[u] = (map[u] || 0) + 1;
+    });
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [filtradas]);
+
+  const evolucionMensual = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      if (!c.mes || !c.ano) return;
+      const key = fmtMonthYear(c.mes, c.ano);
+      if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, total: 0 };
+      map[key].total++;
+    });
+    return Object.values(map).sort((a, b) => {
+      if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
+      return (MESES_ORDEN.indexOf(a.mes) || 0) - (MESES_ORDEN.indexOf(b.mes) || 0);
+    });
+  }, [filtradas]);
+
+  // TAB 4 - PIPELINE & SEGUIMIENTO
+  const pipelineData = useMemo(() => {
+    const etapas = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA"];
+    return etapas.map((e) => ({
+      etapa: e,
+      cantidad: filtradas.filter((c) => c.etapa === e).length,
+      fill: ESTADO_COLORS[e],
+    }));
+  }, [filtradas]);
+
+  const seguimientoInfo = useMemo(() => {
+    const hoy = moment();
+    const en7dias = hoy.clone().add(7, "days");
+    const vencidos = filtradas.filter(
+      (c) =>
+        c.proximoSeguimiento &&
+        moment(c.proximoSeguimiento).isBefore(hoy, "day") &&
+        ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+    );
+    const proximos = filtradas.filter(
+      (c) =>
+        c.proximoSeguimiento &&
+        moment(c.proximoSeguimiento).isBetween(hoy, en7dias, "day", "[]") &&
+        ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+    );
+    const tiemposEnPipeline = filtradas
+      .filter((c) => (c.etapa === "GANADA" || c.etapa === "EJECUTADA") && c.created_date)
+      .map((c) => moment().diff(moment(c.created_date), "days"))
+      .filter((d) => d >= 0);
+    const tiempoProm =
+      tiemposEnPipeline.length > 0
+        ? Math.round(tiemposEnPipeline.reduce((a, b) => a + b, 0) / tiemposEnPipeline.length)
+        : null;
+    return { vencidos, proximos, tiempoProm };
+  }, [filtradas]);
+
+  // TAB 5 - PÉRDIDAS
   const perdidasData = useMemo(() => {
-    const perdidas = consultasFiltradas.filter(c => c.etapa === "Perdido");
-    const motivos = {};
-    const tiempos = [];
-
-    perdidas.forEach(c => {
-      const motivo = c.motivoPerdida || "Sin especificar";
-      motivos[motivo] = (motivos[motivo] || 0) + 1;
-      
-      const dias = moment().diff(moment(c.created_date), 'days');
-      if (dias >= 0) tiempos.push(dias);
+    const perdidas = filtradas.filter((c) => c.etapa === "PERDIDA");
+    const motivosMap = {};
+    perdidas.forEach((c) => {
+      const m = c.motivoPerdida || "Sin especificar";
+      motivosMap[m] = (motivosMap[m] || 0) + 1;
     });
-
-    const totalPerdidas = perdidas.length;
-    const motivosArray = Object.entries(motivos).map(([name, count]) => ({
-      name,
-      value: count,
-      percent: totalPerdidas > 0 ? ((count / totalPerdidas) * 100).toFixed(1) : 0
-    })).sort((a, b) => b.value - a.value);
-
-    const tiempoProm = tiempos.length > 0 ? (tiempos.reduce((a, b) => a + b, 0) / tiempos.length).toFixed(0) : 0;
-
-    return { motivosArray, tiempoProm };
-  }, [consultasFiltradas]);
-
-  // === TIMELINE ===
-  const ventasTimeline = useMemo(() => {
-    const dates = {};
-    ventasFiltradas.forEach(v => {
-      const day = moment(v.fecha).format("DD/MM");
-      if (!dates[day]) dates[day] = { ventas: 0, ganancia: 0 };
-      dates[day].ventas++;
-      dates[day].ganancia += v.ganancia || 0;
+    const motivosPie = Object.entries(motivosMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+    const porAsesorMap = {};
+    perdidas.forEach((c) => {
+      const a = c.asesor || "Sin asignar";
+      porAsesorMap[a] = (porAsesorMap[a] || 0) + 1;
     });
-    
-    const timeline = [];
-    for (let i = dias - 1; i >= 0; i--) {
-      const fecha = moment().subtract(i, 'days');
-      const dia = fecha.format("DD/MM");
-      timeline.push({ 
-        dia, 
-        ventas: dates[dia]?.ventas || 0,
-        ganancia: dates[dia]?.ganancia || 0
-      });
-    }
-    return timeline;
-  }, [ventasFiltradas, dias]);
+    const porAsesor = Object.entries(porAsesorMap)
+      .map(([asesor, count]) => ({ asesor, perdidas: count }))
+      .sort((a, b) => b.perdidas - a.perdidas);
+    const porTipoMap = {};
+    perdidas.forEach((c) => {
+      const t = c.tipoAplicacion || "Sin especificar";
+      porTipoMap[t] = (porTipoMap[t] || 0) + 1;
+    });
+    const porTipo = Object.entries(porTipoMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+    const pct = filtradas.length > 0 ? ((perdidas.length / filtradas.length) * 100).toFixed(1) : 0;
+    return { total: perdidas.length, pct, motivosPie, porAsesor, porTipo };
+  }, [filtradas]);
 
-  // === FILTROS DISPONIBLES ===
-  const canalesDisponibles = useMemo(() => {
-    const salesChannels = new Set(ventas.map(v => v.marketplace).filter(Boolean));
-    const consultaChannels = new Set(consultas.map(c => c.canalOrigen).filter(Boolean));
-    return [...new Set([...salesChannels, ...consultaChannels])].sort();
-  }, [ventas, consultas]);
-
-  const vendedoresDisponibles = useMemo(() => {
-    const sellerEmails = new Set();
-    ventas.forEach(v => { if (v.porUsuarioId) sellerEmails.add(v.porUsuarioId); });
-    consultas.forEach(c => { if (c.created_by) sellerEmails.add(c.created_by); });
-    
-    return Array.from(sellerEmails).map(email => {
-      const user = users.find(u => u.email === email);
-      return { email, name: user?.full_name || email };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [ventas, consultas, users]);
-
-  // Comparación de canales
-  const mejorCanal = canalesData[0];
-  const comparacionCanal = canalesData.length > 1 && mejorCanal ? 
-    `${mejorCanal.name} rinde ${(mejorCanal.gananciaTotal / (canalesData[1]?.gananciaTotal || 1)).toFixed(1)}x más que ${canalesData[1]?.name}` : null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-slate-500">Cargando reportes\u2026</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 md:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -259,247 +285,242 @@ export default function Reportes() {
               </Button>
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">Reportes & Analytics</h1>
-            <p className="text-sm text-slate-500 mt-1">Métricas accionables para tomar mejores decisiones</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {filtradas.length} presupuesto{filtradas.length !== 1 ? "s" : ""} en el per\u00edodo seleccionado
+            </p>
           </div>
+
           <div className="flex flex-wrap gap-2">
             <Select value={periodo} onValueChange={setPeriodo}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="7">Últimos 7 días</SelectItem>
-                <SelectItem value="30">Últimos 30 días</SelectItem>
-                <SelectItem value="90">Últimos 90 días</SelectItem>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="7">\u00daltimos 7 d\u00edas</SelectItem>
+                <SelectItem value="30">\u00daltimos 30 d\u00edas</SelectItem>
+                <SelectItem value="90">\u00daltimos 90 d\u00edas</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filtroCanal} onValueChange={setFiltroCanal}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Canal" />
+
+            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Asesor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {canalesDisponibles.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem value="todos">Todos los asesores</SelectItem>
+                {["ANDRES","TRISTAN","VALENTINA","ROCIO","JULIAN","PABLO","ESTEBAN","MACA"].map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filtroVendedor} onValueChange={setFiltroVendedor}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="Vendedor" />
+
+            <Select value={filtroAno} onValueChange={setFiltroAno}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="A\u00f1o" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {vendedoresDisponibles.map(v => (
-                  <SelectItem key={v.email} value={v.email}>{v.name}</SelectItem>
+                <SelectItem value="todos">Todos los a\u00f1os</SelectItem>
+                {anos.map((a) => (
+                  <SelectItem key={a} value={String(a)}>{a}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         </div>
 
+        {/* Tabs */}
         <Tabs defaultValue="ejecutivo" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
             <TabsTrigger value="ejecutivo">Ejecutivo</TabsTrigger>
-            <TabsTrigger value="canales">Canales</TabsTrigger>
-            <TabsTrigger value="productos">Productos</TabsTrigger>
-            <TabsTrigger value="proveedores">Proveedores</TabsTrigger>
-            <TabsTrigger value="perdidas">Pérdidas</TabsTrigger>
+            <TabsTrigger value="asesores">Asesores</TabsTrigger>
+            <TabsTrigger value="comercial">Comercial</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+            <TabsTrigger value="perdidas">P\u00e9rdidas</TabsTrigger>
           </TabsList>
 
-          {/* DASHBOARD EJECUTIVO */}
+          {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-emerald-50 to-white border-emerald-200">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+              <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-emerald-700 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    Ganancia Total
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5" />Total presupuestos
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-emerald-900">US$ {totalGanancia.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  <p className="text-xs text-emerald-600 mt-1">{totalVentas} ventas</p>
+                  <p className="text-3xl font-bold text-slate-900">{kpis.total}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    Tasa de Conversión
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversi\u00f3n
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{tasaConversion}%</p>
-                  <p className="text-xs text-slate-500 mt-1">{totalVentas} de {totalConsultas} consultas</p>
+                  <p className="text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                    <ShoppingBag className="w-4 h-4" />
-                    Ticket Promedio
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5" />m\u00b2 cotizados
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">US$ {ticketPromedio.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-3xl font-bold text-slate-900">{fmt(kpis.m2Total)}</p>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5" />Importe ganado
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-green-800">{fmtPesos(kpis.importeGanado)}</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                    <DollarSign className="w-4 h-4" />
-                    Ganancia por Consulta
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5" />Ticket promedio
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">US$ {gananciaPorConsulta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  <p className="text-2xl font-bold text-slate-900">{fmtPesos(kpis.ticketPromedio)}</p>
                 </CardContent>
               </Card>
 
-              {productoMasRentable && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                      <Package className="w-4 h-4" />
-                      Producto Más Rentable
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-bold text-slate-900 truncate">{productoMasRentable[0]}</p>
-                    <p className="text-sm text-slate-600">US$ {productoMasRentable[1].toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {canalMasRentable && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                      <Truck className="w-4 h-4" />
-                      Canal Más Rentable
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-bold text-slate-900">{canalMasRentable[0]}</p>
-                    <p className="text-sm text-slate-600">US$ {canalMasRentable[1].toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {proveedorMasRentable && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Proveedor Más Rentable
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-lg font-bold text-slate-900 truncate">{proveedorMasRentable[0]}</p>
-                    <p className="text-sm text-slate-600">US$ {proveedorMasRentable[1].toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                  </CardContent>
-                </Card>
-              )}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />En seguimiento
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* Embudo */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Embudo con Impacto Económico</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={funnelData} layout="vertical">
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} />
-                    <XAxis type="number" tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {funnelData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="text-center mt-4 p-4 bg-slate-50 rounded-lg">
-                  <p className="text-sm text-slate-600">
-                    Convertimos <span className="font-bold text-emerald-600">{tasaConversion}%</span> de las consultas en ventas.
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Cada consulta generó <span className="font-bold text-emerald-600">US$ {gananciaPorConsulta.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span> de ganancia en promedio.
-                  </p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Ganancia total: <span className="font-bold text-emerald-600">US$ {totalGanancia.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Presupuestos por mes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={porMesData} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="ganados" name="Ganados" stackId="a" fill="#10b981" />
+                      <Bar dataKey="perdidos" name="Perdidos" stackId="a" fill="#ef4444" />
+                      <Bar dataKey="otros" name="En proceso" stackId="a" fill="#94a3b8" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-            {/* Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Ventas por Día (últimos {dias} días)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={ventasTimeline}>
-                    <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(value, name) => [value, name === "ganancia" ? "Ganancia" : "Ventas"]} />
-                    <Legend />
-                    <Line type="monotone" dataKey="ventas" stroke="#3b82f6" strokeWidth={2} name="Ventas" />
-                    <Line type="monotone" dataKey="ganancia" stroke="#10b981" strokeWidth={2} name="Ganancia" />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribuci\u00f3n por estado</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={estadoDistData}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        dataKey="value"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {estadoDistData.map((entry, i) => (
+                          <Cell key={i} fill={ESTADO_COLORS[entry.name] || "#94a3b8"} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
-          {/* CANALES */}
-          <TabsContent value="canales" className="space-y-6">
-            {comparacionCanal && (
+          {/* TAB 2: ASESORES */}
+          <TabsContent value="asesores" className="space-y-6">
+            {mejorAsesor && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-                <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-blue-900">Insight</p>
-                  <p className="text-sm text-blue-700">{comparacionCanal}</p>
-                </div>
+                <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                <p className="text-sm text-blue-800">
+                  <span className="font-semibold">{mejorAsesor.asesor}</span> tiene la mejor tasa de conversi\u00f3n:{" "}
+                  <span className="font-bold text-blue-700">{mejorAsesor.tasa}%</span>
+                  {" "}({mejorAsesor.ganados} ganados de {mejorAsesor.total} presupuestos).
+                </p>
               </div>
             )}
 
-            <div className="grid gap-4">
-              {canalesData.map(canal => (
-                <Card key={canal.name}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold text-slate-900">{canal.name}</h3>
-                      <span className="text-2xl font-bold text-emerald-600">
-                        US$ {canal.gananciaTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </span>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Total vs. Ganados por asesor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={asesoresData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="asesor" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="total" name="Total" fill="#94a3b8" radius={[4,4,0,0]} />
+                    <Bar dataKey="ganados" name="Ganados" fill="#10b981" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {asesoresData.map((a) => (
+                <Card key={a.asesor} className="overflow-hidden">
+                  <div
+                    className="h-1.5"
+                    style={{ backgroundColor: ASESOR_COLORS[a.asesor] || "#94a3b8" }}
+                  />
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-bold">{a.asesor}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Presupuestos</span>
+                      <span className="font-semibold">{a.total}</span>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
-                      <div>
-                        <p className="text-xs text-slate-500">Consultas</p>
-                        <p className="text-xl font-bold text-slate-900">{canal.consultas}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Ventas</p>
-                        <p className="text-xl font-bold text-slate-900">{canal.ventas}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Conversión</p>
-                        <p className="text-xl font-bold text-emerald-600">{canal.conversion}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Ganancia Prom.</p>
-                        <p className="text-xl font-bold text-slate-900">US$ {canal.gananciaProm.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500">Tiempo Cierre</p>
-                        <p className="text-xl font-bold text-slate-900">{canal.tiempoProm} días</p>
-                      </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Ganados</span>
+                      <span className="font-semibold text-green-700">{a.ganados}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Conversi\u00f3n</span>
+                      <span className="font-semibold text-emerald-600">{a.tasa}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Importe ganado</span>
+                      <span className="font-semibold">{fmtPesos(a.importe)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">m\u00b2 cotizados</span>
+                      <span className="font-semibold">{fmt(Math.round(a.m2))}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -507,20 +528,25 @@ export default function Reportes() {
             </div>
           </TabsContent>
 
-          {/* PRODUCTOS */}
-          <TabsContent value="productos" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+          {/* TAB 3: AN\u00c1LISIS COMERCIAL */}
+          <TabsContent value="comercial" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Ranking por Ganancia Total</CardTitle>
+                  <CardTitle className="text-base">Presupuestos por tipo de aplicaci\u00f3n</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={productosData} layout="vertical">
-                      <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(val) => `$${val}`} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                      <Tooltip formatter={(val) => `US$ ${val.toLocaleString()}`} />
-                      <Bar dataKey="gananciaTotal" fill="#10b981" radius={[0, 4, 4, 0]} />
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                      data={tipoAplicacionData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 80, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="cantidad" name="Cantidad" fill="#3b82f6" radius={[0,4,4,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -528,114 +554,277 @@ export default function Reportes() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Ranking por Margen %</CardTitle>
+                  <CardTitle className="text-base">m\u00b2 por tipo de aplicaci\u00f3n</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={[...productosData].sort((a, b) => parseFloat(b.margen) - parseFloat(a.margen))} layout="vertical">
-                      <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(val) => `${val}%`} />
-                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
-                      <Tooltip formatter={(val) => `${val}%`} />
-                      <Bar dataKey="margen" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart
+                      data={tipoAplicacionData}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 80, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={80} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v) => [`${fmt(Math.round(v))} m\u00b2`, "m\u00b2"]} />
+                      <Bar dataKey="m2" name="m\u00b2" fill="#06b6d4" radius={[0,4,4,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Top 10 ubicaciones de obra</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={ubicacionData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 20, left: 110, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="value" name="Presupuestos" fill="#f59e0b" radius={[0,4,4,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Evoluci\u00f3n mensual de presupuestos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: -10, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-40} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      name="Presupuestos"
+                      stroke="#6366f1"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </TabsContent>
 
-          {/* PROVEEDORES */}
-          <TabsContent value="proveedores" className="space-y-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-2 font-semibold text-slate-700">Proveedor</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Compras</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Costo Total</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Venta Total</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Ganancia</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Margen %</th>
-                    <th className="text-right py-3 px-2 font-semibold text-slate-700">Última Compra</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proveedoresData.map((prov, idx) => (
-                    <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-2 font-medium text-slate-900">{prov.name}</td>
-                      <td className="text-right py-3 px-2 text-slate-600">{prov.compras}</td>
-                      <td className="text-right py-3 px-2 text-slate-600">US$ {prov.costoTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="text-right py-3 px-2 text-slate-600">US$ {prov.ventaTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="text-right py-3 px-2 font-semibold text-emerald-600">US$ {prov.gananciaTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                      <td className="text-right py-3 px-2 text-slate-600">{prov.margen}%</td>
-                      <td className="text-right py-3 px-2 text-slate-500 text-xs">{prov.ultimaCompra ? moment(prov.ultimaCompra).format("DD/MM/YY") : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TabsContent>
+          {/* TAB 4: PIPELINE & SEGUIMIENTO */}
+          <TabsContent value="pipeline" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Embudo de etapas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-3">
+                  {pipelineData.map((d) => {
+                    const maxVal = Math.max(...pipelineData.map((x) => x.cantidad), 1);
+                    const pct = (d.cantidad / maxVal) * 100;
+                    return (
+                      <div key={d.etapa} className="flex items-center gap-3">
+                        <span className="w-28 text-sm font-medium text-slate-600 text-right">{d.etapa}</span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-8 relative overflow-hidden">
+                          <div
+                            className="h-full rounded-full flex items-center justify-end pr-3 transition-all"
+                            style={{ width: `${Math.max(pct, 5)}%`, backgroundColor: d.fill }}
+                          >
+                            <span className="text-white text-sm font-bold">{d.cantidad}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* PÉRDIDAS */}
-          <TabsContent value="perdidas" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-500" />
-                    Motivos de Pérdida (%)
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />Seguimientos vencidos
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {perdidasData.motivosArray.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={perdidasData.motivosArray}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          dataKey="value"
-                          label={({ name, percent }) => `${name} ${percent}%`}
-                          labelLine={false}
-                        >
-                          {perdidasData.motivosArray.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value, name, props) => [`${value} (${props.payload.percent}%)`, name]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-slate-500 py-20">No hay datos de pérdidas en este período</p>
-                  )}
+                  <p className="text-4xl font-bold text-red-700">{seguimientoInfo.vencidos.length}</p>
+                  <p className="text-xs text-red-500 mt-1">presupuestos con fecha pasada</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-amber-200 bg-amber-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-amber-700 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />Pr\u00f3ximos 7 d\u00edas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-4xl font-bold text-amber-700">{seguimientoInfo.proximos.length}</p>
+                  <p className="text-xs text-amber-500 mt-1">seguimientos a vencer</p>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Análisis de Tiempo</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                    <Clock className="w-4 h-4" />Tiempo promedio en pipeline
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="text-center p-6 bg-slate-50 rounded-lg">
-                    <p className="text-sm text-slate-500 mb-2">Tiempo Promedio hasta Pérdida</p>
-                    <p className="text-4xl font-bold text-slate-900">{perdidasData.tiempoProm}</p>
-                    <p className="text-sm text-slate-500 mt-1">días</p>
-                  </div>
-                  <div className="space-y-3">
-                    {perdidasData.motivosArray.map((motivo, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                        <span className="text-sm font-medium text-slate-700">{motivo.name}</span>
+                <CardContent>
+                  <p className="text-4xl font-bold text-slate-900">
+                    {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "\u2014"}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">d\u00edas desde creaci\u00f3n (ganados/ejecutados)</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {seguimientoInfo.vencidos.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base text-red-700">Seguimientos vencidos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {seguimientoInfo.vencidos.slice(0, 15).map((c) => (
+                      <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                        <div>
+                          <p className="font-medium text-sm text-slate-800">{c.contactoNombre || "Sin nombre"}</p>
+                          <p className="text-xs text-slate-500">#{c.nroPpto} \u00b7 {c.asesor}</p>
+                        </div>
                         <div className="text-right">
-                          <span className="text-lg font-bold text-slate-900">{motivo.value}</span>
-                          <span className="text-xs text-slate-500 ml-2">({motivo.percent}%)</span>
+                          <Badge className={ESTADO_BADGE[c.etapa] || "bg-slate-100 text-slate-600"}>
+                            {c.etapa}
+                          </Badge>
+                          <p className="text-xs text-red-600 mt-1">
+                            {moment(c.proximoSeguimiento).format("DD/MM/YYYY")}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* TAB 5: P\u00c9RDIDAS */}
+          <TabsContent value="perdidas" className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="border-red-200 bg-red-50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-red-700 flex items-center gap-2">
+                    <XCircle className="w-4 h-4" />Total perdidos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-4xl font-bold text-red-700">{perdidasData.total}</p>
+                  <p className="text-xs text-red-500 mt-1">{perdidasData.pct}% del total filtrado</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />Tasa de conversi\u00f3n
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-4xl font-bold text-slate-900">{kpis.tasa}%</p>
+                  <p className="text-xs text-slate-500 mt-1">sobre total con estado definido</p>
+                </CardContent>
+              </Card>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Motivos de p\u00e9rdida</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {perdidasData.motivosPie.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-8">Sin datos de motivos</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie
+                          data={perdidasData.motivosPie}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={90}
+                          dataKey="value"
+                          nameKey="name"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {perdidasData.motivosPie.map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">P\u00e9rdidas por asesor</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {perdidasData.porAsesor.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-8">Sin datos</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={perdidasData.porAsesor} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="asesor" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip />
+                        <Bar dataKey="perdidas" name="Perdidos" fill="#ef4444" radius={[4,4,0,0]}>
+                          {perdidasData.porAsesor.map((entry, i) => (
+                            <Cell key={i} fill={ASESOR_COLORS[entry.asesor] || "#ef4444"} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {perdidasData.porTipo.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">P\u00e9rdidas por tipo de aplicaci\u00f3n</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart
+                      data={perdidasData.porTipo}
+                      layout="vertical"
+                      margin={{ top: 5, right: 20, left: 90, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={90} />
+                      <XAxis type="number" tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="value" name="Perdidos" fill="#ef4444" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
