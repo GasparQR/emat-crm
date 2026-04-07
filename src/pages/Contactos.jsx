@@ -110,16 +110,39 @@ export default function Contactos() {
   });
 
   const handleMessageSent = ({ contacto: c, mensaje }) => {
-    const primeraEtapa = pipelineStages[0]?.nombre || "Nuevo";
+  // Buscar la etapa con orden 1, si no existe entonces orden 0, si tampoco existe tomar la primera
+  const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre 
+    || pipelineStages.find(s => s.orden === 0)?.nombre 
+    || pipelineStages[0]?.nombre;
 
-    const yaExiste = consultas.some(
-      q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
-    );
+  if (!primeraEtapa) {
+    toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
+    return;
+  }
 
-    if (yaExiste) {
-      toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
-      return;
-    }
+  const yaExiste = consultas.some(
+    q => q.contactoNombre === c.nombre && q.etapa === primeraEtapa
+  );
+
+  if (yaExiste) {
+    toast.info(`Ya existe una Consulta en "${primeraEtapa}" para ${c.nombre}`);
+    return;
+  }
+
+  const now = new Date();
+  createConsultaMutation.mutate({
+    contactoNombre: c.nombre,
+    empresa: c.empresa || "",
+    contactoWhatsapp: c.whatsapp || "",
+    email: c.email || "",
+    canalOrigen: c.canalOrigen || "WhatsApp",
+    etapa: primeraEtapa,
+    primerMensaje: mensaje || "",
+    fechaConsulta: now.toISOString().split("T")[0],
+    mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
+    ano: now.getFullYear(),
+  });
+};
 
     const now = new Date();
     createConsultaMutation.mutate({
