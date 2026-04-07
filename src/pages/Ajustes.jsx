@@ -7,7 +7,7 @@ import { ArrowLeft, Settings, MessageSquare, Kanban } from "lucide-react";
 const OPCIONES = [
   {
     title: "Configuración",
-    description: "Usuarios, perfil, notificaciones y preferencias generales",
+    description: "Preferencia días hábiles de seguimiento",
     icon: Settings,
     page: "Configuracion",
     color: "bg-slate-100 text-slate-700"
@@ -26,13 +26,7 @@ const OPCIONES = [
     page: "ConfigurarPipeline",
     color: "bg-blue-100 text-blue-700"
   },
-  {
-    title: "Listas WhatsApp",
-    description: "Administrá tus listas de precios y catálogos para enviar",
-    icon: MessageSquare,
-    page: "ListasWhatsApp",
-    color: "bg-green-100 text-green-700"
-  }
+  
 ];
 
 export default function Ajustes() {
