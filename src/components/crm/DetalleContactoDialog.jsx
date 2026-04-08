@@ -58,12 +58,12 @@ export default function DetalleContactoDialog({ contacto, open, onOpenChange }) 
                       <Phone className="w-3 h-3" />
                     </Button>
                   </div>
-                  {contacto.ciudad && (
+                  {contacto.localidad && (
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500">Ciudad</Label>
+                      <Label className="text-xs font-semibold text-slate-500">localidad</Label>
                       <div className="flex items-center gap-1 text-sm mt-1">
                         <MapPin className="w-3 h-3" />
-                        {contacto.ciudad}
+                        {contacto.localidad}
                       </div>
                     </div>
                   )}
