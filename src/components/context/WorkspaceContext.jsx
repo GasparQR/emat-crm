@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 const WorkspaceContext = createContext(null);
 
 const DEFAULT_WORKSPACE = {
-  id: "workspace_default",
+  id: "local",
   name: "EMAT Celulosa",
   owner_user_id: "demo@emat.com"
 };
