@@ -51,8 +51,8 @@ export default function Home() {
       const now = new Date();
       await base44.entities.Consulta.create({
         workspace_id: wsId,
-        contactoNombre: newLeadData.nombre,
-        contactoWhatsapp: newLeadData.whatsapp || "",
+        contactonombre: newLeadData.nombre,
+        contactowhatsapp: newLeadData.whatsapp || "",
         etapa: "NUEVO LEAD",
         mes: MESES[now.getMonth()],
         ano: now.getFullYear(),
@@ -77,10 +77,10 @@ export default function Home() {
     const totalConEstado = consultas.filter(c => c.etapa && c.etapa !== "A COTIZAR");
     const tasa = totalConEstado.length > 0 ? Math.round((ganadas.length / consultas.length) * 100) : 0;
     const delMes = consultas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear());
-    const m2Mes = delMes.reduce((s, c) => s + (c.superficieM2 || 0), 0);
+    const m2Mes = delMes.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeMes = ganadas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear())
       .reduce((s, c) => s + (c.importe || 0), 0);
-    const enSeguimiento = consultas.filter(c => c.proximoSeguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.etapa));
+    const enSeguimiento = consultas.filter(c => c.proximoseguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.etapa));
     return { recientes: recientes.length, tasa, m2Mes: Math.round(m2Mes), importeMes, enSeguimiento: enSeguimiento.length, totalGanadas: ganadas.length };
   }, [consultas]);
 

@@ -67,7 +67,7 @@ export default function Reportes() {
     queryKey: ["consultas-reportes", workspace?.id],
     queryFn: () =>
       workspace
-        ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
+        ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroppto", 2000)
         : [],
     enabled: !!workspace,
   });
@@ -102,11 +102,11 @@ export default function Reportes() {
     const conEstado = filtradas.filter((c) => c.etapa);
     const tasa =
       conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
-    const m2Total = filtradas.reduce((s, c) => s + (c.superficieM2 || 0), 0);
+    const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
-      (c) => c.proximoSeguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+      (c) => c.proximoseguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
     );
     return {
       total: filtradas.length,
@@ -155,7 +155,7 @@ export default function Reportes() {
         map[a].ganados++;
         map[a].importe += c.importe || 0;
       }
-      map[a].m2 += c.superficieM2 || 0;
+      map[a].m2 += c.superficiem2 || 0;
     });
     return Object.values(map)
       .map((d) => ({ ...d, tasa: d.total > 0 ? ((d.ganados / d.total) * 100).toFixed(1) : 0 }))
@@ -174,10 +174,10 @@ export default function Reportes() {
   const tipoAplicacionData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const t = c.tipoAplicacion || "Sin especificar";
+      const t = c.tipoapplicacion || "Sin especificar";
       if (!map[t]) map[t] = { name: t, cantidad: 0, m2: 0 };
       map[t].cantidad++;
-      map[t].m2 += c.superficieM2 || 0;
+      map[t].m2 += c.superficiem2 || 0;
     });
     return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
   }, [filtradas]);
@@ -185,7 +185,7 @@ export default function Reportes() {
   const ubicacionData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const u = c.ubicacionObra || "Sin especificar";
+      const u = c.ubicacionobra || "Sin especificar";
       map[u] = (map[u] || 0) + 1;
     });
     return Object.entries(map)
@@ -230,14 +230,14 @@ export default function Reportes() {
     const en7dias = hoy.clone().add(7, "days");
     const vencidos = filtradas.filter(
       (c) =>
-        c.proximoSeguimiento &&
-        moment(c.proximoSeguimiento).isBefore(hoy, "day") &&
+        c.proximoseguimiento &&
+        moment(c.proximoseguimiento).isBefore(hoy, "day") &&
         ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
     );
     const proximos = filtradas.filter(
       (c) =>
-        c.proximoSeguimiento &&
-        moment(c.proximoSeguimiento).isBetween(hoy, en7dias, "day", "[]") &&
+        c.proximoseguimiento &&
+        moment(c.proximoseguimiento).isBetween(hoy, en7dias, "day", "[]") &&
         ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
     );
     const tiemposEnPipeline = filtradas
@@ -272,7 +272,7 @@ export default function Reportes() {
       .sort((a, b) => b.perdidas - a.perdidas);
     const porTipoMap = {};
     perdidas.forEach((c) => {
-      const t = c.tipoAplicacion || "Sin especificar";
+      const t = c.tipoapplicacion || "Sin especificar";
       porTipoMap[t] = (porTipoMap[t] || 0) + 1;
     });
     const porTipo = Object.entries(porTipoMap)
@@ -716,15 +716,15 @@ export default function Reportes() {
                     {seguimientoInfo.vencidos.slice(0, 15).map((c) => (
                       <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                         <div>
-                          <p className="font-medium text-sm text-slate-800">{c.contactoNombre || "Sin nombre"}</p>
-                          <p className="text-xs text-slate-500">#{c.nroPpto} · {c.asesor}</p>
+                          <p className="font-medium text-sm text-slate-800">{c.contactonombre || "Sin nombre"}</p>
+                          <p className="text-xs text-slate-500">#{c.nroppto} · {c.asesor}</p>
                         </div>
                         <div className="text-right">
                           <Badge className={ESTADO_BADGE[c.etapa] || "bg-slate-100 text-slate-600"}>
                             {c.etapa}
                           </Badge>
                           <p className="text-xs text-red-600 mt-1">
-                            {moment(c.proximoSeguimiento).format("DD/MM/YYYY")}
+                            {moment(c.proximoseguimiento).format("DD/MM/YYYY")}
                           </p>
                         </div>
                       </div>

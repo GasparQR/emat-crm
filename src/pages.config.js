@@ -53,10 +53,8 @@ import ConfigurarPipeline from './pages/ConfigurarPipeline';
 import Consultas from './pages/Consultas';
 import Contactos from './pages/Contactos';
 import EditorListaWhatsApp from './pages/EditorListaWhatsApp';
-import ExportarVentas from './pages/ExportarVentas';
 import Home from './pages/Home';
 import Hoy from './pages/Hoy';
-import ImportarVentas from './pages/ImportarVentas';
 import ListasWhatsApp from './pages/ListasWhatsApp';
 import Pipeline from './pages/Pipeline';
 import Plantillas from './pages/Plantillas';
@@ -65,9 +63,6 @@ import ProveedorDetalle from './pages/ProveedorDetalle';
 import Proveedores from './pages/Proveedores';
 import Reportes from './pages/Reportes';
 import Variables from './pages/Variables';
-import VentaDetalle from './pages/VentaDetalle';
-import Ventas from './pages/Ventas';
-import VentasDashboard from './pages/VentasDashboard';
 import __Layout from './Layout.jsx';
 import InteligenciaNegocio from './pages/InteligenciaNegocio';
 
@@ -80,10 +75,8 @@ export const PAGES = {
     "Consultas": Consultas,
     "Contactos": Contactos,
     "EditorListaWhatsApp": EditorListaWhatsApp,
-    "ExportarVentas": ExportarVentas,
     "Home": Home,
     "Hoy": Hoy,
-    "ImportarVentas": ImportarVentas,
     "ListasWhatsApp": ListasWhatsApp,
     "Pipeline": Pipeline,
     "Plantillas": Plantillas,
@@ -92,9 +85,6 @@ export const PAGES = {
     "Proveedores": Proveedores,
     "Reportes": Reportes,
     "Variables": Variables,
-    "VentaDetalle": VentaDetalle,
-    "Ventas": Ventas,
-    "VentasDashboard": VentasDashboard,
     "InteligenciaNegocio": InteligenciaNegocio,
 }
 
