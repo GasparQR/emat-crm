@@ -54,14 +54,16 @@ const emptyForm = () => ({
   razonPerdida: "",
 });
 
-function generateNextNroPpto() {
+async function generateNextNroPpto(workspaceId) {
   try {
-    const items = JSON.parse(localStorage.getItem('emat_Consulta') || '[]');
-    const maxNro = items.reduce((max, item) => {
-      const n = parseInt(item.nroPpto);
-      return !isNaN(n) && n > max ? n : max;
-    }, 0);
-    return maxNro + 1;
+    const items = await base44.entities.Consulta.filter(
+      { workspace_id: workspaceId },
+      '-nroPpto',
+      1
+    );
+    if (!items || items.length === 0) return 1;
+    const max = parseInt(items[0].nroPpto);
+    return isNaN(max) ? 1 : max + 1;
   } catch {
     return 1;
   }
@@ -85,11 +87,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           importe: consulta.importe ?? "",
         });
       } else {
-        const nextNro = generateNextNroPpto();
-        setFormData({ ...emptyForm(), nroPpto: nextNro });
+        const wsId = workspace?.id || "local";
+        generateNextNroPpto(wsId).then(nextNro => {
+          setFormData({ ...emptyForm(), nroPpto: nextNro });
+        });
       }
     }
-  }, [consulta, open]);
+  }, [consulta, open, workspace]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 

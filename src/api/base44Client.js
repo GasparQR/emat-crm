@@ -70,7 +70,7 @@ class SupabaseDataStore {
   async create(data) {
     const newItem = {
       id: `${this.tableName}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      workspace_id: 'local',
+      workspace_id: 'workspace_default',
       ...data,
       created_date: new Date().toISOString(),
       updated_date: new Date().toISOString(),
