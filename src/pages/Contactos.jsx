@@ -29,7 +29,7 @@ export default function Contactos() {
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
     email: "", ciudad: "", provincia: "", segmento: "",
-    canalOrigen: "", notas: ""
+    canalOrigen: "", notas: "", etapaPipeline: ""
   });
 
   // Pipeline dialog state
@@ -168,7 +168,7 @@ export default function Contactos() {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", ciudad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: ""
+      canalOrigen: "", notas: "", etapaPipeline: ""
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -176,6 +176,8 @@ export default function Contactos() {
 
   const handleEdit = (contacto) => {
     setSelectedContacto(contacto);
+    // Look up existing consulta for this contact to pre-populate pipeline stage
+    const consultaExistente = consultas.find(q => q.contactoNombre === contacto.nombre);
     setFormData({
       nombre: contacto.nombre || "",
       empresa: contacto.empresa || "",
@@ -187,19 +189,58 @@ export default function Contactos() {
       segmento: contacto.segmento || "",
       canalOrigen: contacto.canalOrigen || "",
       notas: contacto.notas || "",
+      etapaPipeline: consultaExistente?.etapa || "",
     });
     setShowForm(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.nombre) {
       toast.error("El nombre es requerido");
       return;
     }
-    if (selectedContacto) {
-      updateMutation.mutate({ id: selectedContacto.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
+    const { etapaPipeline, ...contactData } = formData;
+
+    try {
+      if (selectedContacto) {
+        await updateMutation.mutateAsync({ id: selectedContacto.id, data: contactData });
+      } else {
+        await createMutation.mutateAsync(contactData);
+      }
+
+      // Handle pipeline stage assignment
+      const stage = etapaPipeline && etapaPipeline !== "sin_asignar" ? etapaPipeline : null;
+      if (stage) {
+        const consultaExistente = consultas.find(q => q.contactoNombre === formData.nombre);
+        if (consultaExistente) {
+          // Update existing consulta's stage
+          if (consultaExistente.etapa !== stage) {
+            await base44.entities.Consulta.update(consultaExistente.id, { etapa: stage });
+            queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
+            toast.success(`Etapa actualizada a "${stage}"`);
+          }
+        } else {
+          // Create new consulta in the selected stage
+          const now = new Date();
+          const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+          await base44.entities.Consulta.create({
+            workspace_id: workspace?.id || "local",
+            contactoNombre: formData.nombre,
+            contactoWhatsapp: formData.whatsapp || "",
+            email: formData.email || "",
+            empresa: formData.empresa || "",
+            canalOrigen: formData.canalOrigen || "",
+            etapa: stage,
+            fechaConsulta: now.toISOString().split("T")[0],
+            mes: MESES[now.getMonth()],
+            ano: now.getFullYear(),
+          });
+          queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
+          toast.success(`Contacto asignado a "${stage}" en el pipeline`);
+        }
+      }
+    } catch (e) {
+      toast.error("Error: " + e.message);
     }
   };
 
@@ -413,6 +454,22 @@ export default function Contactos() {
               <Label>Notas</Label>
               <Textarea value={formData.notas} onChange={e => setFormData({ ...formData, notas: e.target.value })} placeholder="Observaciones..." rows={3} />
             </div>
+            {pipelineStages.length > 0 && (
+              <div className="space-y-1">
+                <Label>Etapa del Pipeline</Label>
+                <Select value={formData.etapaPipeline} onValueChange={v => setFormData({ ...formData, etapaPipeline: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin asignar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sin_asignar">Sin asignar</SelectItem>
+                    {pipelineStages.map(s => (
+                      <SelectItem key={s.nombre} value={s.nombre}>{s.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>Cancelar</Button>
