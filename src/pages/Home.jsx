@@ -12,6 +12,7 @@ import { createPageUrl } from "@/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { Plus, BarChart3, Users, List, TrendingUp, FileText, CheckCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import ConsultaForm from "@/components/crm/ConsultaForm";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
@@ -24,11 +25,12 @@ const ESTADO_PIE_COLORS = {
 };
 
 export default function Home() {
-  const { workspace } = useWorkspace();
+  const [showForm, setShowForm] = useState(false);
   const [showNewLead, setShowNewLead] = useState(false);
   const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
+  const { workspace } = useWorkspace();
 
-  const { data: consultas = [] } = useQuery({
+  const { data: consultas = [], refetch } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
     queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
     enabled: !!workspace,
@@ -125,9 +127,7 @@ export default function Home() {
               <span className="hidden sm:inline">Nuevo cliente / lead</span>
               <span className="sm:hidden">Nuevo lead</span>
             </Button>
-            <Link to={createPageUrl("Consultas")}>
-              <Button className="gap-2"><Plus className="w-4 h-4" />Nuevo presupuesto</Button>
-            </Link>
+            <Button onClick={() => setShowForm(true)} className="gap-2"><Plus className="w-4 h-4" />Nuevo presupuesto</Button>
           </div>
         </div>
       </div>
@@ -263,6 +263,14 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Nuevo Presupuesto Form */}
+      <ConsultaForm
+        open={showForm}
+        onOpenChange={setShowForm}
+        consulta={null}
+        onSave={() => { refetch(); setShowForm(false); }}
+      />
     </div>
   );
 }

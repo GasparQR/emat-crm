@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, User } from "lucide-react";
+import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, User, Send } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -117,20 +117,35 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
         </div>
       )}
 
-      {/* Footer: canal + seguimiento */}
-      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
-        {consulta.canalOrigen ? (
-          <span className="text-xs text-slate-400">{consulta.canalOrigen}</span>
-        ) : <span />}
-        {consulta.proximoSeguimiento ? (
-          <div className={cn(
-            "flex items-center gap-1 text-xs font-medium",
-            seguimientoVencido ? "text-red-500" : seguimientoHoy ? "text-amber-600" : "text-slate-400"
-          )}>
-            <Calendar className="w-3 h-3" />
-            {moment(consulta.proximoSeguimiento).format("DD/MM")}
-          </div>
-        ) : null}
+      {/* Footer: canal + seguimiento + whatsapp */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
+        <div className="flex items-center gap-2">
+          {consulta.canalOrigen && (
+            <span className="text-xs text-slate-400">{consulta.canalOrigen}</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {consulta.proximoSeguimiento && (
+            <div className={cn(
+              "flex items-center gap-1 text-xs font-medium",
+              seguimientoVencido ? "text-red-500" : seguimientoHoy ? "text-amber-600" : "text-slate-400"
+            )}>
+              <Calendar className="w-3 h-3" />
+              {moment(consulta.proximoSeguimiento).format("DD/MM")}
+            </div>
+          )}
+          {consulta.contactoWhatsapp && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0 text-[#25D366] hover:bg-green-50"
+              onClick={e => { e.stopPropagation(); onWhatsApp?.(consulta); }}
+              title="Enviar WhatsApp"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
