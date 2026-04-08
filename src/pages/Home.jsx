@@ -19,7 +19,7 @@ const ASESOR_COLORS = {
   ESTEBAN: "#06b6d4", MACA: "#d946ef",
 };
 const ESTADO_PIE_COLORS = {
-  "A COTIZAR": "#94a3b8", "NEGOCIACION": "#f59e0b", "GANADA": "#10b981",
+  "NUEVO LEAD": "#06b6d4", "A COTIZAR": "#94a3b8", "NEGOCIACION": "#f59e0b", "GANADA": "#10b981",
   "EJECUTADA": "#059669", "PAUSADA": "#6b7280", "PERDIDA": "#ef4444",
 };
 
@@ -37,15 +37,28 @@ export default function Home() {
   const handleCreateLead = async () => {
     if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
     try {
+      const wsId = workspace?.id || "local";
       await base44.entities.Contacto.create({
-        workspace_id: workspace?.id || "local",
+        workspace_id: wsId,
         nombre: newLeadData.nombre,
         whatsapp: newLeadData.whatsapp,
         empresa: newLeadData.empresa,
       });
+      // Crear consulta automáticamente en etapa NUEVO LEAD
+      const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+      const now = new Date();
+      await base44.entities.Consulta.create({
+        workspace_id: wsId,
+        contactoNombre: newLeadData.nombre,
+        contactoWhatsapp: newLeadData.whatsapp || "",
+        etapa: "NUEVO LEAD",
+        mes: MESES[now.getMonth()],
+        ano: now.getFullYear(),
+        fechaConsulta: now.toISOString().split("T")[0],
+      });
       setNewLeadData({ nombre: "", whatsapp: "", empresa: "" });
       setShowNewLead(false);
-      toast.success("Nuevo cliente / lead creado");
+      toast.success("Nuevo lead creado y asignado al pipeline");
     } catch (e) {
       toast.error("Error al crear lead: " + e.message);
     }

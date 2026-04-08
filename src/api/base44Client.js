@@ -91,7 +91,7 @@ class LocalDataStore {
 
 // ─── Auto-seed desde public/seed_data.json ──────────────────────────────────
 // Cambiar SEED_VERSION cada vez que se regenera seed_data.json para forzar recarga
-const SEED_VERSION = 'v3';
+const SEED_VERSION = 'v4';
 
 async function seedIfNeeded() {
   const currentVersion = localStorage.getItem('emat_seed_version');
