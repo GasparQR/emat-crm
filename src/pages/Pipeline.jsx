@@ -6,6 +6,7 @@ import { createPageUrl } from "@/utils";
 import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
 import ConsultaForm from "@/components/crm/ConsultaForm";
+import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import VentaForm from "@/components/ventas/VentaForm";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export default function Pipeline() {
   const [selectedConsulta, setSelectedConsulta] = useState(null);
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
+  const [filtroAsesor, setFiltroAsesor] = useState("todos");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
@@ -69,7 +71,8 @@ export default function Pipeline() {
 
   const handleEdit = (consulta) => {
     setSelectedConsulta(consulta);
-    setShowForm(true);
+    // Delay to let DropdownMenu fully close and release focus before Dialog opens
+    setTimeout(() => setShowForm(true), 100);
   };
 
   const handleConcretarVenta = (consulta) => {
@@ -106,6 +109,7 @@ export default function Pipeline() {
   const consultasFiltradas = consultas.filter(c => {
     if (filtroCanal !== "todos" && c.canalOrigen !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
+    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
   });
 
@@ -118,63 +122,76 @@ export default function Pipeline() {
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4">
-        <div className="max-w-full mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <Link to={createPageUrl("Home")}>
-              <Button variant="ghost" className="gap-2 mb-2 -ml-2">
-                <ArrowLeft className="w-4 h-4" />
-                Volver
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
-            <p className="text-slate-500">{consultasFiltradas.length} consultas activas</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-slate-400" />
-              <Select value={filtroCanal} onValueChange={setFiltroCanal}>
-                <SelectTrigger className="w-32 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="Meta">Meta</SelectItem>
-                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
-                  <SelectItem value="Referido">Referido</SelectItem>
-                  <SelectItem value="REFERIDO">REFERIDO</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
-                <SelectTrigger className="w-28 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="Alta">Alta</SelectItem>
-                  <SelectItem value="Media">Media</SelectItem>
-                  <SelectItem value="Baja">Baja</SelectItem>
-                </SelectContent>
-              </Select>
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
+        <div className="max-w-full mx-auto flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Link to={createPageUrl("Home")}>
+                <Button variant="ghost" className="gap-2 mb-2 -ml-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  Volver
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
+              <p className="text-slate-500">{consultasFiltradas.length} consultas activas</p>
             </div>
-            <Link to={createPageUrl("ConfigurarPipeline")}>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Settings className="w-4 h-4" />
-                Configurar
+            <div className="flex items-center gap-2">
+              <Link to={createPageUrl("ConfigurarPipeline")}>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Configurar</span>
+                </Button>
+              </Link>
+              <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Nueva</span>
               </Button>
-            </Link>
-            <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Nueva
-            </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <Select value={filtroCanal} onValueChange={setFiltroCanal}>
+              <SelectTrigger className="w-[130px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="Meta">Meta</SelectItem>
+                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
+                <SelectItem value="Referido">Referido</SelectItem>
+                <SelectItem value="REFERIDO">REFERIDO</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
+              <SelectTrigger className="w-[110px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
+                <SelectItem value="Media">Media</SelectItem>
+                <SelectItem value="Baja">Baja</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
+              <SelectTrigger className="w-[130px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Asesor</SelectItem>
+                {ASESORES.map(a => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
 
       {/* Kanban */}
-      <div className="p-6 overflow-x-auto">
-        <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="p-4 sm:p-6 overflow-x-auto">
+        <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
           <div className="flex gap-4 min-w-max">
             {etapas.map(etapa => (
               <PipelineColumn

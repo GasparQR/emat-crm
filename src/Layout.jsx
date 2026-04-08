@@ -2,15 +2,18 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { 
   LayoutDashboard, Kanban, List, Users, Calendar,
-  Menu, X, CheckCircle2, PanelLeftClose, PanelLeftOpen, BarChart3
+  Menu, X, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { WorkspaceProvider } from "@/components/context/WorkspaceContext";
+import { useAuth } from "@/lib/SimpleAuthContext";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { name: "Home", icon: LayoutDashboard, page: "Home" },
   { name: "Pipeline", icon: Kanban, page: "Pipeline" },
   { name: "Hoy", icon: Calendar, page: "Hoy" },
@@ -19,9 +22,17 @@ const NAV_ITEMS = [
   { name: "Ajustes", icon: Users, page: "Ajustes" },
 ];
 
+const LOGISTICA_NAV_ITEMS = [
+  { name: "Hoy", icon: Calendar, page: "Hoy" },
+];
+
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { user, switchRole } = useAuth();
+
+  const isLogistica = user?.role === "logistica";
+  const NAV_ITEMS = isLogistica ? LOGISTICA_NAV_ITEMS : ALL_NAV_ITEMS;
 
   return (
     <WorkspaceProvider>
@@ -111,7 +122,19 @@ export default function Layout({ children, currentPageName }) {
 
         {/* Quick Stats */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-t border-slate-100">
+          <div className="p-4 border-t border-slate-100 space-y-3">
+            <div>
+              <Label className="text-xs text-slate-400 mb-1 block">Usuario</Label>
+              <Select value={user?.role || "admin"} onValueChange={switchRole}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="logistica">Logística</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white">
               <p className="text-xs text-blue-200 mb-1">CRM Celulosa</p>
               <p className="text-sm font-medium">Gestión de Presupuestos</p>

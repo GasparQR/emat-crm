@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
-const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "Otro"];
+export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const ESTADOS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
@@ -20,6 +21,13 @@ const MOTIVOS_PERDIDA = [
   "Eligió otro material","Costos","Distancia/Logística",
   "Programada para más adelante","Presupuesto de prueba","Otro",
 ];
+const PROVINCIAS = [
+  "Buenos Aires","CABA","Catamarca","Chaco","Chubut","Córdoba",
+  "Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja",
+  "Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan",
+  "San Luis","Santa Cruz","Santa Fe","Santiago del Estero",
+  "Tierra del Fuego","Tucumán",
+];
 
 const emptyForm = () => ({
   nroPpto: "",
@@ -28,6 +36,7 @@ const emptyForm = () => ({
   asesor: "",
   tipoAplicacion: "",
   ubicacionObra: "",
+  provincia: "",
   superficieM2: "",
   fibraKg: "",
   adhLts: "",
@@ -45,9 +54,24 @@ const emptyForm = () => ({
   razonPerdida: "",
 });
 
+function generateNextNroPpto() {
+  try {
+    const items = JSON.parse(localStorage.getItem('emat_Consulta') || '[]');
+    const maxNro = items.reduce((max, item) => {
+      const n = parseInt(item.nroPpto);
+      return !isNaN(n) && n > max ? n : max;
+    }, 0);
+    return maxNro + 1;
+  } catch {
+    return 1;
+  }
+}
+
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
+  const [showNewLead, setShowNewLead] = useState(false);
+  const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
   const { workspace } = useWorkspace();
 
   useEffect(() => {
@@ -61,12 +85,32 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           importe: consulta.importe ?? "",
         });
       } else {
-        setFormData(emptyForm());
+        const nextNro = generateNextNroPpto();
+        setFormData({ ...emptyForm(), nroPpto: nextNro });
       }
     }
   }, [consulta, open]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  const handleCreateLead = async () => {
+    if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
+    try {
+      await base44.entities.Contacto.create({
+        workspace_id: workspace?.id || "local",
+        nombre: newLeadData.nombre,
+        whatsapp: newLeadData.whatsapp,
+        empresa: newLeadData.empresa,
+      });
+      set("contactoNombre", newLeadData.nombre);
+      set("contactoWhatsapp", newLeadData.whatsapp);
+      setNewLeadData({ nombre: "", whatsapp: "", empresa: "" });
+      setShowNewLead(false);
+      toast.success("Lead creado y asignado");
+    } catch (e) {
+      toast.error("Error al crear lead: " + e.message);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!formData.contactoNombre) { toast.error("El nombre es requerido"); return; }
@@ -99,6 +143,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -110,7 +155,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         <div className="space-y-5 py-2">
           {/* CLIENTE */}
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cliente</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
+              <Button type="button" variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setShowNewLead(true)}>
+                <Plus className="w-3 h-3" />
+                Nuevo cliente / lead
+              </Button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label>Nombre *</Label>
@@ -141,9 +192,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Obra</p>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1 col-span-2">
+              <div className="space-y-1">
                 <Label>Ubicación</Label>
                 <Input value={formData.ubicacionObra} onChange={e => set("ubicacionObra", e.target.value)} placeholder="Ej: Barrio Arguello, Córdoba" />
+              </div>
+              <div className="space-y-1">
+                <Label>Provincia</Label>
+                <Select value={formData.provincia} onValueChange={v => set("provincia", v)}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                  <SelectContent>{PROVINCIAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Tipo de aplicación</Label>
@@ -184,7 +242,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>N° Presupuesto</Label>
-                <Input type="number" value={formData.nroPpto} onChange={e => set("nroPpto", e.target.value)} placeholder="4435" />
+                <Input type="number" value={formData.nroPpto} readOnly aria-readonly="true" className="bg-slate-50" />
               </div>
               <div className="space-y-1">
                 <Label>Asesor</Label>
@@ -242,5 +300,33 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Nuevo Lead Dialog */}
+    <Dialog open={showNewLead} onOpenChange={setShowNewLead}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Nuevo cliente / lead</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Nombre *</Label>
+            <Input value={newLeadData.nombre} onChange={e => setNewLeadData(prev => ({ ...prev, nombre: e.target.value }))} placeholder="Ej: Juan Pérez" />
+          </div>
+          <div className="space-y-1">
+            <Label>WhatsApp</Label>
+            <Input value={newLeadData.whatsapp} onChange={e => setNewLeadData(prev => ({ ...prev, whatsapp: e.target.value }))} placeholder="+54 9 351 123-4567" />
+          </div>
+          <div className="space-y-1">
+            <Label>Empresa</Label>
+            <Input value={newLeadData.empresa} onChange={e => setNewLeadData(prev => ({ ...prev, empresa: e.target.value }))} placeholder="Constructora SA" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowNewLead(false)}>Cancelar</Button>
+          <Button onClick={handleCreateLead}>Crear y asignar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
