@@ -28,7 +28,7 @@ export default function Contactos() {
   const [filtroSegmento, setFiltroSegmento] = useState("todos");
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
-    email: "", ciudad: "", provincia: "", segmento: "",
+    email: "", localidad: "", provincia: "", segmento: "",
     canalOrigen: "", notas: "", etapaPipeline: ""
   });
 
@@ -167,7 +167,7 @@ export default function Contactos() {
   const resetForm = () => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
-      email: "", ciudad: "", provincia: "", segmento: "",
+      email: "", localidad: "", provincia: "", segmento: "",
       canalOrigen: "", notas: "", etapaPipeline: ""
     });
     setSelectedContacto(null);
@@ -184,7 +184,7 @@ export default function Contactos() {
       whatsapp: contacto.whatsapp || "",
       telefonoDisplay: contacto.telefonoDisplay || "",
       email: contacto.email || "",
-      ciudad: contacto.ciudad || "",
+      localidad: contacto.localidad || "",
       provincia: contacto.provincia || "",
       segmento: contacto.segmento || "",
       canalOrigen: contacto.canalOrigen || "",
@@ -253,7 +253,7 @@ export default function Contactos() {
         !c.telefonoDisplay?.toLowerCase().includes(s) &&
         !c.whatsapp?.includes(search) &&
         !c.email?.toLowerCase().includes(s) &&
-        !c.ciudad?.toLowerCase().includes(s)
+        !c.localidad?.toLowerCase().includes(s)
       ) return false;
     }
     if (filtroProvincia !== "todos" && c.provincia !== filtroProvincia) return false;
@@ -353,10 +353,10 @@ export default function Contactos() {
                       {contacto.empresa && contacto.empresa !== contacto.nombre && (
                         <p className="text-xs text-slate-500 truncate">{contacto.empresa}</p>
                       )}
-                      {(contacto.ciudad || contacto.provincia) && (
+                      {(contacto.localidad || contacto.provincia) && (
                         <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
                           <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-                          {contacto.ciudad || contacto.provincia}
+                          {contacto.localidad || contacto.provincia}
                         </p>
                       )}
                     </div>
@@ -438,8 +438,8 @@ export default function Contactos() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Ciudad</Label>
-                <Input value={formData.ciudad} onChange={e => setFormData({ ...formData, ciudad: e.target.value })} placeholder="Córdoba" />
+                <Label>localidad</Label>
+                <Input value={formData.localidad} onChange={e => setFormData({ ...formData, localidad: e.target.value })} placeholder="Córdoba" />
               </div>
               <div className="space-y-1">
                 <Label>Provincia</Label>
