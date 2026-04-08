@@ -49,7 +49,7 @@ export default function Consultas() {
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
     queryFn: () => workspace
-      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroPpto", 2000)
+      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroppto", 2000)
       : [],
     enabled: !!workspace,
   });
@@ -69,22 +69,22 @@ export default function Consultas() {
     // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
-      const matchesSearch = 
-        (c.contactoNombre?.toLowerCase().includes(s)) ||
-        (String(c.nroPpto || "").includes(s)) ||
-        (c.ubicacionObra?.toLowerCase().includes(s));
+      const matchesSearch =
+        (c.contactonombre?.toLowerCase().includes(s)) ||
+        (String(c.nroppto || "").includes(s)) ||
+        (c.ubicacionobra?.toLowerCase().includes(s));
       if (!matchesSearch) return false;
     }
-    
+
     // Filtro de estado (solo si no es "todos")
     if (filtroEstado !== "todos" && c.etapa !== filtroEstado) return false;
-    
+
     // Filtro de asesor (solo si no es "todos")
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
-    
+
     // Filtro de año (solo si no es "todos")
     if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
-    
+
     return true;
   });
 
@@ -176,7 +176,7 @@ export default function Consultas() {
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
-                const seguimientoVencido = c.proximoSeguimiento && moment(c.proximoSeguimiento).isBefore(moment(), "day");
+                const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
                 const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
                 return (
                   <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEdit(c)}>
@@ -184,14 +184,14 @@ export default function Consultas() {
                     {/* Cliente: nombre + #ppto + ubicación fusionados */}
                     <TableCell className="py-2">
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactoNombre}</p>
-                        {c.nroPpto && (
-                          <p className="text-xs text-slate-400 truncate">#{c.nroPpto} · {c.mes} {c.ano}</p>
+                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactonombre}</p>
+                        {c.nroppto && (
+                          <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
                         )}
-                        {c.ubicacionObra && (
+                        {c.ubicacionobra && (
                           <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
                             <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-                            {c.ubicacionObra}
+                            {c.ubicacionobra}
                           </p>
                         )}
                       </div>
@@ -212,14 +212,11 @@ export default function Consultas() {
                     {/* m² / Tipo */}
                     <TableCell className="py-2">
                       <div className="space-y-1">
-                        {c.superficieM2 && (
+                        {c.superficiem2 && (
                           <div className="flex items-center gap-1 text-sm font-medium">
                             <Ruler className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                            <span className="truncate">{c.superficieM2} m²</span>
+                            <span className="truncate">{c.superficiem2} m²</span>
                           </div>
-                        )}
-                        {c.tipoAplicacion && (
-                          <Badge variant="secondary" className="text-xs truncate max-w-full block w-fit">{c.tipoAplicacion}</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -242,10 +239,10 @@ export default function Consultas() {
 
                     {/* Seguimiento */}
                     <TableCell className="py-2">
-                      {c.proximoSeguimiento ? (
+                      {c.proximoseguimiento ? (
                         <div className={cn("flex items-center gap-1 text-sm", seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500")}>
                           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                          {moment(c.proximoSeguimiento).format("DD/MM/YY")}
+                          {moment(c.proximoseguimiento).format("DD/MM/YY")}
                         </div>
                       ) : <span className="text-slate-400">-</span>}
                     </TableCell>
