@@ -41,12 +41,27 @@ export default function Contactos() {
   const { data: currentUser } = useCurrentUser();
 
   const { data: contactos = [], isLoading } = useQuery({
-    queryKey: ["contactos", workspace?.id],
-    queryFn: () => workspace
-      ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
-      : [],
-    enabled: !!workspace,
-  });
+  queryKey: ["contactos", workspace?.id],
+  queryFn: async () => {
+    if (!workspace) return [];
+    const pageSize = 500;
+    let all = [];
+    let page = 0;
+    while (true) {
+      const batch = await base44.entities.Contacto.filter(
+        { workspace_id: workspace.id },
+        "nombre",
+        pageSize,
+        page * pageSize
+      );
+      all = [...all, ...batch];
+      if (batch.length < pageSize) break;
+      page++;
+    }
+    return all;
+  },
+  enabled: !!workspace,
+});
 
   const { data: pipelineStages = [] } = useQuery({
     queryKey: ["pipeline-stages", workspace?.id],
