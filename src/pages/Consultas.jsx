@@ -16,10 +16,11 @@ import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
 
-const ESTADOS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
+const ESTADOS = ["NUEVO LEAD", "A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
 const ESTADO_COLORS = {
+  "NUEVO LEAD": "bg-cyan-100 text-cyan-700",
   "A COTIZAR": "bg-slate-100 text-slate-700",
   "NEGOCIACION": "bg-amber-100 text-amber-700",
   "GANADA": "bg-green-100 text-green-700",
