@@ -20,34 +20,44 @@ class SupabaseDataStore {
   }
 
   async filter(query = {}, sortField = null, limit = 2000) {
+  const PAGE_SIZE = 1000;
+  let allData = [];
+  let from = 0;
+
+  while (true) {
     let q = supabase.from(this.tableName).select('*');
 
-    // Aplicar filtros
     Object.entries(query).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         q = q.eq(key, value);
       }
     });
 
-    // Aplicar ordenamiento
     if (sortField) {
       const ascending = !sortField.startsWith('-');
       const field = sortField.startsWith('-') ? sortField.slice(1) : sortField;
       q = q.order(field, { ascending });
     }
 
-    // Aplicar límite
-    if (limit) {
-      q = q.limit(limit);
-    }
+    const to = from + PAGE_SIZE - 1;
+    q = q.range(from, to);
 
     const { data, error } = await q;
     if (error) {
       console.error(`Error fetching ${this.tableName}:`, error);
-      return [];
+      break;
     }
-    return data || [];
+
+    allData = [...allData, ...(data || [])];
+
+    if (!data || data.length < PAGE_SIZE) break;
+    if (limit && allData.length >= limit) break;
+
+    from += PAGE_SIZE;
   }
+
+  return limit ? allData.slice(0, limit) : allData;
+}
 
   async list(sortField = null, limit = 2000) {
     return this.filter({}, sortField, limit);
