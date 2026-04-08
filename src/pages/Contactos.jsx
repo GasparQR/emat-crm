@@ -24,7 +24,7 @@ export default function Contactos() {
   const [selectedContacto, setSelectedContacto] = useState(null);
   const [whatsappTarget, setWhatsappTarget] = useState(null);
   const [search, setSearch] = useState("");
-  const [filtroFuente, setFiltroFuente] = useState("todos");
+  const [filtroProvincia, setFiltroProvincia] = useState("todos");
   const [filtroSegmento, setFiltroSegmento] = useState("todos");
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
@@ -66,14 +66,14 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
-  const { fuentes, segmentos } = useMemo(() => {
-    const fMap = {}, sMap = {};
+  const { provincias, segmentos } = useMemo(() => {
+    const pMap = {}, sMap = {};
     contactos.forEach(c => {
-      if (c.canalOrigen) fMap[c.canalOrigen] = (fMap[c.canalOrigen] || 0) + 1;
-      if (c.segmento) sMap[c.segmento] = (sMap[c.segmento] || 0) + 1;
+     if (c.provincia) pMap[c.provincia] = (pMap[c.provincia] || 0) + 1;
+     if (c.segmento) sMap[c.segmento] = (sMap[c.segmento] || 0) + 1;
     });
     return {
-      fuentes: Object.entries(fMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
+      provincias: Object.entries(pMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
       segmentos: Object.entries(sMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
     };
   }, [contactos]);
@@ -256,7 +256,7 @@ export default function Contactos() {
         !c.ciudad?.toLowerCase().includes(s)
       ) return false;
     }
-    if (filtroFuente !== "todos" && c.canalOrigen !== filtroFuente) return false;
+    if (filtroProvincia !== "todos" && c.provincia !== filtroProvincia) return false;
     if (filtroSegmento !== "todos" && c.segmento !== filtroSegmento) return false;
     return true;
   });
@@ -310,14 +310,14 @@ export default function Contactos() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={filtroFuente} onValueChange={setFiltroFuente}>
+          <Select value={filtroProvincia} onValueChange={setFiltroProvincia}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="Fuente" />
+              <SelectValue placeholder="Provincia" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todas las fuentes</SelectItem>
-              {fuentes.map(f => (
-                <SelectItem key={f.label} value={f.label}>{f.label} ({f.count})</SelectItem>
+              <SelectItem value="todos">Todas las provincias</SelectItem>
+              {provincias.map(p => (
+                <SelectItem key={p.label} value={p.label}>{p.label} ({p.count})</SelectItem>
               ))}
             </SelectContent>
           </Select>
