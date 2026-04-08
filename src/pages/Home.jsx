@@ -1,13 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
-import { Plus, BarChart3, Users, List, TrendingUp, FileText, CheckCircle } from "lucide-react";
+import { Plus, BarChart3, Users, List, TrendingUp, FileText, CheckCircle, UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
@@ -21,11 +25,31 @@ const ESTADO_PIE_COLORS = {
 
 export default function Home() {
   const { workspace } = useWorkspace();
+  const [showNewLead, setShowNewLead] = useState(false);
+  const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
+
   const { data: consultas = [] } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
     queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
     enabled: !!workspace,
   });
+
+  const handleCreateLead = async () => {
+    if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
+    try {
+      await base44.entities.Contacto.create({
+        workspace_id: workspace?.id || "local",
+        nombre: newLeadData.nombre,
+        whatsapp: newLeadData.whatsapp,
+        empresa: newLeadData.empresa,
+      });
+      setNewLeadData({ nombre: "", whatsapp: "", empresa: "" });
+      setShowNewLead(false);
+      toast.success("Nuevo cliente / lead creado");
+    } catch (e) {
+      toast.error("Error al crear lead: " + e.message);
+    }
+  };
 
   // KPIs
   const hoy = new Date();
@@ -76,15 +100,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="bg-white border-b border-slate-200 px-6 py-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-6">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">EMAT Celulosa CRM</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">EMAT Celulosa CRM</h1>
             <p className="text-slate-500 mt-1">{consultas.length} presupuestos cargados</p>
           </div>
-          <Link to={createPageUrl("Consultas")}>
-            <Button className="gap-2"><Plus className="w-4 h-4" />Nuevo presupuesto</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setShowNewLead(true)}>
+              <UserPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">Nuevo cliente / lead</span>
+              <span className="sm:hidden">Nuevo lead</span>
+            </Button>
+            <Link to={createPageUrl("Consultas")}>
+              <Button className="gap-2"><Plus className="w-4 h-4" />Nuevo presupuesto</Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -192,6 +223,33 @@ export default function Home() {
           })}
         </div>
       </div>
+
+      {/* Nuevo Lead Dialog */}
+      <Dialog open={showNewLead} onOpenChange={setShowNewLead}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo cliente / lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Nombre *</Label>
+              <Input value={newLeadData.nombre} onChange={e => setNewLeadData(prev => ({ ...prev, nombre: e.target.value }))} placeholder="Ej: Juan Pérez" />
+            </div>
+            <div className="space-y-1">
+              <Label>WhatsApp</Label>
+              <Input value={newLeadData.whatsapp} onChange={e => setNewLeadData(prev => ({ ...prev, whatsapp: e.target.value }))} placeholder="+54 9 351 123-4567" />
+            </div>
+            <div className="space-y-1">
+              <Label>Empresa</Label>
+              <Input value={newLeadData.empresa} onChange={e => setNewLeadData(prev => ({ ...prev, empresa: e.target.value }))} placeholder="Constructora SA" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewLead(false)}>Cancelar</Button>
+            <Button onClick={handleCreateLead}>Crear lead</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
