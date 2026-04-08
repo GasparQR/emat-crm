@@ -101,10 +101,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nombre: newLeadData.nombre,
         whatsapp: newLeadData.whatsapp,
         empresa: newLeadData.empresa,
+        asesor: newLeadData.asesor,
       });
-      set("contactoNombre", newLeadData.nombre);
+      set("asesor", newLeadData.contactoNombre);
       set("contactoWhatsapp", newLeadData.whatsapp);
-      setNewLeadData({ nombre: "", whatsapp: "", empresa: "" });
+      setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "" });
       setShowNewLead(false);
       toast.success("Lead creado y asignado");
     } catch (e) {
