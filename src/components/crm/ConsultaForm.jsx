@@ -117,14 +117,25 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     setLoading(true);
     try {
       const payload = {
-        ...formData,
-        workspace_id: workspace?.id || "local",
-        superficieM2: formData.superficieM2 !== "" ? parseFloat(formData.superficieM2) : null,
-        fibraKg: formData.fibraKg !== "" ? parseFloat(formData.fibraKg) : null,
-        adhLts: formData.adhLts !== "" ? parseFloat(formData.adhLts) : null,
-        kmObra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
+        // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
+        contactonombre: formData.contactoNombre,
+        contactowhatsapp: formData.contactoWhatsapp,
+        asesor: formData.asesor,
+        etapa: formData.etapa,
+        mes: formData.mes,
+        ano: formData.ano,
+        tipoapplicacion: formData.tipoAplicacion,
+        ubicacionobra: formData.ubicacionObra,
+        superficiem2: formData.superficieM2 !== "" ? parseFloat(formData.superficieM2) : null,
+        fibrakg: formData.fibraKg !== "" ? parseFloat(formData.fibraKg) : null,
+        adhlts: formData.adhLts !== "" ? parseFloat(formData.adhLts) : null,
+        kmobra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
         importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
-        nroPpto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
+        tipocliente: formData.tipoCliente,
+        canalorigen: formData.canalOrigen,
+        observaciones: formData.observaciones,
+        nroppto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
+        workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {
         await base44.entities.Consulta.update(consulta.id, payload);
