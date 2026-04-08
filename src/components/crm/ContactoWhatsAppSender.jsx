@@ -87,7 +87,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
     result = result
       .replace(/{NOMBRE}/g, data.nombre || "")
       .replace(/{EMPRESA}/g, data.empresa || "")
-      .replace(/{CIUDAD}/g, data.ciudad || "")
+      .replace(/{LOCALIDAD}/g, data.localidad || "")
       .replace(/{PROVINCIA}/g, data.provincia || "")
       .replace(/{SEGMENTO}/g, data.segmento || "")
       // Legacy variables used in quote/sales templates — clear them so they don't appear verbatim
