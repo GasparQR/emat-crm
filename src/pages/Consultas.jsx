@@ -63,16 +63,27 @@ export default function Consultas() {
 
   const anos = [...new Set(consultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
 
+  // ✅ LÓGICA DE FILTRADO CORREGIDA
   const filtradas = consultas.filter(c => {
+    // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
-      if (!c.contactoNombre?.toLowerCase().includes(s) &&
-          !String(c.nroPpto || "").includes(s) &&
-          !c.ubicacionObra?.toLowerCase().includes(s)) return false;
+      const matchesSearch = 
+        (c.contactoNombre?.toLowerCase().includes(s)) ||
+        (String(c.nroPpto || "").includes(s)) ||
+        (c.ubicacionObra?.toLowerCase().includes(s));
+      if (!matchesSearch) return false;
     }
+    
+    // Filtro de estado (solo si no es "todos")
     if (filtroEstado !== "todos" && c.etapa !== filtroEstado) return false;
+    
+    // Filtro de asesor (solo si no es "todos")
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
+    
+    // Filtro de año (solo si no es "todos")
     if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
+    
     return true;
   });
 

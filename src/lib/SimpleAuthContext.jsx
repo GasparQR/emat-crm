@@ -2,11 +2,19 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const DEMO_USER = {
-  id: 'user_1',
-  name: 'Demo User',
-  email: 'demo@emat.com',
-  role: 'admin'
+const USERS = {
+  admin: {
+    id: 'user_1',
+    name: 'Demo User',
+    email: 'demo@emat.com',
+    role: 'admin'
+  },
+  logistica: {
+    id: 'user_logistica',
+    name: 'Logística',
+    email: 'logistica@emat.com',
+    role: 'logistica'
+  }
 };
 
 export const AuthProvider = ({ children }) => {
@@ -24,8 +32,22 @@ export const AuthProvider = ({ children }) => {
         // Simulate delay
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Auto-login demo user for now
-        setUser(DEMO_USER);
+        // Check if a user was previously selected
+        const savedUser = localStorage.getItem('emat_user');
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            setUser(parsed);
+            setIsAuthenticated(true);
+            setAuthError(null);
+            return;
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        // Default to admin user
+        setUser(USERS.admin);
         setIsAuthenticated(true);
         setAuthError(null);
       } catch (error) {
@@ -53,13 +75,19 @@ export const AuthProvider = ({ children }) => {
   const login = (email, password) => {
     // Simple demo login
     if (email && password) {
-      const newUser = { ...DEMO_USER, email };
+      const newUser = { ...USERS.admin, email };
       setUser(newUser);
       setIsAuthenticated(true);
       localStorage.setItem('emat_user', JSON.stringify(newUser));
       return true;
     }
     return false;
+  };
+
+  const switchRole = (role) => {
+    const selectedUser = USERS[role] || USERS.admin;
+    setUser(selectedUser);
+    localStorage.setItem('emat_user', JSON.stringify(selectedUser));
   };
 
   const value = {
@@ -70,7 +98,8 @@ export const AuthProvider = ({ children }) => {
     authError,
     navigateToLogin,
     logout,
-    login
+    login,
+    switchRole
   };
 
   return (

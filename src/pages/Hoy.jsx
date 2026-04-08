@@ -12,6 +12,7 @@ import { createPageUrl } from "@/utils";
 import moment from "moment";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/SimpleAuthContext";
 
 const etapaColors = {
   Nuevo: "bg-blue-100 text-blue-700",
@@ -27,6 +28,8 @@ export default function Hoy() {
   const [selectedConsulta, setSelectedConsulta] = useState(null);
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const { user } = useAuth();
+  const isLogistica = user?.role === "logistica";
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
@@ -51,6 +54,7 @@ export default function Hoy() {
       : c.proximoSeguimiento;
 
   const hoy = consultas.filter(c => {
+    if (isLogistica && c.etapa !== "GANADA") return false;
     const fecha = getFechaSeguimiento(c);
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
@@ -58,6 +62,7 @@ export default function Hoy() {
   });
 
   const vencidos = consultas.filter(c => {
+    if (isLogistica && c.etapa !== "GANADA") return false;
     const fecha = getFechaSeguimiento(c);
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
@@ -65,6 +70,7 @@ export default function Hoy() {
   });
 
   const proximos3d = consultas.filter(c => {
+    if (isLogistica && c.etapa !== "GANADA") return false;
     const fecha = getFechaSeguimiento(c);
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
@@ -158,7 +164,9 @@ export default function Hoy() {
                 Volver
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-slate-900">Seguimientos del Día</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {isLogistica ? "Seguimientos — Logística (GANADA)" : "Seguimientos del Día"}
+            </h1>
             <p className="text-slate-500 mt-1">
               {today.format("dddd, DD [de] MMMM [de] YYYY")}
             </p>
