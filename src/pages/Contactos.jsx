@@ -151,12 +151,9 @@ export default function Contactos() {
 
     createConsultaMutation.mutate({
       contactonombre: c.nombre,
-      empresa: c.empresa || "",
       contactowhatsapp: c.whatsapp || "",
       canalorigen: c.canalOrigen || "WhatsApp",
       etapa: etapaSeleccionada,
-      primerMensaje: mensaje || "",
-      fechaConsulta: now.toISOString().split("T")[0],
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
@@ -226,10 +223,8 @@ export default function Contactos() {
             workspace_id: workspace?.id || "local",
             contactonombre: formData.nombre,
             contactowhatsapp: formData.whatsapp || "",
-            empresa: formData.empresa || "",
             canalorigen: formData.canalOrigen || "",
             etapa: stage,
-            fechaConsulta: now.toISOString().split("T")[0],
             mes: MESES[now.getMonth()],
             ano: now.getFullYear(),
           });
