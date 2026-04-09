@@ -57,9 +57,6 @@ import Hoy from './pages/Hoy';
 import ListasWhatsApp from './pages/ListasWhatsApp';
 import Pipeline from './pages/Pipeline';
 import Plantillas from './pages/Plantillas';
-import Postventa from './pages/Postventa';
-import ProveedorDetalle from './pages/ProveedorDetalle';
-import Proveedores from './pages/Proveedores';
 import Reportes from './pages/Reportes';
 import Variables from './pages/Variables';
 import __Layout from './Layout.jsx';
@@ -78,9 +75,6 @@ export const PAGES = {
     "ListasWhatsApp": ListasWhatsApp,
     "Pipeline": Pipeline,
     "Plantillas": Plantillas,
-    "Postventa": Postventa,
-    "ProveedorDetalle": ProveedorDetalle,
-    "Proveedores": Proveedores,
     "Reportes": Reportes,
     "Variables": Variables,
     "InteligenciaNegocio": InteligenciaNegocio,

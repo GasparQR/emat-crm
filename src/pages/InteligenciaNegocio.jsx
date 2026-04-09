@@ -4,11 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ArrowLeft, TrendingUp, Target, Zap, BarChart2, RefreshCw, Sparkles, MessageCircle } from "lucide-react";
+import { ArrowLeft, Target, Zap, RefreshCw, Sparkles, MessageCircle } from "lucide-react";
 import moment from "moment";
 
 function pct(n, d) { return d > 0 ? ((n / d) * 100).toFixed(1) : "0.0"; }
-function usd(n) { return `US$ ${(n || 0).toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; }
 function daysLeftInMonth() { const now = moment(); return now.daysInMonth() - now.date(); }
 
 function KPICard({ label, value, sub, color }) {
@@ -121,7 +120,6 @@ function ActividadContacto({ workspace }) {
   const porTipo = [
     { label: "WhatsApp / Lista", count: todosLosContactos.filter(c => c.tipo === "whatsapp").length, color: "#25D366" },
     { label: "Seguimiento marcado", count: todosLosContactos.filter(c => c.tipo === "seguimiento").length, color: "#6366f1" },
-    { label: "Postventa", count: todosLosContactos.filter(c => c.tipo === "postventa").length, color: "#f59e0b" },
   ].filter(t => t.count > 0);
   const totalTipos = porTipo.reduce((s, t) => s + t.count, 0) || 1;
 
@@ -258,19 +256,12 @@ function AIInsights({ aiData }) {
 Analizá estos datos del CRM y dá recomendaciones concretas y accionables en español rioplatense informal pero profesional.
 
 DATOS DEL NEGOCIO (últimos 30 días):
-- Ventas totales: ${aiData.totalVentas} ventas | Ganancia: ${usd(aiData.totalGanancia)}
-- Tasa de conversión: ${aiData.tasaConversion}% (${aiData.totalConsultas} consultas → ${aiData.totalVentas} ventas)
-- Ticket promedio: ${usd(aiData.ticketPromedio)}
-- Ganancia promedio por venta: ${usd(aiData.gananciaProm)}
+- Consultas: ${aiData.totalConsultas} | Ganadas este mes: ${aiData.ganadasMes}
+- Tasa de conversión: ${aiData.tasaConversion}%
+- Importe ganado este mes: $${(aiData.importeMes || 0).toLocaleString("es-AR")}
 
-TOP PRODUCTOS (por ganancia):
-${aiData.topProductos.slice(0, 5).map((p, i) => `  ${i + 1}. ${p.name}: ${usd(p.ganancia)} | Margen: ${p.margen}%`).join("\n")}
-
-TOP PROVEEDORES (por ganancia):
-${aiData.topProveedores.slice(0, 4).map((p, i) => `  ${i + 1}. ${p.name}: ${usd(p.ganancia)} (${p.compras} compras, margen ${p.margen}%)`).join("\n")}
-
-CANALES (por ganancia):
-${aiData.canales.slice(0, 4).map(c => `  ${c.name}: ${c.ventas} ventas, conversión ${c.conversion}%, ganancia ${usd(c.ganancia)}`).join("\n")}
+CANALES:
+${aiData.canales.slice(0, 4).map(c => `  ${c.name}: ${c.ventas} ganadas, conversión ${c.conversion}%`).join("\n")}
 
 Respondé con 3 secciones cortas y directas:
 1. **Lo que está funcionando bien** (2-3 puntos)
@@ -379,12 +370,6 @@ export default function InteligenciaNegocio() {
   const [gpManual, setGpManual] = useState(false);
   const [gpManualVal, setGpManualVal] = useState("");
 
-  const { data: ventas = [] } = useQuery({
-    queryKey: ["ib-ventas", workspace?.id],
-    queryFn: () => workspace ? entities.Venta.filter({ workspace_id: workspace.id, estado: "Finalizada" }, "-fecha", 1000) : [],
-    enabled: !!workspace
-  });
-
   const { data: consultas = [] } = useQuery({
     queryKey: ["ib-consultas", workspace?.id],
     queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 2000) : [],
@@ -392,87 +377,40 @@ export default function InteligenciaNegocio() {
   });
 
   const cut30 = moment().subtract(30, "days");
-  const ventas30 = ventas.filter(v => moment(v.fecha).isAfter(cut30));
   const consultas30 = consultas.filter(c => moment(c.created_date).isAfter(cut30));
-  const concretados30 = consultas30.filter(c => c.etapa === "Concretado");
+  const ganadas30 = consultas30.filter(c => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
 
-  const totalVentas = ventas30.length;
   const totalConsultas = consultas30.length;
-  const totalGanancia = ventas30.reduce((s, v) => s + (v.ganancia || 0), 0);
-  const totalVentaMonto = ventas30.reduce((s, v) => s + (v.venta || 0), 0);
-  const tasaConversion = parseFloat(pct(concretados30.length, totalConsultas));
-  const ticketPromedio = totalVentas > 0 ? totalVentaMonto / totalVentas : 0;
-  const gananciaProm = totalVentas > 0 ? totalGanancia / totalVentas : 0;
+  const tasaConversion = parseFloat(pct(ganadas30.length, totalConsultas));
 
   const cutMes = moment().startOf("month");
-  const ventasMes = ventas.filter(v => moment(v.fecha).isAfter(cutMes));
-  const gananciaMes = ventasMes.reduce((s, v) => s + (v.ganancia || 0), 0);
-
-  const prodMap = {};
-  ventas30.forEach(v => {
-    const k = v.productoSnapshot || v.modelo || "Sin especificar";
-    if (!prodMap[k]) prodMap[k] = { ganancia: 0, venta: 0, count: 0 };
-    prodMap[k].ganancia += v.ganancia || 0;
-    prodMap[k].venta += v.venta || 0;
-    prodMap[k].count++;
-  });
-  const topProductos = Object.entries(prodMap)
-    .map(([name, d]) => ({ name, ganancia: d.ganancia, margen: d.venta > 0 ? ((d.ganancia / d.venta) * 100).toFixed(1) : "0", count: d.count }))
-    .sort((a, b) => b.ganancia - a.ganancia);
-  const maxProd = topProductos[0]?.ganancia || 1;
-
-  const provMap = {};
-  ventas30.forEach(v => {
-    const k = v.proveedorNombreSnapshot || v.proveedorTexto || "Sin especificar";
-    if (!provMap[k]) provMap[k] = { ganancia: 0, venta: 0, compras: 0 };
-    provMap[k].ganancia += v.ganancia || 0;
-    provMap[k].venta += v.venta || 0;
-    provMap[k].compras++;
-  });
-  const topProveedores = Object.entries(provMap)
-    .map(([name, d]) => ({ name, ganancia: d.ganancia, margen: d.venta > 0 ? ((d.ganancia / d.venta) * 100).toFixed(1) : "0", compras: d.compras }))
-    .sort((a, b) => b.ganancia - a.ganancia);
-  const maxProv = topProveedores[0]?.ganancia || 1;
+  const consultasMes = consultas.filter(c => moment(c.created_date).isAfter(cutMes));
+  const ganadasMes = consultasMes.filter(c => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
+  const importeMes = ganadasMes.reduce((s, c) => s + (c.importe || 0), 0);
 
   const canalMap = {};
   consultas30.forEach(c => {
     const k = c.canalOrigen || "Sin especificar";
-    if (!canalMap[k]) canalMap[k] = { consultas: 0, concretados: 0, ganancia: 0 };
+    if (!canalMap[k]) canalMap[k] = { consultas: 0, ganadas: 0 };
     canalMap[k].consultas++;
-    if (c.etapa === "Concretado") canalMap[k].concretados++;
-  });
-  ventas30.forEach(v => {
-    const k = v.marketplace || "Sin especificar";
-    if (!canalMap[k]) canalMap[k] = { consultas: 0, concretados: 0, ganancia: 0 };
-    canalMap[k].ganancia += v.ganancia || 0;
+    if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") canalMap[k].ganadas++;
   });
   const canales = Object.entries(canalMap)
-    .map(([name, d]) => ({ name, ventas: d.concretados, conversion: pct(d.concretados, d.consultas), ganancia: d.ganancia }))
-    .sort((a, b) => b.ganancia - a.ganancia);
-  const maxCanal = canales[0]?.ganancia || 1;
-
-  const meses = [3, 2, 1, 0].map(i => {
-    const start = moment().subtract(i, "months").startOf("month");
-    const end = moment().subtract(i, "months").endOf("month");
-    const mv = ventas.filter(v => moment(v.fecha).isBetween(start, end, null, "[]"));
-    return { label: start.format("MMM"), ganancia: mv.reduce((s, v) => s + (v.ganancia || 0), 0), isCurrent: i === 0 };
-  });
-  const maxMes = Math.max(...meses.map(m => m.ganancia), 1);
-  const tendencia = meses[2].ganancia > 0 ? ((meses[3].ganancia - meses[2].ganancia) / meses[2].ganancia * 100).toFixed(1) : "0";
-  const tendenciaPos = parseFloat(tendencia) >= 0;
+    .map(([name, d]) => ({ name, ventas: d.ganadas, conversion: pct(d.ganadas, d.consultas) }))
+    .sort((a, b) => b.ventas - a.ventas);
 
   const objNum = parseFloat(objetivo) || 0;
   const diasNum = parseFloat(diasHabiles) || 1;
   const tdcEfectiva = tdcManual ? (parseFloat(tdcManualVal) || 0) : tasaConversion;
-  const gpEfectiva = gpManual ? (parseFloat(gpManualVal) || 0) : gananciaProm;
-  const faltaGanar = Math.max(0, objNum - gananciaMes);
+  const gpEfectiva = gpManual ? (parseFloat(gpManualVal) || 0) : 0;
+  const faltaGanar = Math.max(0, objNum - importeMes);
   const ventasNecesarias = gpEfectiva > 0 ? Math.ceil(faltaGanar / gpEfectiva) : 0;
   const consultasNecesarias = tdcEfectiva > 0 ? Math.ceil(ventasNecesarias / (tdcEfectiva / 100)) : 0;
   const llamadasPorDia = diasNum > 0 ? Math.ceil(consultasNecesarias / diasNum) : 0;
   const yaAlcanzado = objNum > 0 && faltaGanar <= 0;
   const calculadoraLista = gpEfectiva > 0 && tdcEfectiva > 0;
 
-  const aiData = { totalVentas, totalConsultas, totalGanancia, tasaConversion, ticketPromedio, gananciaProm, topProductos, topProveedores, canales };
+  const aiData = { totalConsultas, tasaConversion, ganadasMes: ganadasMes.length, importeMes, canales };
   const barColors = ["#6366f1", "#10b981", "#f59e0b", "#ec4899", "#06b6d4", "#8b5cf6"];
 
   function ManualInput({ value, onChange, prefix, suffix, placeholder }) {
@@ -517,26 +455,26 @@ export default function InteligenciaNegocio() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPICard label="Ganancia del mes" value={usd(gananciaMes)} sub={`${ventasMes.length} ventas`} color="#10b981" />
-          <KPICard label="Conversión" value={`${tasaConversion}%`} sub={`${concretados30.length} de ${totalConsultas}`} color="#6366f1" />
-          <KPICard label="Ticket promedio" value={usd(ticketPromedio)} sub="por venta" />
-          <KPICard label="Ganancia / venta" value={usd(gananciaProm)} sub="últimos 30 días" color="#f59e0b" />
+          <KPICard label="Presupuestos del mes" value={consultasMes.length} sub="nuevos este mes" color="#6366f1" />
+          <KPICard label="Conversión (30d)" value={`${tasaConversion}%`} sub={`${ganadas30.length} de ${totalConsultas}`} color="#10b981" />
+          <KPICard label="Ganadas este mes" value={ganadasMes.length} sub="GANADA + EJECUTADA" color="#059669" />
+          <KPICard label="Importe ganado" value={`$${importeMes.toLocaleString("es-AR", { maximumFractionDigits: 0 })}`} sub="mes actual" color="#f59e0b" />
         </div>
 
-        {/* Actividad de Contacto — NUEVA SECCIÓN */}
+        {/* Actividad de Contacto */}
         <ActividadContacto workspace={workspace} />
 
         {/* Calculadora */}
-        <Section title="Calculadora de Llamadas Diarias" icon={Target}
+        <Section title="Calculadora de Contactos Diarios" icon={Target}
           action={<span className="text-xs text-slate-400">{daysLeftInMonth()} días restantes</span>}
         >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <div>
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1.5">Objetivo mensual (USD)</label>
+              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1.5">Objetivo mensual ($)</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">US$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                 <input type="number" value={objetivo} onChange={e => setObjetivo(e.target.value)} placeholder="0"
-                  className="w-full border border-slate-200 rounded-lg pl-10 pr-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white" />
+                  className="w-full border border-slate-200 rounded-lg pl-8 pr-3 py-2.5 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 bg-white" />
               </div>
             </div>
             <div>
@@ -546,23 +484,25 @@ export default function InteligenciaNegocio() {
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500 uppercase tracking-wider block mb-1.5">Ya ganado este mes</label>
-              <div className="border border-emerald-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-emerald-600 bg-emerald-50">{usd(gananciaMes)}</div>
+              <div className="border border-emerald-200 rounded-lg px-3 py-2.5 text-sm font-semibold text-emerald-600 bg-emerald-50">
+                ${importeMes.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+              </div>
             </div>
           </div>
 
           <div className="space-y-2 mb-4">
             <ManualToggleRow
-              label="Ganancia promedio por venta manual"
-              subAuto={gananciaProm > 0 ? `Usando dato del CRM: ${usd(gananciaProm)} / venta` : "Sin datos en el CRM — activá para ingresar manualmente"}
-              subManual={`Usando valor manual: ${gpManualVal ? usd(parseFloat(gpManualVal)) : "ingresá un monto"}`}
+              label="Importe promedio por operación"
+              subAuto="Sin datos automáticos — activá para ingresar manualmente"
+              subManual={`Usando valor manual: ${gpManualVal ? `$${parseFloat(gpManualVal).toLocaleString("es-AR")}` : "ingresá un monto"}`}
               active={gpManual}
               onToggle={() => { setGpManual(!gpManual); setGpManualVal(""); }}
             >
-              <ManualInput value={gpManualVal} onChange={setGpManualVal} prefix="US$" placeholder="ej: 80" />
+              <ManualInput value={gpManualVal} onChange={setGpManualVal} prefix="$" placeholder="ej: 5000" />
             </ManualToggleRow>
             <ManualToggleRow
               label="Tasa de conversión manual"
-              subAuto={tasaConversion > 0 ? `Usando dato del CRM: ${tasaConversion}% (${concretados30.length} de ${totalConsultas} consultas)` : "Sin datos en el CRM — activá para ingresar manualmente"}
+              subAuto={tasaConversion > 0 ? `Usando dato del CRM: ${tasaConversion}% (${ganadas30.length} de ${totalConsultas} consultas)` : "Sin datos en el CRM — activá para ingresar manualmente"}
               subManual={`Usando valor manual: ${tdcManualVal ? tdcManualVal + "%" : "ingresá un porcentaje"}`}
               active={tdcManual}
               onToggle={() => { setTdcManual(!tdcManual); setTdcManualVal(""); }}
@@ -576,26 +516,24 @@ export default function InteligenciaNegocio() {
               {yaAlcanzado ? (
                 <div className="text-center py-2">
                   <p className="text-lg font-bold text-emerald-600">🎉 ¡Objetivo alcanzado!</p>
-                  <p className="text-sm text-slate-500 mt-1">Ganaste {usd(gananciaMes)} de {usd(objNum)}</p>
+                  <p className="text-sm text-slate-500 mt-1">Importe: ${importeMes.toLocaleString("es-AR")} de ${objNum.toLocaleString("es-AR")}</p>
                 </div>
               ) : !calculadoraLista ? (
                 <div className="text-center py-3">
                   <p className="text-sm text-slate-400">
-                    {gpEfectiva === 0 && tdcEfectiva === 0 ? "Activá los valores manuales de ganancia promedio y tasa de conversión para calcular."
-                      : gpEfectiva === 0 ? "Activá el valor manual de ganancia promedio por venta para calcular."
-                      : "Activá el valor manual de tasa de conversión para calcular."}
+                    Activá los valores manuales de importe promedio y tasa de conversión para calcular.
                   </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="text-center">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Falta ganar</p>
-                    <p className="text-xl font-bold text-amber-500">{usd(faltaGanar)}</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Falta</p>
+                    <p className="text-xl font-bold text-amber-500">${faltaGanar.toLocaleString("es-AR")}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Ventas necesarias</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Operaciones</p>
                     <p className="text-xl font-bold text-slate-700">{ventasNecesarias}</p>
-                    <p className="text-xs text-slate-400">{usd(gpEfectiva)} c/u</p>
+                    <p className="text-xs text-slate-400">${gpEfectiva.toLocaleString("es-AR")} c/u</p>
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Consultas</p>
@@ -616,74 +554,17 @@ export default function InteligenciaNegocio() {
           )}
         </Section>
 
-        {/* Rentabilidad */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Section title="Rentabilidad por Producto" icon={BarChart2}>
-            {topProductos.length === 0
-              ? <p className="text-sm text-slate-400 text-center py-6">Sin ventas en los últimos 30 días</p>
-              : topProductos.slice(0, 7).map((p, i) => (
-                <RankRow key={p.name} rank={i + 1} name={p.name} value={usd(p.ganancia)}
-                  sub={`Margen ${p.margen}% · ${p.count} uds`}
-                  bar={(p.ganancia / maxProd) * 100} barColor={i === 0 ? "#f59e0b" : "#10b981"} badge={i === 0 ? "TOP" : null} />
-              ))
-            }
-          </Section>
-          <Section title="Rentabilidad por Proveedor" icon={TrendingUp}>
-            {topProveedores.length === 0
-              ? <p className="text-sm text-slate-400 text-center py-6">Sin ventas en los últimos 30 días</p>
-              : topProveedores.slice(0, 7).map((p, i) => (
-                <RankRow key={p.name} rank={i + 1} name={p.name} value={usd(p.ganancia)}
-                  sub={`${p.compras} compras · margen ${p.margen}%`}
-                  bar={(p.ganancia / maxProv) * 100} barColor={i === 0 ? "#f59e0b" : "#6366f1"} badge={i === 0 ? "MEJOR" : null} />
-              ))
-            }
-          </Section>
-        </div>
-
-        {/* Canales + Tendencia */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Section title="Rendimiento por Canal" icon={Zap}>
-            {canales.length === 0
-              ? <p className="text-sm text-slate-400 text-center py-6">Sin datos</p>
-              : canales.slice(0, 6).map((c, i) => (
-                <RankRow key={c.name} rank={i + 1} name={c.name} value={usd(c.ganancia)}
-                  sub={`${c.ventas} ventas · conv. ${c.conversion}%`}
-                  bar={(c.ganancia / maxCanal) * 100} barColor={barColors[i] || "#6366f1"} />
-              ))
-            }
-          </Section>
-          <Section title="Tendencia Mensual" icon={TrendingUp}
-            action={
-              <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${tendenciaPos ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-500"}`}>
-                {tendenciaPos ? "↑" : "↓"} {Math.abs(tendencia)}%
-              </span>
-            }
-          >
-            <div className="flex items-end gap-3 h-32 mb-4">
-              {meses.map((m) => {
-                const h = maxMes > 0 ? Math.max((m.ganancia / maxMes) * 100, 4) : 4;
-                return (
-                  <div key={m.label} className="flex-1 flex flex-col items-center gap-1">
-                    <p className="text-slate-400 text-center leading-tight" style={{ fontSize: 10 }}>{usd(m.ganancia)}</p>
-                    <div className="w-full rounded-t-lg transition-all duration-700"
-                      style={{ height: `${h}%`, background: m.isCurrent ? "#0f172a" : "#e2e8f0", minHeight: 4 }} />
-                    <p className={`text-xs font-medium ${m.isCurrent ? "text-slate-900" : "text-slate-400"}`}>{m.label}</p>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs text-slate-400 mb-1">Mejor mes</p>
-                <p className="text-sm font-bold text-slate-800">{usd(Math.max(...meses.map(m => m.ganancia)))}</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xs text-slate-400 mb-1">Promedio mensual</p>
-                <p className="text-sm font-bold text-slate-800">{usd(meses.reduce((s, m) => s + m.ganancia, 0) / 4)}</p>
-              </div>
-            </div>
-          </Section>
-        </div>
+        {/* Canales */}
+        <Section title="Rendimiento por Canal" icon={Zap}>
+          {canales.length === 0
+            ? <p className="text-sm text-slate-400 text-center py-6">Sin datos</p>
+            : canales.slice(0, 6).map((c, i) => (
+              <RankRow key={c.name} rank={i + 1} name={c.name} value={`${c.ventas} ganadas`}
+                sub={`conv. ${c.conversion}%`}
+                bar={(c.ventas / (canales[0]?.ventas || 1)) * 100} barColor={barColors[i] || "#6366f1"} />
+            ))
+          }
+        </Section>
 
         {/* IA */}
         <AIInsights aiData={aiData} />

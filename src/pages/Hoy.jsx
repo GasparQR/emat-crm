@@ -47,15 +47,9 @@ export default function Hoy() {
 
   const today = moment();
 
-  // Helper: devuelve la fecha de seguimiento correcta según etapa
-  const getFechaSeguimiento = (c) =>
-    c.etapa === "Concretado"
-      ? (c.fecha_seguimiento_posventa || c.proximoseguimiento)
-      : c.proximoseguimiento;
-
   const hoy = consultas.filter(c => {
     if (isLogistica && c.etapa !== "GANADA") return false;
-    const fecha = getFechaSeguimiento(c);
+    const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
     return moment(fecha).isSame(today, 'day');
@@ -63,7 +57,7 @@ export default function Hoy() {
 
   const vencidos = consultas.filter(c => {
     if (isLogistica && c.etapa !== "GANADA") return false;
-    const fecha = getFechaSeguimiento(c);
+    const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
     return moment(fecha).isBefore(today, 'day');
@@ -71,7 +65,7 @@ export default function Hoy() {
 
   const proximos3d = consultas.filter(c => {
     if (isLogistica && c.etapa !== "GANADA") return false;
-    const fecha = getFechaSeguimiento(c);
+    const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.etapa === "Perdido") return false;
     return (
@@ -87,18 +81,16 @@ export default function Hoy() {
 
   const handleMarcarCompletado = async (consulta) => {
     const nuevaFecha = moment().add(3, 'days').format("YYYY-MM-DD");
-    const campo = consulta.etapa === "Concretado" ? "fecha_seguimiento_posventa" : "proximoseguimiento";
     await updateMutation.mutateAsync({
       id: consulta.id,
-      data: { [campo]: nuevaFecha }
+      data: { proximoseguimiento: nuevaFecha }
     });
   };
 
   const ConsultaItem = ({ consulta, tipo }) => {
-    const esPosventa = consulta.etapa === "Concretado";
-    const fechaMostrar = esPosventa ? consulta.fecha_seguimiento_posventa : consulta.proximoseguimiento;
+    const fechaMostrar = consulta.proximoseguimiento;
     return (
-    <Card className={`hover:shadow-md transition-all ${esPosventa ? "border-emerald-200 bg-emerald-50/30" : ""}`}>
+    <Card className="hover:shadow-md transition-all">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -107,9 +99,6 @@ export default function Hoy() {
               <Badge className={etapaColors[consulta.etapa] || "bg-slate-100 text-slate-700"}>
                 {consulta.etapa}
               </Badge>
-              {esPosventa && (
-                <Badge className="bg-emerald-600 text-white text-xs">Posventa</Badge>
-              )}
             </div>
             <p className="text-sm text-slate-600 mb-1">{consulta.productoConsultado}</p>
             {consulta.variante && (

@@ -19,13 +19,11 @@ export default function Configuracion() {
   const [inviteRole, setInviteRole] = useState("user");
   const [isLoading, setIsLoading] = useState(false);
   const [consultaDays, setConsultaDays] = useState(3);
-  const [postventaDays, setPostventaDays] = useState(7);
   const [savingDays, setSavingDays] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
-      setPostventaDays(currentUser.postventa_follow_up_days ?? 7);
     }
   }, [currentUser]);
 
@@ -34,7 +32,6 @@ export default function Configuracion() {
     try {
       await auth.updateMe({
         consulta_follow_up_days: Number(consultaDays),
-        postventa_follow_up_days: Number(postventaDays)
       });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       toast.success("Días hábiles guardados");
@@ -108,17 +105,6 @@ export default function Configuracion() {
                   onChange={(e) => setConsultaDays(e.target.value)}
                 />
                 <p className="text-xs text-slate-400">Días que se agregan automáticamente al agendar un seguimiento de consulta</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Seguimiento de postventa (días hábiles)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="60"
-                  value={postventaDays}
-                  onChange={(e) => setPostventaDays(e.target.value)}
-                />
-                <p className="text-xs text-slate-400">Días que se agregan al completar el primer contacto de postventa</p>
               </div>
             </div>
             <Button onClick={handleSaveDays} disabled={savingDays} className="gap-2">
