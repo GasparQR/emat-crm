@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { entities } from "@/api/supabaseClient";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -8,42 +11,69 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-export default function PostventaWhatsAppSender({ open, onOpenChange, venta, contactoWhatsapp, onMessageSent, workspaceId }) {
-  const [plantillas, setPlantillas] = useState([]);
-  const [variablesDB, setVariablesDB] = useState([]);
+export default function PostventaWhatsAppSender({ open, onOpenChange, venta, contactoWhatsapp, onMessageSent }) {
   const [selectedPlantilla, setSelectedPlantilla] = useState(null);
   const [mensaje, setMensaje] = useState("");
-  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (open) loadData();
-  }, [open]);
+  const { workspace } = useWorkspace();
 
+  const { data: plantillas = [] } = useQuery({
+    queryKey: ["plantillas", workspace?.id],
+    queryFn: () =>
+      workspace
+        ? entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id }, "-created_date")
+        : [],
+    enabled: !!workspace && open,
+  });
+
+  const { data: variablesDB = [] } = useQuery({
+    queryKey: ["variables", workspace?.id],
+    queryFn: () =>
+      workspace ? entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
+    enabled: !!workspace && open,
+  });
+
+  // Auto-select a postventa/concretada template when plantillas load
+  useEffect(() => {
+    if (!open) return;
+
+    const activas = plantillas.filter((p) => p.activa !== false);
+    if (activas.length === 0) return;
+
+    const sugerida =
+      activas.find((p) => p.etapa === "EJECUTADA" || p.etapa === "GANADA") ||
+      activas.find((p) => p.etapa === "General" || !p.etapa) ||
+      activas[0];
+
+    if (sugerida) setSelectedPlantilla(sugerida);
+  }, [open, plantillas]);
+
+  // Rebuild message when template or venta changes
   useEffect(() => {
     if (selectedPlantilla && venta) {
       setMensaje(reemplazarVariables(selectedPlantilla.contenido, venta));
     }
   }, [selectedPlantilla, venta, variablesDB]);
 
-  const loadData = () => {
-    const allPlantillas = [
-      { id: "plant_1", nombrePlantilla: "Plantilla Estándar", contenido: "Hola {NOMBRE}, gracias por tu compra de {PRODUCTO}. Garantía: {GARANTIA}. Soporte: {SOPORTE}", etapa: "Concretado", activa: true }
-    ];
-    const vars = [];
-    setVariablesDB(vars);
-    const postventa = allPlantillas.filter(p => p.etapa === 'Concretado');
-    const lista = postventa.length > 0 ? postventa : allPlantillas;
-    setPlantillas(lista);
-    if (lista.length > 0) setSelectedPlantilla(lista[0]);
-  };
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedPlantilla(null);
+      setMensaje("");
+      setCopied(false);
+    }
+  }, [open]);
 
   const reemplazarVariables = (texto, data) => {
     if (!texto) return "";
     let result = texto;
-    variablesDB.forEach(v => {
-      result = result.replace(new RegExp(`\\{${v.clave}\\}`, 'g'), v.valor);
+
+    // Custom workspace variables first
+    variablesDB.forEach((v) => {
+      result = result.replace(new RegExp(`\\{${v.clave}\\}`, "g"), v.valor ?? "");
     });
+
     return result
       .replace(/{NOMBRE}/g, data.nombreSnapshot || "")
       .replace(/{PRODUCTO}/g, data.productoSnapshot || data.modelo || "")
@@ -84,6 +114,8 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
 
   if (!venta) return null;
 
+  const plantillasActivas = plantillas.filter((p) => p.activa !== false);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -108,19 +140,24 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
             </div>
           </div>
 
-          {plantillas.length > 0 && (
+          {plantillasActivas.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-500" />
                 Plantilla
               </Label>
               <Select
-                value={selectedPlantilla?.id}
-                onValueChange={val => setSelectedPlantilla(plantillas.find(p => p.id === val))}
+                value={selectedPlantilla?.id || ""}
+                onValueChange={(val) => setSelectedPlantilla(plantillasActivas.find((p) => p.id === val))}
               >
                 <SelectTrigger><SelectValue placeholder="Seleccionar plantilla" /></SelectTrigger>
                 <SelectContent>
-                  {plantillas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombrePlantilla}</SelectItem>)}
+                  {plantillasActivas.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nombrePlantilla}
+                      {p.etapa && p.etapa !== "General" && ` · ${p.etapa}`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -130,11 +167,12 @@ export default function PostventaWhatsAppSender({ open, onOpenChange, venta, con
             <Label>Mensaje</Label>
             <Textarea
               value={mensaje}
-              onChange={e => setMensaje(e.target.value)}
+              onChange={(e) => setMensaje(e.target.value)}
               rows={6}
               className="resize-none"
-              placeholder="Escribe tu mensaje..."
+              placeholder="Escribe tu mensaje o selecciona una plantilla..."
             />
+            <p className="text-xs text-slate-500">{mensaje.length} caracteres</p>
           </div>
         </div>
 

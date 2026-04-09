@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { entities } from "@/api/supabaseClient";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -8,71 +11,84 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Copy, ExternalLink, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
-// FIX: reemplazamos el import de date-fns por una implementación local
-// que devuelve string ISO (YYYY-MM-DD) en lugar de un objeto Date.
-function addBusinessDays(date, days) {
-  const result = new Date(date);
-  let added = 0;
-  while (added < days) {
-    result.setDate(result.getDate() + 1);
-    const d = result.getDay();
-    if (d !== 0 && d !== 6) added++;
-  }
-  return result.toISOString().split("T")[0]; // Devuelve string, no Date
-}
-
 export default function WhatsAppSender({ open, onOpenChange, consulta, onMessageSent }) {
-  const [plantillas, setPlantillas] = useState([]);
   const [selectedPlantilla, setSelectedPlantilla] = useState(null);
   const [mensaje, setMensaje] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      loadPlantillas();
-    }
-  }, [open]);
+  const { workspace } = useWorkspace();
 
-  useEffect(() => {
-    if (selectedPlantilla && consulta) {
-      const contenido = reemplazarVariables(selectedPlantilla.contenido, consulta);
-      setMensaje(contenido);
-    }
-  }, [selectedPlantilla, consulta]);
+  const { data: plantillas = [] } = useQuery({
+    queryKey: ["plantillas", workspace?.id],
+    queryFn: () =>
+      workspace
+        ? entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id }, "-created_date")
+        : [],
+    enabled: !!workspace && open,
+  });
 
-  const loadPlantillas = () => {
-    const data = [
-      { id: "plant_1", nombrePlantilla: "Plantilla General", contenido: "Hola {NOMBRE}, aquí te dejo tu presupuesto para {PRODUCTO}: {PRECIO} {MONEDA}", etapa: "General", categoriaProducto: null, activa: true }
-    ];
-    setPlantillas(data);
+  const { data: variablesDB = [] } = useQuery({
+    queryKey: ["variables", workspace?.id],
+    queryFn: () =>
+      workspace ? entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
+    enabled: !!workspace && open,
+  });
+
+  // Auto-select suggested template when plantillas or dialog state changes
+  useEffect(() => {
+    if (!open) return;
+
+    const activas = plantillas.filter((p) => p.activa !== false);
+    if (activas.length === 0) return;
 
     const etapaMapeada = mapEtapaToPlantilla(consulta?.etapa);
     const categoria = consulta?.categoriaProducto;
 
     const sugerida =
-      data.find(p => p.etapa === etapaMapeada && p.categoriaProducto === categoria) ||
-      data.find(p => p.etapa === etapaMapeada) ||
-      data.find(p => p.etapa === "General") ||
-      data[0];
+      activas.find((p) => p.etapa === etapaMapeada && p.categoriaProducto === categoria) ||
+      activas.find((p) => p.etapa === etapaMapeada) ||
+      activas.find((p) => p.etapa === "General" || !p.etapa) ||
+      activas[0];
 
-    if (sugerida) {
-      setSelectedPlantilla(sugerida);
+    if (sugerida) setSelectedPlantilla(sugerida);
+  }, [open, plantillas, consulta?.etapa, consulta?.categoriaProducto]);
+
+  // Rebuild message when template or consulta changes
+  useEffect(() => {
+    if (selectedPlantilla && consulta) {
+      setMensaje(reemplazarVariables(selectedPlantilla.contenido, consulta));
     }
-  };
+  }, [selectedPlantilla, consulta, variablesDB]);
+
+  // Reset state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedPlantilla(null);
+      setMensaje("");
+      setCopied(false);
+    }
+  }, [open]);
 
   const mapEtapaToPlantilla = (etapa) => {
     if (etapa === "Nuevo") return "Nuevo";
     if (["Seguimiento1", "Seguimiento2", "Seguimiento"].includes(etapa)) return "Seguimiento";
-    if (etapa === "Negociacion") return "Cierre";
-    if (etapa === "Concretado") return "Concretado";
-    if (etapa === "Perdido") return "Perdido";
+    if (etapa === "Negociacion") return "NEGOCIACION";
+    if (etapa === "Concretado") return "GANADA";
+    if (etapa === "Perdido") return "PERDIDA";
     return "General";
   };
 
   const reemplazarVariables = (texto, data) => {
     if (!texto) return "";
-    return texto
+    let result = texto;
+
+    // Custom workspace variables first
+    variablesDB.forEach((v) => {
+      result = result.replace(new RegExp(`\\{${v.clave}\\}`, "g"), v.valor ?? "");
+    });
+
+    return result
       .replace(/{NOMBRE}/g, data.contactoNombre || "")
       .replace(/{PRODUCTO}/g, data.productoConsultado || "")
       .replace(/{VARIANTE}/g, data.variante || "")
@@ -121,6 +137,8 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
 
   if (!consulta) return null;
 
+  const plantillasActivas = plantillas.filter((p) => p.activa !== false);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -141,28 +159,30 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              Plantilla sugerida
-            </Label>
-            <Select
-              value={selectedPlantilla?.id}
-              onValueChange={(val) => setSelectedPlantilla(plantillas.find(p => p.id === val))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar plantilla" />
-              </SelectTrigger>
-              <SelectContent>
-                {plantillas.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.nombrePlantilla}
-                    {p.categoriaProducto && ` (${p.categoriaProducto})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {plantillasActivas.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                Plantilla sugerida
+              </Label>
+              <Select
+                value={selectedPlantilla?.id || ""}
+                onValueChange={(val) => setSelectedPlantilla(plantillasActivas.find((p) => p.id === val))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar plantilla" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plantillasActivas.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.nombrePlantilla}
+                      {p.categoriaProducto && ` (${p.categoriaProducto})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Mensaje</Label>
@@ -171,8 +191,9 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
               onChange={(e) => setMensaje(e.target.value)}
               rows={6}
               className="resize-none w-full"
-              placeholder="Escribe tu mensaje..."
+              placeholder="Escribe tu mensaje o selecciona una plantilla..."
             />
+            <p className="text-xs text-slate-500">{mensaje.length} caracteres</p>
           </div>
         </div>
 
