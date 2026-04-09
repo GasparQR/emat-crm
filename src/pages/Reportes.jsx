@@ -98,15 +98,15 @@ export default function Reportes() {
 
   // TAB 1 - DASHBOARD EJECUTIVO
   const kpis = useMemo(() => {
-    const ganadas = filtradas.filter((c) => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
-    const conEstado = filtradas.filter((c) => c.etapa);
+    const ganadas = filtradas.filter((c) => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA");
+    const conEstado = filtradas.filter((c) => c.pipeline_stage);
     const tasa =
       conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
     const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
-      (c) => c.proximoseguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+      (c) => c.proximoseguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     return {
       total: filtradas.length,
@@ -123,8 +123,8 @@ export default function Reportes() {
     filtradas.forEach((c) => {
       const key = fmtMonthYear(c.mes, c.ano);
       if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, ganados: 0, perdidos: 0, otros: 0 };
-      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") map[key].ganados++;
-      else if (c.etapa === "PERDIDA") map[key].perdidos++;
+      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") map[key].ganados++;
+      else if (c.pipeline_stage === "PERDIDA") map[key].perdidos++;
       else map[key].otros++;
     });
     return Object.values(map).sort((a, b) => {
@@ -138,7 +138,7 @@ export default function Reportes() {
   const estadoDistData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const e = c.etapa || "Sin estado";
+      const e = c.pipeline_stage || "Sin estado";
       map[e] = (map[e] || 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
@@ -151,7 +151,7 @@ export default function Reportes() {
       const a = c.asesor || "Sin asignar";
       if (!map[a]) map[a] = { asesor: a, total: 0, ganados: 0, importe: 0, m2: 0 };
       map[a].total++;
-      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") {
+      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
         map[a].ganados++;
         map[a].importe += c.importe || 0;
       }
@@ -215,7 +215,7 @@ export default function Reportes() {
     const etapas = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
     return etapas.map((e) => ({
       etapa: e,
-      cantidad: filtradas.filter((c) => c.etapa === e).length,
+      cantidad: filtradas.filter((c) => c.pipeline_stage === e).length,
       fill: ESTADO_COLORS[e],
     }));
   }, [filtradas]);
@@ -232,16 +232,16 @@ export default function Reportes() {
       (c) =>
         c.proximoseguimiento &&
         moment(c.proximoseguimiento).isBefore(hoy, "day") &&
-        ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+        ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     const proximos = filtradas.filter(
       (c) =>
         c.proximoseguimiento &&
         moment(c.proximoseguimiento).isBetween(hoy, en7dias, "day", "[]") &&
-        ["NEGOCIACION", "A COTIZAR"].includes(c.etapa)
+        ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     const tiemposEnPipeline = filtradas
-      .filter((c) => (c.etapa === "GANADA" || c.etapa === "EJECUTADA") && c.created_date)
+      .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
       .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
       .filter((d) => d >= 0);
     const tiempoProm =
@@ -253,10 +253,10 @@ export default function Reportes() {
 
   // TAB 5 - PÉRDIDAS
   const perdidasData = useMemo(() => {
-    const perdidas = filtradas.filter((c) => c.etapa === "PERDIDA");
+    const perdidas = filtradas.filter((c) => c.pipeline_stage === "PERDIDA");
     const motivosMap = {};
     perdidas.forEach((c) => {
-      const m = c.motivoPerdida || "Sin especificar";
+      const m = c.razonperdida || "Sin especificar";
       motivosMap[m] = (motivosMap[m] || 0) + 1;
     });
     const motivosPie = Object.entries(motivosMap)
@@ -720,8 +720,8 @@ export default function Reportes() {
                           <p className="text-xs text-slate-500">#{c.nroppto} · {c.asesor}</p>
                         </div>
                         <div className="text-right">
-                          <Badge className={ESTADO_BADGE[c.etapa] || "bg-slate-100 text-slate-600"}>
-                            {c.etapa}
+                          <Badge className={ESTADO_BADGE[c.pipeline_stage] || "bg-slate-100 text-slate-600"}>
+                            {c.pipeline_stage}
                           </Badge>
                           <p className="text-xs text-red-600 mt-1">
                             {moment(c.proximoseguimiento).format("DD/MM/YYYY")}
