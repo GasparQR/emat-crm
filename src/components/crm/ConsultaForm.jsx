@@ -103,7 +103,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         empresa: newLeadData.empresa,
         asesor: newLeadData.asesor,
       });
-      set("asesor", newLeadData.contactoNombre);
+      set("contactoNombre", newLeadData.nombre);
       set("contactoWhatsapp", newLeadData.whatsapp);
       setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "" });
       setShowNewLead(false);
@@ -119,9 +119,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     try {
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
-        contactonombre: formData.contactoNombre,
+        asesor: formData.asesor || formData.contactoNombre,
         contactowhatsapp: formData.contactoWhatsapp,
-        asesor: formData.asesor,
         etapa: formData.etapa,
         mes: formData.mes,
         ano: formData.ano,

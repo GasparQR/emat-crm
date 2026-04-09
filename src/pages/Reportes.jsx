@@ -716,7 +716,7 @@ export default function Reportes() {
                     {seguimientoInfo.vencidos.slice(0, 15).map((c) => (
                       <div key={c.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                         <div>
-                          <p className="font-medium text-sm text-slate-800">{c.contactonombre || "Sin nombre"}</p>
+                          <p className="font-medium text-sm text-slate-800">{c.asesor || "Sin nombre"}</p>
                           <p className="text-xs text-slate-500">#{c.nroppto} · {c.asesor}</p>
                         </div>
                         <div className="text-right">

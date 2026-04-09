@@ -51,7 +51,7 @@ export default function Home() {
       const now = new Date();
       await base44.entities.Consulta.create({
         workspace_id: wsId,
-        contactonombre: newLeadData.nombre,
+        asesor: newLeadData.nombre,
         contactowhatsapp: newLeadData.whatsapp || "",
         etapa: "NUEVO LEAD",
         mes: MESES[now.getMonth()],

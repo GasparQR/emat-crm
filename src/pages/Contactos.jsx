@@ -108,7 +108,7 @@ export default function Contactos() {
     mutationFn: (data) => base44.entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
-      toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactonombre}`);
+      toast.success(`Consulta creada en "${variables.etapa}" para ${variables.asesor}`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
     },
@@ -137,7 +137,7 @@ export default function Contactos() {
     const { contacto: c, mensaje } = pipelineDialog;
 
     // Chequeo de duplicado en CUALQUIER etapa
-    const consultaExistente = consultas.find(q => q.contactonombre === c.nombre);
+    const consultaExistente = consultas.find(q => q.asesor === c.nombre);
     if (consultaExistente) {
       toast.info(`${c.nombre} ya tiene una consulta en etapa "${consultaExistente.etapa}". No se creó un duplicado.`);
       setPipelineDialog(null);
@@ -150,7 +150,7 @@ export default function Contactos() {
     const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
 
     createConsultaMutation.mutate({
-      contactonombre: c.nombre,
+      asesor: c.nombre,
       contactowhatsapp: c.whatsapp || "",
       canalorigen: c.canalOrigen || "WhatsApp",
       etapa: etapaSeleccionada,
@@ -173,7 +173,7 @@ export default function Contactos() {
   const handleEdit = (contacto) => {
     setSelectedContacto(contacto);
     // Look up existing consulta for this contact to pre-populate pipeline stage
-    const consultaExistente = consultas.find(q => q.contactonombre === contacto.nombre);
+    const consultaExistente = consultas.find(q => q.asesor === contacto.nombre);
     setFormData({
       nombre: contacto.nombre || "",
       empresa: contacto.empresa || "",
@@ -207,7 +207,7 @@ export default function Contactos() {
       // Handle pipeline stage assignment
       const stage = etapaPipeline && etapaPipeline !== "sin_asignar" ? etapaPipeline : null;
       if (stage) {
-        const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
+        const consultaExistente = consultas.find(q => q.asesor === formData.nombre);
         if (consultaExistente) {
           // Update existing consulta's stage
           if (consultaExistente.etapa !== stage) {
@@ -221,7 +221,7 @@ export default function Contactos() {
           const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
           await base44.entities.Consulta.create({
             workspace_id: workspace?.id || "local",
-            contactonombre: formData.nombre,
+            asesor: formData.nombre,
             contactowhatsapp: formData.whatsapp || "",
             canalorigen: formData.canalOrigen || "",
             etapa: stage,
@@ -256,7 +256,7 @@ export default function Contactos() {
 
   // Consulta existente del contacto en pipeline (para mostrar warning en el diálogo)
   const consultaExistenteEnDialog = pipelineDialog
-    ? consultas.find(q => q.contactonombre === pipelineDialog.contacto.nombre)
+    ? consultas.find(q => q.asesor === pipelineDialog.contacto.nombre)
     : null;
 
   return (

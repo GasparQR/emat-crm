@@ -70,7 +70,7 @@ export default function Consultas() {
     if (search) {
       const s = search.toLowerCase();
       const matchesSearch =
-        (c.contactonombre?.toLowerCase().includes(s)) ||
+        (c.asesor?.toLowerCase().includes(s)) ||
         (String(c.nroppto || "").includes(s)) ||
         (c.ubicacionobra?.toLowerCase().includes(s));
       if (!matchesSearch) return false;
@@ -184,7 +184,7 @@ export default function Consultas() {
                     {/* Cliente: nombre + #ppto + ubicación fusionados */}
                     <TableCell className="py-2">
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactonombre}</p>
+                        <p className="font-medium text-slate-900 truncate text-sm">{c.asesor}</p>
                         {c.nroppto && (
                           <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
                         )}

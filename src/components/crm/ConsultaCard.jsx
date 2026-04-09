@@ -44,7 +44,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
           </div>
           <div>
             <p className="font-semibold text-slate-900 text-sm leading-tight line-clamp-1">
-              {consulta.contactonombre || "Sin nombre"}
+              {consulta.asesor || "Sin nombre"}
             </p>
             {consulta.nroppto && (
               <p className="text-xs text-slate-400">#{consulta.nroppto}</p>

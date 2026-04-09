@@ -103,7 +103,7 @@ export default function Hoy() {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
+              <h3 className="font-semibold text-slate-900">{consulta.asesor}</h3>
               <Badge className={etapaColors[consulta.etapa] || "bg-slate-100 text-slate-700"}>
                 {consulta.etapa}
               </Badge>
