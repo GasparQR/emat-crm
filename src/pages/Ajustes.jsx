@@ -19,13 +19,7 @@ const OPCIONES = [
     page: "Plantillas",
     color: "bg-emerald-100 text-emerald-700"
   },
-  {
-    title: "Pipeline",
-    description: "Configura las etapas de tu pipeline de ventas",
-    icon: Kanban,
-    page: "ConfigurarPipeline",
-    color: "bg-blue-100 text-blue-700"
-  },
+  
   
 ];
 
