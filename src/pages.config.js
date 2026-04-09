@@ -60,7 +60,6 @@ import Plantillas from './pages/Plantillas';
 import Reportes from './pages/Reportes';
 import Variables from './pages/Variables';
 import __Layout from './Layout.jsx';
-import InteligenciaNegocio from './pages/InteligenciaNegocio';
 
 
 
@@ -77,7 +76,6 @@ export const PAGES = {
     "Plantillas": Plantillas,
     "Reportes": Reportes,
     "Variables": Variables,
-    "InteligenciaNegocio": InteligenciaNegocio,
 }
 
 export const pagesConfig = {
