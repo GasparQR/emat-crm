@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +15,6 @@ export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "P
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
-const ESTADOS = ["NUEVO LEAD", "A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const MOTIVOS_PERDIDA = [
   "Sin respuesta","Se canceló la obra","Ganó la competencia",
@@ -74,10 +74,21 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
   const { workspace } = useWorkspace();
 
+  const { data: etapas = [] } = useQuery({
+    queryKey: ['pipeline-stages', workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
   useEffect(() => {
     if (open) {
       if (consulta) {
         setFormData({ ...emptyForm(), ...consulta,
+          etapa: consulta.pipeline_stage || consulta.etapa || emptyForm().etapa,
           superficieM2: consulta.superficieM2 ?? "",
           fibraKg: consulta.fibraKg ?? "",
           adhLts: consulta.adhLts ?? "",
@@ -122,7 +133,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         contactonombre: formData.contactoNombre,
         contactowhatsapp: formData.contactoWhatsapp,
         asesor: formData.asesor,
-        etapa: formData.etapa,
+        pipeline_stage: formData.etapa,
         mes: formData.mes,
         ano: formData.ano,
         tipoapplicacion: formData.tipoAplicacion,
@@ -268,7 +279,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Estado</Label>
                 <Select value={formData.etapa} onValueChange={v => set("etapa", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                  <SelectContent>{etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">

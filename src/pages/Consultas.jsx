@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -16,18 +16,7 @@ import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
 
-const ESTADOS = ["NUEVO LEAD", "A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA"];
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
-
-const ESTADO_COLORS = {
-  "NUEVO LEAD": "bg-cyan-100 text-cyan-700",
-  "A COTIZAR": "bg-slate-100 text-slate-700",
-  "NEGOCIACION": "bg-amber-100 text-amber-700",
-  "GANADA": "bg-green-100 text-green-700",
-  "EJECUTADA": "bg-emerald-100 text-emerald-800",
-  "PAUSADA": "bg-gray-100 text-gray-600",
-  "PERDIDA": "bg-red-100 text-red-700",
-};
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -45,6 +34,21 @@ export default function Consultas() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+
+  const { data: etapas = [] } = useQuery({
+    queryKey: ['pipeline-stages', workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const etapaColorMap = useMemo(
+    () => Object.fromEntries(etapas.map(s => [s.pipeline_stage, s.color])),
+    [etapas]
+  );
 
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
@@ -77,7 +81,7 @@ export default function Consultas() {
     }
 
     // Filtro de estado (solo si no es "todos")
-    if (filtroEstado !== "todos" && c.etapa !== filtroEstado) return false;
+    if (filtroEstado !== "todos" && c.pipeline_stage !== filtroEstado) return false;
 
     // Filtro de asesor (solo si no es "todos")
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
@@ -127,7 +131,7 @@ export default function Consultas() {
               <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
-                {ESTADOS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                {etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
@@ -232,8 +236,8 @@ export default function Consultas() {
 
                     {/* Estado */}
                     <TableCell className="py-2">
-                      <Badge className={cn("text-xs", ESTADO_COLORS[c.etapa] || "bg-slate-100 text-slate-700")}>
-                        {c.etapa}
+                      <Badge className={cn("text-xs text-white", etapaColorMap[c.pipeline_stage] || "bg-slate-500")}>
+                        {c.pipeline_stage}
                       </Badge>
                     </TableCell>
 
