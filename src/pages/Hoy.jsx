@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,12 +33,12 @@ export default function Hoy() {
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 1000) : [],
+    queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 1000) : [],
     enabled: !!workspace
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Consulta.update(id, data),
+    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultas-hoy', workspace?.id] });
       toast.success("Actualizado");

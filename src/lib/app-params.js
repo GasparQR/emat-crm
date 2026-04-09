@@ -1,4 +1,4 @@
-// Simple app params for EMAT CRM (no base44 dependency)
+// Parámetros de la aplicación EMAT CRM
 
 const getAppParams = () => {
   return {

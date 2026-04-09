@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
     queryKey: ["plantillas", workspace?.id],
     queryFn: () =>
       workspace
-        ? base44.entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id }, "-created_date")
+        ? entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id }, "-created_date")
         : [],
     enabled: !!workspace && open,
   });
@@ -31,7 +31,7 @@ export default function ContactoWhatsAppSender({ open, onOpenChange, contacto, o
   const { data: variablesDB = [] } = useQuery({
     queryKey: ["variables", workspace?.id],
     queryFn: () =>
-      workspace ? base44.entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
+      workspace ? entities.VariablePlantilla.filter({ workspace_id: workspace.id }) : [],
     enabled: !!workspace && open,
   });
 

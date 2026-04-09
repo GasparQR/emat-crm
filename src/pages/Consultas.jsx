@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -39,7 +39,7 @@ export default function Consultas() {
     queryKey: ['pipeline-stages', workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
     enabled: !!workspace,
@@ -53,13 +53,13 @@ export default function Consultas() {
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
     queryFn: () => workspace
-      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-nroppto", 2000)
+      ? entities.Consulta.filter({ workspace_id: workspace.id }, "-nroppto", 2000)
       : [],
     enabled: !!workspace,
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Consulta.delete(id),
+    mutationFn: (id) => entities.Consulta.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
       toast.success("Presupuesto eliminado");

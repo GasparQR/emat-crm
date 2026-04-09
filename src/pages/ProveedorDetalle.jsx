@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -53,14 +53,14 @@ export default function ProveedorDetalle() {
 
   const { data: proveedor, isLoading } = useQuery({
     queryKey: ['proveedor', proveedorId],
-    queryFn: () => base44.entities.Proveedor.filter({ id: proveedorId }),
+    queryFn: () => entities.Proveedor.filter({ id: proveedorId }),
     select: (data) => data[0],
     enabled: !esNuevo
   });
 
   const { data: ventas = [] } = useQuery({
     queryKey: ['ventas-proveedor', proveedorId],
-    queryFn: () => base44.entities.Venta.filter({ proveedorId }),
+    queryFn: () => entities.Venta.filter({ proveedorId }),
     enabled: !esNuevo
   });
 
@@ -73,9 +73,9 @@ export default function ProveedorDetalle() {
   const saveMutation = useMutation({
     mutationFn: (data) => {
       if (esNuevo) {
-        return base44.entities.Proveedor.create({ ...data, workspace_id: workspace?.id });
+        return entities.Proveedor.create({ ...data, workspace_id: workspace?.id });
       }
-      return base44.entities.Proveedor.update(proveedorId, data);
+      return entities.Proveedor.update(proveedorId, data);
     },
     onSuccess: (data) => {
       toast.success(esNuevo ? "Proveedor creado" : "Proveedor actualizado");
@@ -90,7 +90,7 @@ export default function ProveedorDetalle() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => base44.entities.Proveedor.delete(proveedorId),
+    mutationFn: () => entities.Proveedor.delete(proveedorId),
     onSuccess: () => {
       toast.success("Proveedor eliminado");
       navigate(createPageUrl("Proveedores"));

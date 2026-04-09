@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -24,13 +24,13 @@ export default function Proveedores() {
 
   const { data: proveedores = [], isLoading } = useQuery({
     queryKey: ['proveedores', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Proveedor.filter({ workspace_id: workspace.id }, "-created_date") : [],
+    queryFn: () => workspace ? entities.Proveedor.filter({ workspace_id: workspace.id }, "-created_date") : [],
     enabled: !!workspace
   });
 
   const { data: ventas = [] } = useQuery({
     queryKey: ['ventas-proveedores', workspace?.id],
-    queryFn: () => workspace ? base44.entities.Venta.filter({ workspace_id: workspace.id }) : [],
+    queryFn: () => workspace ? entities.Venta.filter({ workspace_id: workspace.id }) : [],
     enabled: !!workspace
   });
 

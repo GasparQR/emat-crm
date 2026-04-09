@@ -12,7 +12,7 @@ if (!SUPABASE_ANON_KEY) {
 // Cliente Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ─── Wrapper para compatibilidad con código existente ──────────────────────────
+// ─── Wrapper de acceso a datos ─────────────────────────────────────────────────
 
 class SupabaseDataStore {
   constructor(tableName) {
@@ -20,44 +20,44 @@ class SupabaseDataStore {
   }
 
   async filter(query = {}, sortField = null, limit = 2000) {
-  const PAGE_SIZE = 1000;
-  let allData = [];
-  let from = 0;
+    const PAGE_SIZE = 1000;
+    let allData = [];
+    let from = 0;
 
-  while (true) {
-    let q = supabase.from(this.tableName).select('*');
+    while (true) {
+      let q = supabase.from(this.tableName).select('*');
 
-    Object.entries(query).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        q = q.eq(key, value);
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          q = q.eq(key, value);
+        }
+      });
+
+      if (sortField) {
+        const ascending = !sortField.startsWith('-');
+        const field = sortField.startsWith('-') ? sortField.slice(1) : sortField;
+        q = q.order(field, { ascending });
       }
-    });
 
-    if (sortField) {
-      const ascending = !sortField.startsWith('-');
-      const field = sortField.startsWith('-') ? sortField.slice(1) : sortField;
-      q = q.order(field, { ascending });
+      const to = from + PAGE_SIZE - 1;
+      q = q.range(from, to);
+
+      const { data, error } = await q;
+      if (error) {
+        console.error(`Error fetching ${this.tableName}:`, error);
+        break;
+      }
+
+      allData = [...allData, ...(data || [])];
+
+      if (!data || data.length < PAGE_SIZE) break;
+      if (limit && allData.length >= limit) break;
+
+      from += PAGE_SIZE;
     }
 
-    const to = from + PAGE_SIZE - 1;
-    q = q.range(from, to);
-
-    const { data, error } = await q;
-    if (error) {
-      console.error(`Error fetching ${this.tableName}:`, error);
-      break;
-    }
-
-    allData = [...allData, ...(data || [])];
-
-    if (!data || data.length < PAGE_SIZE) break;
-    if (limit && allData.length >= limit) break;
-
-    from += PAGE_SIZE;
+    return limit ? allData.slice(0, limit) : allData;
   }
-
-  return limit ? allData.slice(0, limit) : allData;
-}
 
   async list(sortField = null, limit = 2000) {
     return this.filter({}, sortField, limit);
@@ -154,7 +154,7 @@ const createEntityProxy = (tableName) => {
   };
 };
 
-// ─── Usuario mock (reemplazar con auth real después) ───────────────────────────
+// ─── Usuario local (reemplazar con Supabase Auth cuando corresponda) ──────────
 
 const LOCAL_USER = {
   id: 'admin',
@@ -166,41 +166,52 @@ const LOCAL_USER = {
   canViewReports: true,
 };
 
-// ─── Exportar base44 compatible ───────────────────────────────────────────────
+// ─── Autenticación ─────────────────────────────────────────────────────────────
 
-export const base44 = {
-  auth: {
-    me: async () => LOCAL_USER,
-    logout: () => {
-      localStorage.clear();
-      window.location.href = '/';
-    },
-    redirectToLogin: () => {
-      window.location.href = '/login';
-    },
+export const auth = {
+  me: async () => LOCAL_USER,
+  updateMe: async (data) => {
+    Object.assign(LOCAL_USER, data);
+    return LOCAL_USER;
   },
-  appLogs: {
-    logUserInApp: () => Promise.resolve(),
+  logout: () => {
+    localStorage.clear();
+    window.location.href = '/';
   },
-  entities: {
-    Workspace: createEntityProxy('Workspace'),
-    WorkspaceMember: createEntityProxy('WorkspaceMember'),
-    Consulta: createEntityProxy('Consulta'),
-    Contacto: createEntityProxy('Contacto'),
-    Venta: createEntityProxy('Venta'),
-    Proveedor: createEntityProxy('Proveedor'),
-    PipelineStage: createEntityProxy('PipelineStage'),
-    Postventa: createEntityProxy('Postventa'),
-    HistorialEnvios: createEntityProxy('HistorialEnvios'),
-    Cliente: createEntityProxy('Cliente'),
-    Presupuesto: createEntityProxy('Presupuesto'),
-    PlantillaWhatsApp: createEntityProxy('PlantillaWhatsApp'),
-    EnvioWhatsApp: createEntityProxy('EnvioWhatsApp'),
-    Mensaje: createEntityProxy('Mensaje'),
-    ListaWhatsApp: createEntityProxy('ListaWhatsApp'),
-    VariablePlantilla: createEntityProxy('VariablePlantilla'),
-    Usuario: createEntityProxy('Usuario'),
+  redirectToLogin: () => {
+    window.location.href = '/login';
   },
+};
+
+// ─── Gestión de usuarios ───────────────────────────────────────────────────────
+
+export const users = {
+  inviteUser: async (email, role) => {
+    console.warn('inviteUser: funcionalidad no disponible sin Supabase Auth configurado', { email, role });
+    return Promise.resolve();
+  },
+};
+
+// ─── Entidades ─────────────────────────────────────────────────────────────────
+
+export const entities = {
+  Workspace: createEntityProxy('workspace'),
+  WorkspaceMember: createEntityProxy('workspacemember'),
+  Consulta: createEntityProxy('consulta'),
+  Contacto: createEntityProxy('contacto'),
+  Venta: createEntityProxy('venta'),
+  Proveedor: createEntityProxy('proveedor'),
+  PipelineStage: createEntityProxy('pipelinestage'),
+  Postventa: createEntityProxy('postventa'),
+  HistorialEnvios: createEntityProxy('historialesenvios'),
+  Cliente: createEntityProxy('cliente'),
+  Presupuesto: createEntityProxy('presupuesto'),
+  PlantillaWhatsApp: createEntityProxy('plantillawhatsapp'),
+  EnvioWhatsApp: createEntityProxy('enviowatsapp'),
+  Mensaje: createEntityProxy('mensaje'),
+  ListaWhatsApp: createEntityProxy('listawhatsapp'),
+  VariablePlantilla: createEntityProxy('variableplantilla'),
+  Usuario: createEntityProxy('usuario'),
 };
 
 export default supabase;
