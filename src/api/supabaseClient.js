@@ -1,17 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuración Supabase
-const PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+const PROJECT_ID = 'ywbgeqjqjfnhldqqqklj';
+const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!PROJECT_ID) {
-  console.error('❌ VITE_SUPABASE_PROJECT_ID no está configurada en .env');
-}
 if (!SUPABASE_ANON_KEY) {
   console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env');
 }
-
-const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
 
 // Cliente Supabase
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
