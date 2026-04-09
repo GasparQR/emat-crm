@@ -10,12 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { ArrowLeft, Copy, Archive, Save } from "lucide-react";
 import { toast } from "sonner";
 
 export default function EditorListaWhatsApp() {
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const params = new URLSearchParams(window.location.search);
@@ -65,7 +67,7 @@ export default function EditorListaWhatsApp() {
     },
     onSuccess: () => {
       toast.success(listaId ? "Lista actualizada" : "Lista creada");
-      queryClient.invalidateQueries({ queryKey: ['listas-whatsapp'] });
+      queryClient.invalidateQueries({ queryKey: ['listas-whatsapp', workspace?.id] });
       navigate(createPageUrl("ListasWhatsApp"));
     }
   });
@@ -81,7 +83,7 @@ export default function EditorListaWhatsApp() {
     },
     onSuccess: () => {
       toast.success("Lista duplicada");
-      queryClient.invalidateQueries({ queryKey: ['listas-whatsapp'] });
+      queryClient.invalidateQueries({ queryKey: ['listas-whatsapp', workspace?.id] });
       navigate(createPageUrl("ListasWhatsApp"));
     }
   });

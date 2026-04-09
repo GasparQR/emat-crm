@@ -2,7 +2,7 @@ import { Droppable, Draggable } from "@hello-pangea/dnd";
 import ConsultaCard from "./ConsultaCard";
 import { cn } from "@/lib/utils";
 
-export default function PipelineColumn({ etapa, etapaColor, consultas = [], onWhatsApp, onEdit, onConcretarVenta, onMarcarPerdido }) {
+export default function PipelineColumn({ etapa, etapaColor, consultas = [], onWhatsApp, onEdit, onMarcarPerdido }) {
   const total = consultas.reduce((sum, c) => sum + (c.precioCotizado || 0), 0);
 
   return (
@@ -48,7 +48,6 @@ export default function PipelineColumn({ etapa, etapaColor, consultas = [], onWh
                       consulta={consulta}
                       onWhatsApp={onWhatsApp}
                       onEdit={onEdit}
-                      onConcretarVenta={onConcretarVenta}
                       onMarcarPerdido={onMarcarPerdido}
                       isDragging={snapshot.isDragging}
                     />

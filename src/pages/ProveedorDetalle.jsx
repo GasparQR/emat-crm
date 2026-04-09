@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ export default function ProveedorDetalle() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -80,7 +81,7 @@ export default function ProveedorDetalle() {
       toast.success(esNuevo ? "Proveedor creado" : "Proveedor actualizado");
       queryClient.invalidateQueries({ queryKey: ['proveedores'] });
       if (esNuevo && data?.id) {
-        window.location.href = createPageUrl(`ProveedorDetalle?id=${data.id}`);
+        navigate(createPageUrl(`ProveedorDetalle?id=${data.id}`));
       }
     },
     onError: (err) => {
@@ -92,7 +93,7 @@ export default function ProveedorDetalle() {
     mutationFn: () => base44.entities.Proveedor.delete(proveedorId),
     onSuccess: () => {
       toast.success("Proveedor eliminado");
-      window.location.href = createPageUrl("Proveedores");
+      navigate(createPageUrl("Proveedores"));
     }
   });
 

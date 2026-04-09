@@ -136,6 +136,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         canalorigen: formData.canalOrigen,
         observaciones: formData.observaciones,
         nroppto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
+        proximoseguimiento: formData.proximoSeguimiento || null,
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {

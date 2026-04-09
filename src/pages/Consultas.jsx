@@ -57,7 +57,7 @@ export default function Consultas() {
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.Consulta.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["consultas-list"] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
       toast.success("Presupuesto eliminado");
     },
   });

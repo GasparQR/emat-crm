@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Phone, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
+import { Plus, Search, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
@@ -107,8 +107,8 @@ export default function Contactos() {
   const createConsultaMutation = useMutation({
     mutationFn: (data) => base44.entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
-      toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactoNombre}`);
+      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactonombre}`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
     },
@@ -137,7 +137,7 @@ export default function Contactos() {
     const { contacto: c, mensaje } = pipelineDialog;
 
     // Chequeo de duplicado en CUALQUIER etapa
-    const consultaExistente = consultas.find(q => q.contactoNombre === c.nombre);
+    const consultaExistente = consultas.find(q => q.contactonombre === c.nombre);
     if (consultaExistente) {
       toast.info(`${c.nombre} ya tiene una consulta en etapa "${consultaExistente.etapa}". No se creó un duplicado.`);
       setPipelineDialog(null);
@@ -150,17 +150,17 @@ export default function Contactos() {
     const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
 
     createConsultaMutation.mutate({
-      contactoNombre: c.nombre,
+      contactonombre: c.nombre,
       empresa: c.empresa || "",
-      contactoWhatsapp: c.whatsapp || "",
+      contactowhatsapp: c.whatsapp || "",
       email: c.email || "",
-      canalOrigen: c.canalOrigen || "WhatsApp",
+      canalorigen: c.canalOrigen || "WhatsApp",
       etapa: etapaSeleccionada,
       primerMensaje: mensaje || "",
       fechaConsulta: now.toISOString().split("T")[0],
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
-      proximoSeguimiento,
+      proximoseguimiento: proximoSeguimiento,
     });
   };
 
@@ -177,7 +177,7 @@ export default function Contactos() {
   const handleEdit = (contacto) => {
     setSelectedContacto(contacto);
     // Look up existing consulta for this contact to pre-populate pipeline stage
-    const consultaExistente = consultas.find(q => q.contactoNombre === contacto.nombre);
+    const consultaExistente = consultas.find(q => q.contactonombre === contacto.nombre);
     setFormData({
       nombre: contacto.nombre || "",
       empresa: contacto.empresa || "",
@@ -211,12 +211,12 @@ export default function Contactos() {
       // Handle pipeline stage assignment
       const stage = etapaPipeline && etapaPipeline !== "sin_asignar" ? etapaPipeline : null;
       if (stage) {
-        const consultaExistente = consultas.find(q => q.contactoNombre === formData.nombre);
+        const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
         if (consultaExistente) {
           // Update existing consulta's stage
           if (consultaExistente.etapa !== stage) {
             await base44.entities.Consulta.update(consultaExistente.id, { etapa: stage });
-            queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
+            queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
             toast.success(`Etapa actualizada a "${stage}"`);
           }
         } else {
@@ -225,17 +225,17 @@ export default function Contactos() {
           const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
           await base44.entities.Consulta.create({
             workspace_id: workspace?.id || "local",
-            contactoNombre: formData.nombre,
-            contactoWhatsapp: formData.whatsapp || "",
+            contactonombre: formData.nombre,
+            contactowhatsapp: formData.whatsapp || "",
             email: formData.email || "",
             empresa: formData.empresa || "",
-            canalOrigen: formData.canalOrigen || "",
+            canalorigen: formData.canalOrigen || "",
             etapa: stage,
             fechaConsulta: now.toISOString().split("T")[0],
             mes: MESES[now.getMonth()],
             ano: now.getFullYear(),
           });
-          queryClient.invalidateQueries({ queryKey: ["consultas-pipeline"] });
+          queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
           toast.success(`Contacto asignado a "${stage}" en el pipeline`);
         }
       }
@@ -263,7 +263,7 @@ export default function Contactos() {
 
   // Consulta existente del contacto en pipeline (para mostrar warning en el diálogo)
   const consultaExistenteEnDialog = pipelineDialog
-    ? consultas.find(q => q.contactoNombre === pipelineDialog.contacto.nombre)
+    ? consultas.find(q => q.contactonombre === pipelineDialog.contacto.nombre)
     : null;
 
   return (

@@ -8,7 +8,6 @@ import PipelineColumn from "@/components/crm/PipelineColumn";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
-import VentaForm from "@/components/ventas/VentaForm";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, ArrowLeft, Settings } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -18,7 +17,6 @@ import { toast } from "sonner";
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
-  const [showVentaForm, setShowVentaForm] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
@@ -75,11 +73,6 @@ export default function Pipeline() {
     setTimeout(() => setShowForm(true), 100);
   };
 
-  const handleConcretarVenta = (consulta) => {
-    setSelectedConsulta(consulta);
-    setShowVentaForm(true);
-  };
-
   // Nuevo: marcar como perdido directamente desde la card del pipeline
   const handleMarcarPerdido = async (consulta, motivo) => {
     await updateMutation.mutateAsync({
@@ -89,21 +82,6 @@ export default function Pipeline() {
     toast.success(`Marcado como Perdido — ${motivo}`);
   };
 
-  const handleVentaCreada = async (ventaId) => {
-    if (selectedConsulta) {
-      await base44.entities.Consulta.update(selectedConsulta.id, {
-        etapa: "Concretado",
-        concretado: true
-      });
-      queryClient.invalidateQueries({ queryKey: ['consultas-pipeline'] });
-      toast.success("Venta registrada y consulta marcada como Concretado");
-    }
-    if (ventaId) {
-      await base44.entities.Venta.update(ventaId, { estado: "Finalizada" });
-    }
-    setShowVentaForm(false);
-    setSelectedConsulta(null);
-  };
 
   // Filtrar consultas
   const consultasFiltradas = consultas.filter(c => {
@@ -201,7 +179,6 @@ export default function Pipeline() {
                 consultas={consultasPorEtapa[etapa.nombre]}
                 onWhatsApp={handleWhatsApp}
                 onEdit={handleEdit}
-                onConcretarVenta={handleConcretarVenta}
                 onMarcarPerdido={handleMarcarPerdido}
               />
             ))}
@@ -224,13 +201,6 @@ export default function Pipeline() {
         onOpenChange={setShowWhatsApp}
         consulta={selectedConsulta}
         onMessageSent={refetch}
-      />
-
-      <VentaForm
-        open={showVentaForm}
-        onOpenChange={setShowVentaForm}
-        consulta={selectedConsulta}
-        onVentaCreada={handleVentaCreada}
       />
     </div>
   );

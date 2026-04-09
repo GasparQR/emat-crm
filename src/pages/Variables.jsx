@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Edit, Trash2, ArrowLeft, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 
 export default function Variables() {
   const [showForm, setShowForm] = useState(false);
@@ -22,16 +23,18 @@ export default function Variables() {
   });
 
   const queryClient = useQueryClient();
+  const { workspace } = useWorkspace();
 
   const { data: variables = [] } = useQuery({
-    queryKey: ['variables'],
-    queryFn: () => base44.entities.VariablePlantilla.list("-created_date")
+    queryKey: ['variables', workspace?.id],
+    queryFn: () => workspace ? base44.entities.VariablePlantilla.filter({ workspace_id: workspace.id }, "-created_date") : [],
+    enabled: !!workspace
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.VariablePlantilla.create(data),
+    mutationFn: (data) => base44.entities.VariablePlantilla.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['variables'] });
+      queryClient.invalidateQueries({ queryKey: ['variables', workspace?.id] });
       toast.success("Variable creada");
       resetForm();
     }
@@ -40,7 +43,7 @@ export default function Variables() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.VariablePlantilla.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['variables'] });
+      queryClient.invalidateQueries({ queryKey: ['variables', workspace?.id] });
       toast.success("Variable actualizada");
       resetForm();
     }
@@ -49,7 +52,7 @@ export default function Variables() {
   const deleteMutation = useMutation({
     mutationFn: (id) => base44.entities.VariablePlantilla.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['variables'] });
+      queryClient.invalidateQueries({ queryKey: ['variables', workspace?.id] });
       toast.success("Variable eliminada");
     }
   });
