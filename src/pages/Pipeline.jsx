@@ -93,7 +93,7 @@ export default function Pipeline() {
 
   // Agrupar por etapa
   const consultasPorEtapa = etapas.reduce((acc, etapa) => {
-    acc[etapa.nombre] = consultasFiltradas.filter(c => c.etapa === etapa.nombre);
+    acc[etapa.pipeline_stage] = consultasFiltradas.filter(c => c.etapa === etapa.pipeline_stage);
     return acc;
   }, {});
 
@@ -173,10 +173,10 @@ export default function Pipeline() {
           <div className="flex gap-4 min-w-max">
             {etapas.map(etapa => (
               <PipelineColumn
-                key={etapa.nombre}
-                etapa={etapa.nombre}
+                key={etapa.pipeline_stage}
+                etapa={etapa.pipeline_stage}
                 etapaColor={etapa.color}
-                consultas={consultasPorEtapa[etapa.nombre]}
+                consultas={consultasPorEtapa[etapa.pipeline_stage]}
                 onWhatsApp={handleWhatsApp}
                 onEdit={handleEdit}
                 onMarcarPerdido={handleMarcarPerdido}
