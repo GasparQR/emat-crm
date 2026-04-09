@@ -21,7 +21,7 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>{consulta.contactoNombre}</span>
+            <span>{consulta.contactonombre}</span>
             <Button variant="ghost" size="icon" onClick={handleClose}>
               <X className="w-4 h-4" />
             </Button>
@@ -44,7 +44,7 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">Contacto</Label>
-                    <p className="text-sm mt-1">{consulta.contactoNombre}</p>
+                    <p className="text-sm mt-1">{consulta.contactonombre}</p>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">WhatsApp</Label>
@@ -60,7 +60,7 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">Etapa</Label>
-                    <Badge className="mt-1">{consulta.etapa}</Badge>
+                    <Badge className="mt-1">{consulta.pipeline_stage}</Badge>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">Prioridad</Label>
