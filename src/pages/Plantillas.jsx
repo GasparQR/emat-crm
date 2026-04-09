@@ -18,12 +18,12 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const CATEGORIAS = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "General"];
-const ETAPAS = ["A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA", "General"];
+const ETAPAS = ["NUEVO LEAD", "A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA", "General"];
 
 const VARIABLES = [
   { key: "{NOMBRE}", desc: "Nombre del cliente" },
   { key: "{PRODUCTO}", desc: "Producto consultado" },
-  { key: "{VARIANTE}", desc: "Variante (color, capacidad)" },
+  { key: "{VARIANTE}", desc: "Variante" },
   { key: "{PRECIO}", desc: "Precio cotizado" },
   { key: "{MONEDA}", desc: "Moneda (US$ o $)" },
   { key: "{GARANTIA}", desc: "Garantía incluida" },
