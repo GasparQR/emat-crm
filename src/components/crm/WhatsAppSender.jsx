@@ -71,12 +71,24 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
   }, [open]);
 
   const mapEtapaToPlantilla = (etapa) => {
-    if (etapa === "Nuevo") return "Nuevo";
-    if (["Seguimiento1", "Seguimiento2", "Seguimiento"].includes(etapa)) return "Seguimiento";
-    if (etapa === "Negociacion") return "NEGOCIACION";
-    if (etapa === "Concretado") return "GANADA";
-    if (etapa === "Perdido") return "PERDIDA";
-    return "General";
+    if (!etapa) return "General";
+    // Map pipeline stage values (from consulta.etapa) to template etapa values
+    const map = {
+      "Nuevo": "A COTIZAR",
+      "Seguimiento1": "NEGOCIACION",
+      "Seguimiento2": "NEGOCIACION",
+      "Seguimiento": "NEGOCIACION",
+      "Negociacion": "NEGOCIACION",
+      "Concretado": "GANADA",
+      "Perdido": "PERDIDA",
+      "A COTIZAR": "A COTIZAR",
+      "NEGOCIACION": "NEGOCIACION",
+      "GANADA": "GANADA",
+      "EJECUTADA": "EJECUTADA",
+      "PAUSADA": "PAUSADA",
+      "PERDIDA": "PERDIDA",
+    };
+    return map[etapa] || "General";
   };
 
   const reemplazarVariables = (texto, data) => {

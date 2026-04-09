@@ -1,21 +1,21 @@
 -- ============================================================
 -- Tablas para Plantillas WhatsApp y Variables de Plantillas
 -- Ejecutar en: Supabase Dashboard → SQL Editor
+-- NOTA: Las políticas RLS son permisivas para desarrollo.
+--       Ajustar antes de pasar a producción con auth real.
 -- ============================================================
 
 -- ─── plantillawhatsapp ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS plantillawhatsapp (
-  id                 TEXT        PRIMARY KEY,
-  workspace_id       TEXT        NOT NULL DEFAULT 'local',
-  nombre_plantilla   TEXT,
-  "nombrePlantilla"  TEXT,
-  categoria_producto TEXT,
+  id                  TEXT        PRIMARY KEY,
+  workspace_id        TEXT        NOT NULL DEFAULT 'local',
+  "nombrePlantilla"   TEXT,
   "categoriaProducto" TEXT,
-  etapa              TEXT,
-  contenido          TEXT,
-  activa             BOOLEAN     NOT NULL DEFAULT TRUE,
-  created_date       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_date       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  etapa               TEXT,
+  contenido           TEXT,
+  activa              BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_date        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_date        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Índice para filtros por workspace
