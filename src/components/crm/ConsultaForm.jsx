@@ -87,13 +87,28 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   useEffect(() => {
     if (open) {
       if (consulta) {
-        setFormData({ ...emptyForm(), ...consulta,
-          etapa: consulta.pipeline_stage || consulta.etapa || emptyForm().etapa,
-          superficieM2: consulta.superficieM2 ?? "",
-          fibraKg: consulta.fibraKg ?? "",
-          adhLts: consulta.adhLts ?? "",
-          kmObra: consulta.kmObra ?? "",
+        setFormData({
+          ...emptyForm(),
+          nroPpto: consulta.nroppto ?? consulta.nroPpto ?? "",
+          contactoNombre: consulta.contactonombre ?? consulta.contactoNombre ?? "",
+          contactoWhatsapp: consulta.contactowhatsapp ?? consulta.contactoWhatsapp ?? "",
+          asesor: consulta.asesor ?? "",
+          tipoAplicacion: consulta.tipoapplicacion ?? consulta.tipoAplicacion ?? "",
+          ubicacionObra: consulta.ubicacionobra ?? consulta.ubicacionObra ?? "",
+          provincia: consulta.provincia ?? "",
+          superficieM2: consulta.superficiem2 ?? consulta.superficieM2 ?? "",
+          fibraKg: consulta.fibrakg ?? consulta.fibraKg ?? "",
+          adhLts: consulta.adhlts ?? consulta.adhLts ?? "",
+          kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
+          tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
+          canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
           importe: consulta.importe ?? "",
+          etapa: consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa,
+          mes: consulta.mes ?? emptyForm().mes,
+          ano: consulta.ano ?? emptyForm().ano,
+          proximoSeguimiento: consulta.proximoseguimiento ?? consulta.proximoSeguimiento ?? "",
+          observaciones: consulta.observaciones ?? "",
+          razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
         });
       } else {
         const nextNro = generateNextNroPpto();
@@ -136,6 +151,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         pipeline_stage: formData.etapa,
         mes: formData.mes,
         ano: formData.ano,
+        provincia: formData.provincia,
         tipoapplicacion: formData.tipoAplicacion,
         ubicacionobra: formData.ubicacionObra,
         superficiem2: formData.superficieM2 !== "" ? parseFloat(formData.superficieM2) : null,
@@ -148,6 +164,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         observaciones: formData.observaciones,
         nroppto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
         proximoseguimiento: formData.proximoSeguimiento || null,
+        razonperdida: formData.razonPerdida || null,
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {
@@ -172,7 +189,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {consulta ? `Editar Presupuesto #${consulta.nroPpto || ""}` : "Nuevo Presupuesto"}
+            {consulta ? `Editar Presupuesto #${consulta.nroppto ?? consulta.nroPpto ?? ""}` : "Nuevo Presupuesto"}
           </DialogTitle>
         </DialogHeader>
 
