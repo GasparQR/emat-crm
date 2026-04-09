@@ -56,7 +56,7 @@ export default function Pipeline() {
 
     updateMutation.mutate({
       id: draggableId,
-      data: { etapa: newEtapa }
+      data: { pipeline_stage: newEtapa }
     });
 
     toast.success(`Movido a ${newEtapa}`);
@@ -77,7 +77,7 @@ export default function Pipeline() {
   const handleMarcarPerdido = async (consulta, motivo) => {
     await updateMutation.mutateAsync({
       id: consulta.id,
-      data: { etapa: "Perdido", motivoPerdida: motivo }
+      data: { pipeline_stage: "Perdido", motivoPerdida: motivo }
     });
     toast.success(`Marcado como Perdido — ${motivo}`);
   };
@@ -93,7 +93,7 @@ export default function Pipeline() {
 
   // Agrupar por etapa
   const consultasPorEtapa = etapas.reduce((acc, etapa) => {
-    acc[etapa.pipeline_stage] = consultasFiltradas.filter(c => c.etapa === etapa.pipeline_stage);
+    acc[etapa.pipeline_stage] = consultasFiltradas.filter(c => c.pipeline_stage === etapa.pipeline_stage);
     return acc;
   }, {});
 
