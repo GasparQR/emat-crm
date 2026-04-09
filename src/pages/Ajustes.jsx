@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Settings, MessageSquare, Kanban } from "lucide-react";
+import { ArrowLeft, Settings, MessageSquare } from "lucide-react";
 
 const OPCIONES = [
   {

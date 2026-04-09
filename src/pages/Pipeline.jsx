@@ -9,7 +9,7 @@ import ConsultaForm from "@/components/crm/ConsultaForm";
 import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, ArrowLeft, Settings } from "lucide-react";
+import { Plus, Filter, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -114,12 +114,6 @@ export default function Pipeline() {
               <p className="text-slate-500">{consultasFiltradas.length} consultas activas</p>
             </div>
             <div className="flex items-center gap-2">
-              <Link to={createPageUrl("ConfigurarPipeline")}>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Configurar</span>
-                </Button>
-              </Link>
               <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nueva</span>
