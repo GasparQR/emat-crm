@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     queryKey: ['pipeline-stages', workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
     enabled: !!workspace,
@@ -107,7 +107,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const handleCreateLead = async () => {
     if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
     try {
-      await base44.entities.Contacto.create({
+      await entities.Contacto.create({
         workspace_id: workspace?.id || "local",
         nombre: newLeadData.nombre,
         whatsapp: newLeadData.whatsapp,
@@ -151,10 +151,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {
-        await base44.entities.Consulta.update(consulta.id, payload);
+        await entities.Consulta.update(consulta.id, payload);
         toast.success("Presupuesto actualizado");
       } else {
-        await base44.entities.Consulta.create(payload);
+        await entities.Consulta.create(payload);
         toast.success("Presupuesto creado");
       }
       onSave?.();

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,13 +24,13 @@ export default function ListasWhatsApp() {
 
   const { data: listas = [], refetch } = useQuery({
     queryKey: ['listas-whatsapp', workspace?.id],
-    queryFn: () => workspace ? base44.entities.ListaWhatsApp.filter({ workspace_id: workspace.id }, "-updated_date", 1000) : [],
+    queryFn: () => workspace ? entities.ListaWhatsApp.filter({ workspace_id: workspace.id }, "-updated_date", 1000) : [],
     enabled: !!workspace
   });
 
   const deleteMutation = {
     mutate: async (id) => {
-      await base44.entities.ListaWhatsApp.delete(id);
+      await entities.ListaWhatsApp.delete(id);
       toast.success("Lista eliminada");
       refetch();
     }

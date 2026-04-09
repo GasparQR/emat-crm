@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export default function Home() {
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
-    queryFn: () => workspace ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
+    queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000) : [],
     enabled: !!workspace,
   });
 
@@ -40,7 +40,7 @@ export default function Home() {
     if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
     try {
       const wsId = workspace?.id || "local";
-      await base44.entities.Contacto.create({
+      await entities.Contacto.create({
         workspace_id: wsId,
         nombre: newLeadData.nombre,
         whatsapp: newLeadData.whatsapp,
@@ -49,7 +49,7 @@ export default function Home() {
       // Crear consulta automáticamente en etapa NUEVO LEAD
       const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
       const now = new Date();
-      await base44.entities.Consulta.create({
+      await entities.Consulta.create({
         workspace_id: wsId,
         contactonombre: newLeadData.nombre,
         contactowhatsapp: newLeadData.whatsapp || "",

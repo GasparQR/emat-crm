@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +37,7 @@ export default function EditorListaWhatsApp() {
 
   const { data: lista } = useQuery({
     queryKey: ['lista', listaId],
-    queryFn: () => listaId ? base44.entities.ListaWhatsApp.filter({ id: listaId }) : Promise.resolve(null),
+    queryFn: () => listaId ? entities.ListaWhatsApp.filter({ id: listaId }) : Promise.resolve(null),
     enabled: !!listaId
   });
 
@@ -60,9 +60,9 @@ export default function EditorListaWhatsApp() {
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       if (listaId) {
-        await base44.entities.ListaWhatsApp.update(listaId, data);
+        await entities.ListaWhatsApp.update(listaId, data);
       } else {
-        await base44.entities.ListaWhatsApp.create(data);
+        await entities.ListaWhatsApp.create(data);
       }
     },
     onSuccess: () => {
@@ -74,7 +74,7 @@ export default function EditorListaWhatsApp() {
 
   const duplicateMutation = useMutation({
     mutationFn: async () => {
-      await base44.entities.ListaWhatsApp.create({
+      await entities.ListaWhatsApp.create({
         ...form,
         nombre: `${form.nombre} (Copia)`,
         tags: form.tags ? form.tags.split(",").map(t => t.trim()) : [],

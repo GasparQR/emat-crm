@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -43,7 +43,7 @@ export default function Contactos() {
   const { data: contactos = [], isLoading } = useQuery({
     queryKey: ["contactos", workspace?.id],
     queryFn: () => workspace
-      ? base44.entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
+      ? entities.Contacto.filter({ workspace_id: workspace.id }, "nombre", 2000)
       : [],
     enabled: !!workspace,
   });
@@ -52,7 +52,7 @@ export default function Contactos() {
     queryKey: ["pipeline-stages", workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await base44.entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
     enabled: !!workspace,
@@ -61,7 +61,7 @@ export default function Contactos() {
   const { data: consultas = [] } = useQuery({
     queryKey: ["consultas-pipeline", workspace?.id],
     queryFn: () => workspace
-      ? base44.entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500)
+      ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500)
       : [],
     enabled: !!workspace,
   });
@@ -79,7 +79,7 @@ export default function Contactos() {
   }, [contactos]);
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.Contacto.create({ ...data, workspace_id: workspace?.id || "local" }),
+    mutationFn: (data) => entities.Contacto.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contactos"] });
       toast.success("Contacto creado");
@@ -88,7 +88,7 @@ export default function Contactos() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Contacto.update(id, data),
+    mutationFn: ({ id, data }) => entities.Contacto.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contactos"] });
       toast.success("Contacto actualizado");
@@ -97,7 +97,7 @@ export default function Contactos() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Contacto.delete(id),
+    mutationFn: (id) => entities.Contacto.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contactos"] });
       toast.success("Contacto eliminado");
@@ -105,7 +105,7 @@ export default function Contactos() {
   });
 
   const createConsultaMutation = useMutation({
-    mutationFn: (data) => base44.entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
+    mutationFn: (data) => entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
       toast.success(`Consulta creada en "${variables.etapa}" para ${variables.contactonombre}`);
@@ -211,7 +211,7 @@ export default function Contactos() {
         if (consultaExistente) {
           // Update existing consulta's stage
           if (consultaExistente.etapa !== stage) {
-            await base44.entities.Consulta.update(consultaExistente.id, { etapa: stage });
+            await entities.Consulta.update(consultaExistente.id, { etapa: stage });
             queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
             toast.success(`Etapa actualizada a "${stage}"`);
           }
@@ -219,7 +219,7 @@ export default function Contactos() {
           // Create new consulta in the selected stage
           const now = new Date();
           const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-          await base44.entities.Consulta.create({
+          await entities.Consulta.create({
             workspace_id: workspace?.id || "local",
             contactonombre: formData.nombre,
             contactowhatsapp: formData.whatsapp || "",
