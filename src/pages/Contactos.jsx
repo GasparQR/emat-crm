@@ -465,6 +465,13 @@ export default function Contactos() {
                     <SelectItem value="sin_asignar">Sin asignar</SelectItem>
                     {pipelineStages.map(s => (
                       <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
             <Button variant="outline" onClick={resetForm}>Cancelar</Button>
             <Button onClick={handleSubmit}>{selectedContacto ? "Guardar" : "Crear contacto"}</Button>
           </DialogFooter>
