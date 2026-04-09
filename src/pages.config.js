@@ -49,7 +49,6 @@
  */
 import Ajustes from './pages/Ajustes';
 import Configuracion from './pages/Configuracion';
-import ConfigurarPipeline from './pages/ConfigurarPipeline';
 import Consultas from './pages/Consultas';
 import Contactos from './pages/Contactos';
 import EditorListaWhatsApp from './pages/EditorListaWhatsApp';
@@ -71,7 +70,6 @@ import InteligenciaNegocio from './pages/InteligenciaNegocio';
 export const PAGES = {
     "Ajustes": Ajustes,
     "Configuracion": Configuracion,
-    "ConfigurarPipeline": ConfigurarPipeline,
     "Consultas": Consultas,
     "Contactos": Contactos,
     "EditorListaWhatsApp": EditorListaWhatsApp,
