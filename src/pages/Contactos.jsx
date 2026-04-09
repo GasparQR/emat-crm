@@ -29,7 +29,7 @@ export default function Contactos() {
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
     email: "", localidad: "", provincia: "", segmento: "",
-    canalOrigen: "", notas: "", etapaPipeline: ""
+    canalOrigen: "", notas: "", pipeline_stage: ""
   });
 
   // Pipeline dialog state
@@ -164,7 +164,7 @@ export default function Contactos() {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", localidad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: "", etapaPipeline: ""
+      canalOrigen: "", notas: "", pipeline_stage: ""
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -185,7 +185,7 @@ export default function Contactos() {
       segmento: contacto.segmento || "",
       canalOrigen: contacto.canalOrigen || "",
       notas: contacto.notas || "",
-      etapaPipeline: consultaExistente?.etapa || "",
+      pipeline_stage: consultaExistente?.etapa || "",
     });
     setShowForm(true);
   };
@@ -195,7 +195,7 @@ export default function Contactos() {
       toast.error("El nombre es requerido");
       return;
     }
-    const { etapaPipeline, ...contactData } = formData;
+    const { pipeline_stage, ...contactData } = formData;
 
     try {
       if (selectedContacto) {
@@ -205,7 +205,7 @@ export default function Contactos() {
       }
 
       // Handle pipeline stage assignment
-      const stage = etapaPipeline && etapaPipeline !== "sin_asignar" ? etapaPipeline : null;
+      const stage = pipeline_stage && pipeline_stage !== "sin_asignar" ? pipeline_stage : null;
       if (stage) {
         const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
         if (consultaExistente) {
@@ -450,7 +450,7 @@ export default function Contactos() {
             {pipelineStages.length > 0 && (
               <div className="space-y-1">
                 <Label>Etapa del Pipeline</Label>
-                <Select value={formData.etapaPipeline} onValueChange={v => setFormData({ ...formData, etapaPipeline: v })}>
+                <Select value={formData.pipeline_stage} onValueChange={v => setFormData({ ...formData, pipeline_stage: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Sin asignar" />
                   </SelectTrigger>
