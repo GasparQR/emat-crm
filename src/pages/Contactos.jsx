@@ -124,9 +124,9 @@ export default function Contactos() {
       return;
     }
     // Pre-seleccionar la primera etapa
-    const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.nombre
-      || pipelineStages.find(s => s.orden === 0)?.nombre
-      || pipelineStages[0]?.nombre;
+    const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.pipeline_stage
+      || pipelineStages.find(s => s.orden === 0)?.pipeline_stage
+      || pipelineStages[0]?.pipeline_stage;
     setEtapaSeleccionada(primeraEtapa || "");
     setPipelineDialog({ contacto: c, mensaje });
   };
@@ -464,14 +464,7 @@ export default function Contactos() {
                   <SelectContent>
                     <SelectItem value="sin_asignar">Sin asignar</SelectItem>
                     {pipelineStages.map(s => (
-                      <SelectItem key={s.nombre} value={s.nombre}>{s.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
+                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
             <Button variant="outline" onClick={resetForm}>Cancelar</Button>
             <Button onClick={handleSubmit}>{selectedContacto ? "Guardar" : "Crear contacto"}</Button>
           </DialogFooter>
@@ -522,7 +515,7 @@ export default function Contactos() {
                   </SelectTrigger>
                   <SelectContent>
                     {pipelineStages.map(s => (
-                      <SelectItem key={s.nombre} value={s.nombre}>{s.nombre}</SelectItem>
+                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
