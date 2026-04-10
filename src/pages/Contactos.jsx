@@ -358,23 +358,25 @@ export default function Contactos() {
         <Card className="overflow-hidden">
           <Table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[36%]" />
-              <col className="w-[22%]" />
-              <col className="w-[19%]" />
-              <col className="w-[23%]" />
+              <col className="w-[30%]" />
+              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[18%]" />
+              <col className="w-[18%]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
                 <TableHead className="font-semibold">Contacto</TableHead>
                 <TableHead className="font-semibold">Teléfono</TableHead>
                 <TableHead className="font-semibold">Segmento</TableHead>
+                <TableHead className="font-semibold">Etapa</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
+                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
                 </TableRow>
               ) : contactosFiltrados.map(contacto => (
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
@@ -389,18 +391,6 @@ export default function Contactos() {
                           <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
                           {contacto.localidad || contacto.provincia}
                         </p>
-                      )}
-                      {consultaMap[contacto.nombre] && (
-                        <span
-                          className="inline-block text-xs px-1.5 py-0.5 rounded font-medium mt-1 max-w-full truncate"
-                          style={{
-                            backgroundColor: (stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b') + '22',
-                            color: stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b',
-                            border: `1px solid ${(stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b')}55`,
-                          }}
-                        >
-                          {consultaMap[contacto.nombre].pipeline_stage}
-                        </span>
                       )}
                     </div>
                   </TableCell>
@@ -419,6 +409,25 @@ export default function Contactos() {
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    {(() => {
+                      const consulta = consultaMap[contacto.nombre];
+                      if (!consulta) return <span className="text-slate-300">-</span>;
+                      const color = stageColorMap[consulta.pipeline_stage] || '#64748b';
+                      return (
+                        <span
+                          className="inline-block text-xs px-1.5 py-0.5 rounded font-medium truncate max-w-full"
+                          style={{
+                            backgroundColor: color + '22',
+                            color,
+                            border: `1px solid ${color}55`,
+                          }}
+                        >
+                          {consulta.pipeline_stage}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -444,7 +453,7 @@ export default function Contactos() {
               ))}
               {!isLoading && contactosFiltrados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
+                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
                 </TableRow>
               )}
             </TableBody>
