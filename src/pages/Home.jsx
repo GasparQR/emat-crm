@@ -80,7 +80,7 @@ export default function Home() {
     const m2Mes = delMes.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeMes = ganadas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear())
       .reduce((s, c) => s + (c.importe || 0), 0);
-    const enSeguimiento = consultas.filter(c => c.proximoseguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.pipeline_stage));
+    const enSeguimiento = consultas.filter(c => c.proximoseguimiento && ["NUEVO LEAD","NEGOCIACION","A COTIZAR"].includes(c.pipeline_stage));
     return { recientes: recientes.length, tasa, m2Mes: Math.round(m2Mes), importeMes, enSeguimiento: enSeguimiento.length, totalGanadas: ganadas.length };
   }, [consultas]);
 
