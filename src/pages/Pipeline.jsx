@@ -77,7 +77,7 @@ export default function Pipeline() {
   const handleMarcarPerdido = async (consulta, motivo) => {
     await updateMutation.mutateAsync({
       id: consulta.id,
-      data: { pipeline_stage: "Perdido", motivoPerdida: motivo }
+      data: { pipeline_stage: "Perdido", razonperdida: motivo }
     });
     toast.success(`Marcado como Perdido — ${motivo}`);
   };
@@ -85,7 +85,7 @@ export default function Pipeline() {
 
   // Filtrar consultas
   const consultasFiltradas = consultas.filter(c => {
-    if (filtroCanal !== "todos" && c.canalOrigen !== filtroCanal) return false;
+    if (filtroCanal !== "todos" && c.canalorigen !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;

@@ -42,7 +42,7 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
     const activas = plantillas.filter((p) => p.activa !== false);
     if (activas.length === 0) return;
 
-    const etapaMapeada = mapEtapaToPlantilla(consulta?.etapa);
+    const etapaMapeada = mapEtapaToPlantilla(consulta?.pipeline_stage);
     const categoria = consulta?.categoriaProducto;
 
     const sugerida =
@@ -52,7 +52,7 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
       activas[0];
 
     if (sugerida) setSelectedPlantilla(sugerida);
-  }, [open, plantillas, consulta?.etapa, consulta?.categoriaProducto]);
+  }, [open, plantillas, consulta?.pipeline_stage, consulta?.categoriaProducto]);
 
   // Rebuild message when template or consulta changes
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
     });
 
     return result
-      .replace(/{NOMBRE}/g, data.contactoNombre || "")
+      .replace(/{NOMBRE}/g, data.contactonombre || "")
       .replace(/{PRODUCTO}/g, data.productoConsultado || "")
       .replace(/{VARIANTE}/g, data.variante || "")
       .replace(/{PRECIO}/g, data.precioCotizado?.toLocaleString() || "")
@@ -128,7 +128,7 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
   };
 
   const handleOpenWhatsApp = () => {
-    const phone = formatPhoneNumber(consulta.contactoWhatsapp);
+    const phone = formatPhoneNumber(consulta.contactowhatsapp);
 
     const msg = String(mensaje || "")
       .normalize("NFC")
@@ -163,8 +163,8 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
 
         <div className="space-y-4 py-4">
           <div className="bg-slate-50 rounded-xl p-4">
-            <p className="font-semibold text-slate-900">{consulta.contactoNombre}</p>
-            <p className="text-sm text-slate-500">{consulta.contactoWhatsapp}</p>
+            <p className="font-semibold text-slate-900">{consulta.contactonombre}</p>
+            <p className="text-sm text-slate-500">{consulta.contactowhatsapp}</p>
             <div className="flex gap-2 mt-2">
               <Badge variant="secondary">{consulta.productoConsultado}</Badge>
               {consulta.variante && <Badge variant="outline">{consulta.variante}</Badge>}

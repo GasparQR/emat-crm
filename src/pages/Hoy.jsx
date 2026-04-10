@@ -48,26 +48,26 @@ export default function Hoy() {
   const today = moment();
 
   const hoy = consultas.filter(c => {
-    if (isLogistica && c.etapa !== "GANADA") return false;
+    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
-    if (c.etapa === "Perdido") return false;
+    if (c.pipeline_stage === "PERDIDA") return false;
     return moment(fecha).isSame(today, 'day');
   });
 
   const vencidos = consultas.filter(c => {
-    if (isLogistica && c.etapa !== "GANADA") return false;
+    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
-    if (c.etapa === "Perdido") return false;
+    if (c.pipeline_stage === "PERDIDA") return false;
     return moment(fecha).isBefore(today, 'day');
   });
 
   const proximos3d = consultas.filter(c => {
-    if (isLogistica && c.etapa !== "GANADA") return false;
+    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
-    if (c.etapa === "Perdido") return false;
+    if (c.pipeline_stage === "PERDIDA") return false;
     return (
       moment(fecha).isAfter(today, 'day') &&
       moment(fecha).isBefore(today.clone().add(3, 'days'), 'day')
@@ -96,8 +96,8 @@ export default function Hoy() {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
-              <Badge className={etapaColors[consulta.etapa] || "bg-slate-100 text-slate-700"}>
-                {consulta.etapa}
+              <Badge className={etapaColors[consulta.pipeline_stage] || "bg-slate-100 text-slate-700"}>
+                {consulta.pipeline_stage}
               </Badge>
             </div>
             <p className="text-sm text-slate-600 mb-1">{consulta.productoConsultado}</p>

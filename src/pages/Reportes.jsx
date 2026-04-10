@@ -256,7 +256,7 @@ export default function Reportes() {
     const perdidas = filtradas.filter((c) => c.pipeline_stage === "PERDIDA");
     const motivosMap = {};
     perdidas.forEach((c) => {
-      const m = c.motivoPerdida || "Sin especificar";
+      const m = c.razonperdida || "Sin especificar";
       motivosMap[m] = (motivosMap[m] || 0) + 1;
     });
     const motivosPie = Object.entries(motivosMap)

@@ -3,7 +3,7 @@ import ConsultaCard from "./ConsultaCard";
 import { cn } from "@/lib/utils";
 
 export default function PipelineColumn({ etapa, etapaColor, consultas = [], onWhatsApp, onEdit, onMarcarPerdido }) {
-  const total = consultas.reduce((sum, c) => sum + (c.precioCotizado || 0), 0);
+  const total = consultas.reduce((sum, c) => sum + (c.importe || 0), 0);
 
   return (
     <div className="flex flex-col bg-slate-50/50 rounded-2xl min-w-[300px] max-w-[300px]">
@@ -20,7 +20,7 @@ export default function PipelineColumn({ etapa, etapaColor, consultas = [], onWh
         </div>
         {total > 0 && (
           <p className="text-xs text-slate-400">
-            Total: US$ {total.toLocaleString()}
+            $ {total.toLocaleString("es-AR")}
           </p>
         )}
       </div>
