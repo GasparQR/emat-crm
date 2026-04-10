@@ -98,8 +98,8 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
             {consulta.superficiem2} m²
           </div>
         )}
-        {consulta.tipoapplicacion && (
-          <Badge variant="secondary" className="text-xs py-0">{consulta.tipoapplicacion}</Badge>
+        {consulta.tipoaplicacion && (
+          <Badge variant="secondary" className="text-xs py-0">{consulta.tipoaplicacion}</Badge>
         )}
       </div>
 
