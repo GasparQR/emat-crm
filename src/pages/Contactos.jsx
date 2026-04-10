@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { cn } from "@/lib/utils";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -369,7 +370,7 @@ export default function Contactos() {
                 <TableHead className="font-semibold">Contacto</TableHead>
                 <TableHead className="font-semibold">Teléfono</TableHead>
                 <TableHead className="font-semibold">Segmento</TableHead>
-                <TableHead className="font-semibold">Etapa</TableHead>
+                <TableHead className="font-semibold">Estado</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -414,18 +415,12 @@ export default function Contactos() {
                     {(() => {
                       const consulta = consultaMap[contacto.nombre];
                       if (!consulta) return <span className="text-slate-300">-</span>;
-                      const color = stageColorMap[consulta.pipeline_stage] || '#64748b';
+                      const colorClass = stageColorMap[consulta.pipeline_stage] || 'bg-slate-400';
                       return (
-                        <span
-                          className="inline-block text-xs px-1.5 py-0.5 rounded font-medium truncate max-w-full"
-                          style={{
-                            backgroundColor: color + '22',
-                            color,
-                            border: `1px solid ${color}55`,
-                          }}
-                        >
-                          {consulta.pipeline_stage}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", colorClass)} />
+                          <span className="text-xs text-slate-700 truncate">{consulta.pipeline_stage}</span>
+                        </div>
                       );
                     })()}
                   </TableCell>
