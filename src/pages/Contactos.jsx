@@ -66,6 +66,18 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
+  const consultaMap = useMemo(() => {
+    const map = {};
+    consultas.forEach(c => { map[c.contactonombre] = c; });
+    return map;
+  }, [consultas]);
+
+  const stageColorMap = useMemo(() => {
+    const map = {};
+    pipelineStages.forEach(s => { map[s.pipeline_stage] = s.color; });
+    return map;
+  }, [pipelineStages]);
+
   const { provincias, segmentos } = useMemo(() => {
     const pMap = {}, sMap = {};
     contactos.forEach(c => {
@@ -104,6 +116,17 @@ export default function Contactos() {
     },
   });
 
+  const updateConsultaMutation = useMutation({
+    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      toast.success(`Etapa actualizada a "${variables.data.pipeline_stage}"`);
+      setPipelineDialog(null);
+      setEtapaSeleccionada("");
+    },
+    onError: (e) => toast.error("Error al actualizar: " + e.message),
+  });
+
   const createConsultaMutation = useMutation({
     mutationFn: (data) => entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
@@ -123,11 +146,17 @@ export default function Contactos() {
       toast.error("No hay etapas en el pipeline. Crea al menos una etapa.");
       return;
     }
-    // Pre-seleccionar la primera etapa
-    const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.pipeline_stage
-      || pipelineStages.find(s => s.orden === 0)?.pipeline_stage
-      || pipelineStages[0]?.pipeline_stage;
-    setEtapaSeleccionada(primeraEtapa || "");
+    const existingConsulta = consultaMap[c.nombre];
+    if (existingConsulta) {
+      // Pre-seleccionar la etapa actual del contacto
+      setEtapaSeleccionada(existingConsulta.pipeline_stage || "");
+    } else {
+      // Pre-seleccionar la primera etapa
+      const primeraEtapa = pipelineStages.find(s => s.orden === 1)?.pipeline_stage
+        || pipelineStages.find(s => s.orden === 0)?.pipeline_stage
+        || pipelineStages[0]?.pipeline_stage;
+      setEtapaSeleccionada(primeraEtapa || "");
+    }
     setPipelineDialog({ contacto: c, mensaje });
   };
 
@@ -157,6 +186,15 @@ export default function Contactos() {
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
+    });
+  };
+
+  // Actualizar etapa de una consulta existente
+  const handleUpdatePipelineStage = () => {
+    if (!etapaSeleccionada || !consultaExistenteEnDialog) return;
+    updateConsultaMutation.mutate({
+      id: consultaExistenteEnDialog.id,
+      data: { pipeline_stage: etapaSeleccionada },
     });
   };
 
@@ -352,6 +390,18 @@ export default function Contactos() {
                           {contacto.localidad || contacto.provincia}
                         </p>
                       )}
+                      {consultaMap[contacto.nombre] && (
+                        <span
+                          className="inline-block text-xs px-1.5 py-0.5 rounded font-medium mt-1 max-w-full truncate"
+                          style={{
+                            backgroundColor: (stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b') + '22',
+                            color: stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b',
+                            border: `1px solid ${(stageColorMap[consultaMap[contacto.nombre].pipeline_stage] || '#64748b')}55`,
+                          }}
+                        >
+                          {consultaMap[contacto.nombre].pipeline_stage}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
@@ -488,12 +538,15 @@ export default function Contactos() {
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Agregar al pipeline</DialogTitle>
+            <DialogTitle>{consultaExistenteEnDialog ? "Actualizar etapa del pipeline" : "Agregar al pipeline"}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <p className="text-sm text-slate-600">
-              Mensaje enviado a <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>. ¿En qué etapa querés registrar esta consulta?
+              Mensaje enviado a <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>.{" "}
+              {consultaExistenteEnDialog
+                ? "Este contacto ya está en el pipeline. ¿Querés actualizar su etapa?"
+                : "¿En qué etapa querés registrar esta consulta?"}
             </p>
 
             {/* Warning si ya existe en pipeline */}
@@ -501,26 +554,24 @@ export default function Contactos() {
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
-                  Este contacto ya tiene una consulta en etapa <strong>"{consultaExistenteEnDialog.pipeline_stage}"</strong>. No se creará un duplicado.
+                  Etapa actual: <strong>"{consultaExistenteEnDialog.pipeline_stage}"</strong>. Podés cambiarla abajo.
                 </span>
               </div>
             )}
 
-            {!consultaExistenteEnDialog && (
-              <div className="space-y-1">
-                <Label>Etapa</Label>
-                <Select value={etapaSeleccionada} onValueChange={setEtapaSeleccionada}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccioná una etapa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pipelineStages.map(s => (
-                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="space-y-1">
+              <Label>{consultaExistenteEnDialog ? "Nueva etapa" : "Etapa"}</Label>
+              <Select value={etapaSeleccionada} onValueChange={setEtapaSeleccionada}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccioná una etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {pipelineStages.map(s => (
+                    <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter className="gap-2">
@@ -539,8 +590,15 @@ export default function Contactos() {
               </Button>
             )}
             {consultaExistenteEnDialog && (
-              <Button onClick={() => { setPipelineDialog(null); setEtapaSeleccionada(""); }}>
-                Entendido
+              <Button
+                onClick={handleUpdatePipelineStage}
+                disabled={
+                  !etapaSeleccionada ||
+                  etapaSeleccionada === consultaExistenteEnDialog.pipeline_stage ||
+                  updateConsultaMutation.isPending
+                }
+              >
+                {updateConsultaMutation.isPending ? "Actualizando..." : "Actualizar etapa"}
               </Button>
             )}
           </DialogFooter>
