@@ -48,7 +48,7 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">WhatsApp</Label>
-                    <p className="text-sm mt-1">{consulta.contactoWhatsapp}</p>
+                    <p className="text-sm mt-1">{consulta.contactowhatsapp}</p>
                   </div>
                   <div>
                     <Label className="text-xs font-semibold text-slate-500">Producto</Label>
@@ -66,18 +66,18 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
                     <Label className="text-xs font-semibold text-slate-500">Prioridad</Label>
                     <Badge className="mt-1">{consulta.prioridad}</Badge>
                   </div>
-                  {consulta.precioCotizado && (
+                  {consulta.importe && (
                     <div>
-                      <Label className="text-xs font-semibold text-slate-500">Precio</Label>
+                      <Label className="text-xs font-semibold text-slate-500">Importe</Label>
                       <p className="text-sm mt-1 font-bold">
-                        {consulta.moneda === "USD" ? "US$" : "$"} {consulta.precioCotizado.toLocaleString()}
+                        $ {Number(consulta.importe).toLocaleString("es-AR")}
                       </p>
                     </div>
                   )}
-                  {consulta.proximoSeguimiento && (
+                  {consulta.proximoseguimiento && (
                     <div>
                       <Label className="text-xs font-semibold text-slate-500">Próximo seguimiento</Label>
-                      <p className="text-sm mt-1">{moment(consulta.proximoSeguimiento).format("DD/MM/YYYY")}</p>
+                      <p className="text-sm mt-1">{moment(consulta.proximoseguimiento).format("DD/MM/YYYY")}</p>
                     </div>
                   )}
                 </div>
@@ -88,7 +88,7 @@ export default function DetalleConsultaDialog({ consulta, open, onOpenChange, on
           <TabsContent value="whatsapp">
             <SelectorListasWhatsApp
               contactoId={consulta.contactoId}
-              contactoWhatsapp={consulta.contactoWhatsapp}
+              contactoWhatsapp={consulta.contactowhatsapp}
               consultaId={consulta.id}
               onMessageSent={onSave}
             />
