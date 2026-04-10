@@ -212,9 +212,9 @@ export default function Reportes() {
 
   // TAB 4 - PIPELINE & SEGUIMIENTO
   const pipelineData = useMemo(() => {
-    const etapas = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
-    return etapas.map((e) => ({
-      etapa: e,
+    const pipeline_stages = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
+    return pipeline_stages.map((e) => ({
+      pipeline_stage: e,
       cantidad: filtradas.filter((c) => c.pipeline_stage === e).length,
       fill: ESTADO_COLORS[e],
     }));
@@ -642,15 +642,15 @@ export default function Reportes() {
           <TabsContent value="pipeline" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Embudo de etapas</CardTitle>
+                <CardTitle className="text-base">Embudo de pipeline_stages</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-3">
                   {pipelineData.map((d) => {
                     const pct = (d.cantidad / maxPipelineVal) * 100;
                     return (
-                      <div key={d.etapa} className="flex items-center gap-3">
-                        <span className="w-28 text-sm font-medium text-slate-600 text-right">{d.etapa}</span>
+                      <div key={d.pipeline_stage} className="flex items-center gap-3">
+                        <span className="w-28 text-sm font-medium text-slate-600 text-right">{d.pipeline_stage}</span>
                         <div className="flex-1 bg-slate-100 rounded-full h-8 relative overflow-hidden">
                           <div
                             className="h-full rounded-full flex items-center justify-end pr-3 transition-all"

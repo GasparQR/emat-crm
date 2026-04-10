@@ -47,8 +47,6 @@ const emptyForm = () => ({
   etapa: "A COTIZAR",
   mes: MESES[new Date().getMonth()],
   ano: new Date().getFullYear(),
-  fechaConsulta: new Date().toISOString().split("T")[0],
-  ultimoContacto: "",
   proximoSeguimiento: "",
   observaciones: "",
   razonPerdida: "",

@@ -73,14 +73,14 @@ export default function Home() {
 
   const kpis = useMemo(() => {
     const recientes = consultas.filter(c => (c.created_date || "") >= hace7dias);
-    const ganadas = consultas.filter(c => c.etapa === "GANADA" || c.etapa === "EJECUTADA");
-    const totalConEstado = consultas.filter(c => c.etapa && c.etapa !== "A COTIZAR");
+    const ganadas = consultas.filter(c => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA");
+    const totalConEstado = consultas.filter(c => c.pipeline_stage && c.pipeline_stage !== "A COTIZAR");
     const tasa = totalConEstado.length > 0 ? Math.round((ganadas.length / consultas.length) * 100) : 0;
     const delMes = consultas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear());
     const m2Mes = delMes.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeMes = ganadas.filter(c => c.mes === mesActual && c.ano === hoy.getFullYear())
       .reduce((s, c) => s + (c.importe || 0), 0);
-    const enSeguimiento = consultas.filter(c => c.proximoseguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.etapa));
+    const enSeguimiento = consultas.filter(c => c.proximoseguimiento && ["NEGOCIACION","A COTIZAR"].includes(c.pipeline_stage));
     return { recientes: recientes.length, tasa, m2Mes: Math.round(m2Mes), importeMes, enSeguimiento: enSeguimiento.length, totalGanadas: ganadas.length };
   }, [consultas]);
 
@@ -91,7 +91,7 @@ export default function Home() {
       if (!c.asesor) return;
       if (!map[c.asesor]) map[c.asesor] = { asesor: c.asesor, total: 0, ganados: 0 };
       map[c.asesor].total++;
-      if (c.etapa === "GANADA" || c.etapa === "EJECUTADA") map[c.asesor].ganados++;
+      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") map[c.asesor].ganados++;
     });
     return Object.values(map).sort((a,b) => b.total - a.total).slice(0,6);
   }, [consultas]);
@@ -100,7 +100,7 @@ export default function Home() {
   const estadoData = useMemo(() => {
     const map = {};
     consultas.forEach(c => {
-      const e = c.etapa || "Sin estado";
+      const e = c.pipeline_stage || "Sin estado";
       map[e] = (map[e] || 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
