@@ -174,7 +174,7 @@ export default function Reportes() {
   const tipoAplicacionData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const t = c.tipoapplicacion || "Sin especificar";
+      const t = c.tipoaplicacion || "Sin especificar";
       if (!map[t]) map[t] = { name: t, cantidad: 0, m2: 0 };
       map[t].cantidad++;
       map[t].m2 += c.superficiem2 || 0;
@@ -272,7 +272,7 @@ export default function Reportes() {
       .sort((a, b) => b.perdidas - a.perdidas);
     const porTipoMap = {};
     perdidas.forEach((c) => {
-      const t = c.tipoapplicacion || "Sin especificar";
+      const t = c.tipoaplicacion || "Sin especificar";
       porTipoMap[t] = (porTipoMap[t] || 0) + 1;
     });
     const porTipo = Object.entries(porTipoMap)
