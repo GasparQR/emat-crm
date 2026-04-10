@@ -13,6 +13,13 @@ import moment from "moment";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
+import { cn } from "@/lib/utils";
+
+const ASESOR_COLORS = {
+  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
+  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
+  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500",
+};
 
 const etapaColors = {
   Nuevo: "bg-blue-100 text-blue-700",
@@ -89,6 +96,7 @@ export default function Hoy() {
 
   const ConsultaItem = ({ consulta, tipo }) => {
     const fechaMostrar = consulta.proximoseguimiento;
+    const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
     return (
     <Card className="hover:shadow-md transition-all">
       <CardContent className="p-4">
@@ -99,6 +107,17 @@ export default function Hoy() {
               <Badge className={etapaColors[consulta.pipeline_stage] || "bg-slate-100 text-slate-700"}>
                 {consulta.pipeline_stage}
               </Badge>
+              {consulta.asesor && (
+                <div className="flex items-center gap-1">
+                  <div
+                    className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}
+                    title={consulta.asesor}
+                  >
+                    {consulta.asesor[0]}
+                  </div>
+                  <span className="text-xs font-medium text-slate-600">{consulta.asesor}</span>
+                </div>
+              )}
             </div>
             <p className="text-sm text-slate-600 mb-1">{consulta.productoConsultado}</p>
             {consulta.variante && (
