@@ -106,7 +106,7 @@ export default function Reportes() {
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
-      (c) => c.proximoseguimiento && ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
+      (c) => c.proximoseguimiento && ["NUEVO LEAD","NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     return {
       total: filtradas.length,
