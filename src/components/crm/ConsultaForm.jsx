@@ -174,11 +174,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       if (formData.asesor && workspace) {
         try {
           const contactos = await entities.Contacto.filter(
-            { workspace_id: workspace.id },
+            { workspace_id: workspace.id, nombre: formData.contactoNombre },
             "nombre",
-            2000
+            1
           );
-          const contacto = contactos.find(c => c.nombre === formData.contactoNombre);
+          const contacto = contactos[0];
           if (contacto && contacto.asesor !== formData.asesor) {
             await entities.Contacto.update(contacto.id, { asesor: formData.asesor });
           }

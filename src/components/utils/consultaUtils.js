@@ -5,7 +5,7 @@
  */
 export function getNextNroPpto(consultas) {
   const maxNro = consultas.reduce((max, c) => {
-    const n = parseInt(c.nroppto);
+    const n = parseInt(c.nroppto, 10);
     return !isNaN(n) && n > max ? n : max;
   }, 0);
   return maxNro + 1;
