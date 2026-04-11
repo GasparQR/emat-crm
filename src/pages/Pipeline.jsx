@@ -13,6 +13,7 @@ import { Plus, Filter, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getNextNroPpto, getNuevoLeadStageName } from "@/components/utils/consultaUtils";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -45,18 +46,29 @@ export default function Pipeline() {
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ['consultas-list', workspace?.id] });
     }
   });
 
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
-    const { draggableId, destination } = result;
+    const { draggableId, source, destination } = result;
     const newEtapa = destination.droppableId;
+    const sourceEtapa = source.droppableId;
+
+    const nuevoLeadStage = getNuevoLeadStageName(etapas);
+    const consulta = consultas.find(c => c.id === draggableId);
+    const updateData = { pipeline_stage: newEtapa };
+
+    // Auto-generate nroppto when moving from NUEVO LEAD to another stage
+    if (consulta && !consulta.nroppto && sourceEtapa === nuevoLeadStage && newEtapa !== nuevoLeadStage) {
+      updateData.nroppto = getNextNroPpto(consultas);
+    }
 
     updateMutation.mutate({
       id: draggableId,
-      data: { pipeline_stage: newEtapa }
+      data: updateData
     });
 
     toast.success(`Movido a ${newEtapa}`);
@@ -186,6 +198,7 @@ export default function Pipeline() {
         consulta={selectedConsulta}
         onSave={() => {
           refetch();
+          queryClient.invalidateQueries({ queryKey: ['consultas-list', workspace?.id] });
           setSelectedConsulta(null);
         }}
       />

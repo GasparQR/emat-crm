@@ -17,8 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
+import { ASESORES } from "@/components/crm/ConsultaForm";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextBusinessDay } from "@/components/utils/dateUtils";
+import { getNextNroPpto, getNuevoLeadStageName } from "@/components/utils/consultaUtils";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -30,7 +32,7 @@ export default function Contactos() {
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
     email: "", localidad: "", provincia: "", segmento: "",
-    canalOrigen: "", notas: "", pipeline_stage: ""
+    canalOrigen: "", notas: "", pipeline_stage: "", asesor: ""
   });
 
   // Pipeline dialog state
@@ -121,6 +123,7 @@ export default function Contactos() {
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
       toast.success(`Etapa actualizada a "${variables.data.pipeline_stage}"`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
@@ -132,6 +135,7 @@ export default function Contactos() {
     mutationFn: (data) => entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
       toast.success(`Consulta creada en "${variables.pipeline_stage}" para ${variables.contactonombre}`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
@@ -178,16 +182,25 @@ export default function Contactos() {
     const followUpDays = currentUser?.consulta_follow_up_days ?? 3;
     const now = new Date();
     const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
+    const nuevoLeadStage = getNuevoLeadStageName(pipelineStages);
 
-    createConsultaMutation.mutate({
+    const newConsulta = {
       contactonombre: c.nombre,
       contactowhatsapp: c.whatsapp || "",
       canalorigen: c.canalOrigen || "WhatsApp",
       pipeline_stage: etapaSeleccionada,
+      asesor: c.asesor || "",
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
-    });
+    };
+
+    // Generate nroppto for non-NUEVO-LEAD stages
+    if (etapaSeleccionada !== nuevoLeadStage) {
+      newConsulta.nroppto = getNextNroPpto(consultas);
+    }
+
+    createConsultaMutation.mutate(newConsulta);
   };
 
   // Actualizar etapa de una consulta existente
@@ -203,7 +216,7 @@ export default function Contactos() {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", localidad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: "", pipeline_stage: ""
+      canalOrigen: "", notas: "", pipeline_stage: "", asesor: ""
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -211,7 +224,7 @@ export default function Contactos() {
 
   const handleEdit = (contacto) => {
     setSelectedContacto(contacto);
-    // Look up existing consulta for this contact to pre-populate pipeline stage
+    // Look up existing consulta for this contact to pre-populate pipeline stage and asesor
     const consultaExistente = consultas.find(q => q.contactonombre === contacto.nombre);
     setFormData({
       nombre: contacto.nombre || "",
@@ -225,6 +238,7 @@ export default function Contactos() {
       canalOrigen: contacto.canalOrigen || "",
       notas: contacto.notas || "",
       pipeline_stage: consultaExistente?.pipeline_stage || "",
+      asesor: consultaExistente?.asesor || contacto.asesor || "",
     });
     setShowForm(true);
   };
@@ -243,33 +257,56 @@ export default function Contactos() {
         await createMutation.mutateAsync(contactData);
       }
 
-      // Handle pipeline stage assignment
+      // Handle pipeline stage and asesor sync to Consulta
       const stage = pipeline_stage && pipeline_stage !== "sin_asignar" ? pipeline_stage : null;
+      const asesor = formData.asesor || "";
+      const nuevoLeadStage = getNuevoLeadStageName(pipelineStages);
+      const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
+
       if (stage) {
-        const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
         if (consultaExistente) {
-          // Update existing consulta's stage
-          if (consultaExistente.pipeline_stage !== stage) {
-            await entities.Consulta.update(consultaExistente.id, { pipeline_stage: stage });
+          // Update existing consulta's stage and asesor
+          const updateData = {};
+          if (consultaExistente.pipeline_stage !== stage) updateData.pipeline_stage = stage;
+          if (consultaExistente.asesor !== asesor) updateData.asesor = asesor;
+          // Auto-generate nroppto when moving out of NUEVO LEAD
+          if (!consultaExistente.nroppto && stage !== nuevoLeadStage) {
+            updateData.nroppto = getNextNroPpto(consultas);
+          }
+          if (Object.keys(updateData).length > 0) {
+            await entities.Consulta.update(consultaExistente.id, updateData);
             queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
-            toast.success(`Etapa actualizada a "${stage}"`);
+            queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
+            toast.success(`Consulta actualizada — etapa "${stage}"`);
           }
         } else {
           // Create new consulta in the selected stage
           const now = new Date();
           const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-          await entities.Consulta.create({
+          const newConsulta = {
             workspace_id: workspace?.id || "local",
             contactonombre: formData.nombre,
             contactowhatsapp: formData.whatsapp || "",
             canalorigen: formData.canalOrigen || "",
             pipeline_stage: stage,
+            asesor,
             mes: MESES[now.getMonth()],
             ano: now.getFullYear(),
-          });
+          };
+          // Generate nroppto for non-NUEVO-LEAD stages
+          if (stage !== nuevoLeadStage) {
+            newConsulta.nroppto = getNextNroPpto(consultas);
+          }
+          await entities.Consulta.create(newConsulta);
           queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+          queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
           toast.success(`Contacto asignado a "${stage}" en el pipeline`);
         }
+      } else if (consultaExistente && asesor && consultaExistente.asesor !== asesor) {
+        // Even without a stage change, sync asesor if it changed
+        await entities.Consulta.update(consultaExistente.id, { asesor });
+        queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+        queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
       }
     } catch (e) {
       toast.error("Error: " + e.message);
@@ -502,19 +539,35 @@ export default function Contactos() {
               <Textarea value={formData.notas} onChange={e => setFormData({ ...formData, notas: e.target.value })} placeholder="Observaciones..." rows={3} />
             </div>
             {pipelineStages.length > 0 && (
-              <div className="space-y-1">
-                <Label>Etapa del Pipeline</Label>
-                <Select value={formData.pipeline_stage} onValueChange={v => setFormData({ ...formData, pipeline_stage: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin asignar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sin_asignar">Sin asignar</SelectItem>
-                    {pipelineStages.map(s => (
-                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Etapa del Pipeline</Label>
+                  <Select value={formData.pipeline_stage} onValueChange={v => setFormData({ ...formData, pipeline_stage: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sin_asignar">Sin asignar</SelectItem>
+                      {pipelineStages.map(s => (
+                        <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>{s.pipeline_stage}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Asesor</Label>
+                  <Select value={formData.asesor} onValueChange={v => setFormData({ ...formData, asesor: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Sin asignar</SelectItem>
+                      {ASESORES.map(a => (
+                        <SelectItem key={a} value={a}>{a}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
           </div>

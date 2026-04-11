@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
+import { getNuevoLeadStageName } from "@/components/utils/consultaUtils";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
@@ -50,6 +51,15 @@ export default function Consultas() {
     [etapas]
   );
 
+  // Detect NUEVO LEAD stage (orden 0) — contacts in this stage don't appear in Consultas
+  const nuevoLeadStage = useMemo(() => getNuevoLeadStageName(etapas), [etapas]);
+
+  // Filter out etapas list for the dropdown (exclude NUEVO LEAD)
+  const etapasForFilter = useMemo(
+    () => etapas.filter(e => e.pipeline_stage !== nuevoLeadStage),
+    [etapas, nuevoLeadStage]
+  );
+
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
     queryFn: () => workspace
@@ -70,6 +80,9 @@ export default function Consultas() {
 
   // ✅ LÓGICA DE FILTRADO CORREGIDA
   const filtradas = consultas.filter(c => {
+    // Exclude NUEVO LEAD — contacts in stage 0 only appear in Pipeline, not here
+    if (nuevoLeadStage && c.pipeline_stage === nuevoLeadStage) return false;
+
     // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
@@ -131,7 +144,7 @@ export default function Consultas() {
               <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
-                {etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}
+                {etapasForFilter.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>

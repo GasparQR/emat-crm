@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { getNextNroPpto } from "@/components/utils/consultaUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,19 +53,6 @@ const emptyForm = () => ({
   razonPerdida: "",
 });
 
-function generateNextNroPpto() {
-  try {
-    const items = JSON.parse(localStorage.getItem('emat_Consulta') || '[]');
-    const maxNro = items.reduce((max, item) => {
-      const n = parseInt(item.nroPpto);
-      return !isNaN(n) && n > max ? n : max;
-    }, 0);
-    return maxNro + 1;
-  } catch {
-    return 1;
-  }
-}
-
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
@@ -79,6 +67,15 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
       return stages.filter(s => s.activa !== false);
     },
+    enabled: !!workspace,
+  });
+
+  // Fetch all consultas to compute next nroppto (replaces broken localStorage read)
+  const { data: allConsultas = [] } = useQuery({
+    queryKey: ['consultas-pipeline', workspace?.id],
+    queryFn: () => workspace
+      ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 2000)
+      : [],
     enabled: !!workspace,
   });
 
@@ -109,11 +106,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
         });
       } else {
-        const nextNro = generateNextNroPpto();
+        const nextNro = getNextNroPpto(allConsultas);
         setFormData({ ...emptyForm(), nroPpto: nextNro });
       }
     }
-  }, [consulta, open]);
+  }, [consulta, open, allConsultas]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -172,6 +169,24 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         await entities.Consulta.create(payload);
         toast.success("Presupuesto creado");
       }
+
+      // Sync asesor back to the linked Contacto for cross-page consistency
+      if (formData.asesor && workspace) {
+        try {
+          const contactos = await entities.Contacto.filter(
+            { workspace_id: workspace.id },
+            "nombre",
+            2000
+          );
+          const contacto = contactos.find(c => c.nombre === formData.contactoNombre);
+          if (contacto && contacto.asesor !== formData.asesor) {
+            await entities.Contacto.update(contacto.id, { asesor: formData.asesor });
+          }
+        } catch {
+          // Non-critical: silently ignore sync failure
+        }
+      }
+
       onSave?.();
       onOpenChange(false);
     } catch (e) {
