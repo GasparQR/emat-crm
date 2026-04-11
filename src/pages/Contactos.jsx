@@ -125,10 +125,18 @@ export default function Contactos() {
     },
   });
 
+  /** Pipeline, Consultas y Hoy leen filas de `Consulta`; mantener cachés alineadas. */
+  const invalidateConsultasQueries = () => {
+    const wid = workspace?.id;
+    queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", wid] });
+    queryClient.invalidateQueries({ queryKey: ["consultas-list", wid] });
+    queryClient.invalidateQueries({ queryKey: ["consultas-hoy", wid] });
+  };
+
   const updateConsultaMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      invalidateConsultasQueries();
       toast.success(`Etapa actualizada a "${variables.data.pipeline_stage}"`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
@@ -139,7 +147,7 @@ export default function Contactos() {
   const createConsultaMutation = useMutation({
     mutationFn: (data) => entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      invalidateConsultasQueries();
       toast.success(`Consulta creada en "${variables.pipeline_stage}" para ${variables.contactonombre}`);
       setPipelineDialog(null);
       setEtapaSeleccionada("");
@@ -192,6 +200,7 @@ export default function Contactos() {
       contactowhatsapp: c.whatsapp || "",
       canalorigen: c.canalOrigen || "WhatsApp",
       pipeline_stage: etapaSeleccionada,
+      asesor: c.asesor || "",
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
@@ -252,33 +261,46 @@ export default function Contactos() {
         await createMutation.mutateAsync(contactData);
       }
 
-      // Handle pipeline stage assignment
+      // Sincronizar etapa y asesor en la fila `Consulta` (pipeline / consultas filtran por consulta.asesor)
       const stage = pipeline_stage && pipeline_stage !== "sin_asignar" ? pipeline_stage : null;
-      if (stage) {
-        const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
-        if (consultaExistente) {
-          // Update existing consulta's stage
-          if (consultaExistente.pipeline_stage !== stage) {
-            await entities.Consulta.update(consultaExistente.id, { pipeline_stage: stage });
-            queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
-            toast.success(`Etapa actualizada a "${stage}"`);
-          }
-        } else {
-          // Create new consulta in the selected stage
-          const now = new Date();
-          const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-          await entities.Consulta.create({
-            workspace_id: workspace?.id || "local",
-            contactonombre: formData.nombre,
-            contactowhatsapp: formData.whatsapp || "",
-            canalorigen: formData.canalOrigen || "",
-            pipeline_stage: stage,
-            mes: MESES[now.getMonth()],
-            ano: now.getFullYear(),
-          });
-          queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
-          toast.success(`Contacto asignado a "${stage}" en el pipeline`);
+      const asesorNuevo = formData.asesor || "";
+      const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
+
+      if (consultaExistente) {
+        const patch = {};
+        if (stage && consultaExistente.pipeline_stage !== stage) {
+          patch.pipeline_stage = stage;
         }
+        const asesorActual = consultaExistente.asesor ?? "";
+        if (asesorNuevo !== asesorActual) {
+          patch.asesor = asesorNuevo;
+        }
+        if (Object.keys(patch).length > 0) {
+          await entities.Consulta.update(consultaExistente.id, patch);
+          invalidateConsultasQueries();
+          if (patch.pipeline_stage && patch.asesor !== undefined) {
+            toast.success("Etapa y asesor actualizados en la consulta vinculada");
+          } else if (patch.pipeline_stage) {
+            toast.success(`Etapa actualizada a "${patch.pipeline_stage}"`);
+          } else {
+            toast.success("Asesor sincronizado en pipeline y consultas");
+          }
+        }
+      } else if (stage) {
+        const now = new Date();
+        const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+        await entities.Consulta.create({
+          workspace_id: workspace?.id || "local",
+          contactonombre: formData.nombre,
+          contactowhatsapp: formData.whatsapp || "",
+          canalorigen: formData.canalOrigen || "",
+          pipeline_stage: stage,
+          asesor: asesorNuevo,
+          mes: MESES[now.getMonth()],
+          ano: now.getFullYear(),
+        });
+        invalidateConsultasQueries();
+        toast.success(`Contacto asignado a "${stage}" en el pipeline`);
       }
     } catch (e) {
       toast.error("Error: " + e.message);
