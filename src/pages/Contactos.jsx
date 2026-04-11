@@ -20,6 +20,14 @@ import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextBusinessDay } from "@/components/utils/dateUtils";
 
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+
+const ASESOR_COLORS = {
+  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
+  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
+  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500",
+};
+
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
   const [selectedContacto, setSelectedContacto] = useState(null);
@@ -30,7 +38,7 @@ export default function Contactos() {
   const [formData, setFormData] = useState({
     nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
     email: "", localidad: "", provincia: "", segmento: "",
-    canalOrigen: "", notas: "", pipeline_stage: ""
+    canalOrigen: "", notas: "", asesor: "", pipeline_stage: ""
   });
 
   // Pipeline dialog state
@@ -203,7 +211,7 @@ export default function Contactos() {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", localidad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: "", pipeline_stage: ""
+      canalOrigen: "", notas: "", asesor: "", pipeline_stage: ""
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -224,6 +232,7 @@ export default function Contactos() {
       segmento: contacto.segmento || "",
       canalOrigen: contacto.canalOrigen || "",
       notas: contacto.notas || "",
+      asesor: contacto.asesor || "",
       pipeline_stage: consultaExistente?.pipeline_stage || "",
     });
     setShowForm(true);
@@ -359,10 +368,11 @@ export default function Contactos() {
         <Card className="overflow-hidden">
           <Table className="w-full table-fixed">
             <colgroup>
-              <col className="w-[30%]" />
-              <col className="w-[18%]" />
+              <col className="w-[28%]" />
               <col className="w-[16%]" />
-              <col className="w-[18%]" />
+              <col className="w-[14%]" />
+              <col className="w-[16%]" />
+              <col className="w-[8%]" />
               <col className="w-[18%]" />
             </colgroup>
             <TableHeader>
@@ -371,13 +381,14 @@ export default function Contactos() {
                 <TableHead className="font-semibold">Teléfono</TableHead>
                 <TableHead className="font-semibold">Segmento</TableHead>
                 <TableHead className="font-semibold">Estado</TableHead>
+                <TableHead className="font-semibold">Asesor</TableHead>
                 <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">Cargando contactos...</TableCell>
                 </TableRow>
               ) : contactosFiltrados.map(contacto => (
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
@@ -424,6 +435,18 @@ export default function Contactos() {
                       );
                     })()}
                   </TableCell>
+                  <TableCell className="py-2">
+                    {contacto.asesor ? (
+                      <div
+                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", ASESOR_COLORS[contacto.asesor] || "bg-slate-400")}
+                        title={contacto.asesor}
+                      >
+                        {contacto.asesor?.[0]}
+                      </div>
+                    ) : (
+                      <span className="text-slate-300 text-xs">-</span>
+                    )}
+                  </TableCell>
                   <TableCell className="py-2 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEdit(contacto)}>
@@ -448,7 +471,7 @@ export default function Contactos() {
               ))}
               {!isLoading && contactosFiltrados.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
+                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">No hay contactos</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -500,6 +523,18 @@ export default function Contactos() {
             <div className="space-y-1">
               <Label>Notas</Label>
               <Textarea value={formData.notas} onChange={e => setFormData({ ...formData, notas: e.target.value })} placeholder="Observaciones..." rows={3} />
+            </div>
+            <div className="space-y-1">
+              <Label>Asesor</Label>
+              <Select value={formData.asesor} onValueChange={v => setFormData({ ...formData, asesor: v === "sin_asignar" ? "" : v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sin_asignar">Sin asignar</SelectItem>
+                  {ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             {pipelineStages.length > 0 && (
               <div className="space-y-1">
