@@ -59,10 +59,49 @@ export default function Consultas() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => entities.Consulta.delete(id),
-    onSuccess: () => {
+    mutationFn: async ({ id, contactonombre, workspace_id: rowWid }) => {
+      await entities.Consulta.delete(id);
+      return { contactonombre, workspace_id: rowWid };
+    },
+    onSuccess: async ({ contactonombre, workspace_id: rowWid }) => {
       queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
-      toast.success("Presupuesto eliminado");
+      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-hoy", workspace?.id] });
+
+      const nombre = contactonombre;
+      const wid = rowWid ?? workspace?.id;
+      let syncOk = true;
+      if (nombre && wid) {
+        try {
+          const remaining = await entities.Consulta.filter(
+            { workspace_id: wid, contactonombre: nombre },
+            "-created_date",
+            200
+          );
+          const asesorSiguiente = remaining.length > 0 ? (remaining[0].asesor ?? "") : "";
+
+          const contactosMatch = await entities.Contacto.filter(
+            { workspace_id: wid, nombre: nombre },
+            "nombre",
+            50
+          );
+          for (const c of contactosMatch) {
+            if ((c.asesor ?? "") !== asesorSiguiente) {
+              await entities.Contacto.update(c.id, { asesor: asesorSiguiente });
+            }
+          }
+          queryClient.invalidateQueries({ queryKey: ["contactos", workspace?.id] });
+        } catch (e) {
+          console.error("Sync asesor en contacto tras borrar consulta:", e);
+          syncOk = false;
+        }
+      }
+
+      if (syncOk) {
+        toast.success("Presupuesto eliminado");
+      } else {
+        toast.error("Presupuesto eliminado, pero no se pudo actualizar el asesor en Contactos.");
+      }
     },
   });
 
@@ -265,7 +304,13 @@ export default function Consultas() {
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => {
-                              if (window.confirm("¿Eliminar este presupuesto?")) deleteMutation.mutate(c.id);
+                              if (window.confirm("¿Eliminar este presupuesto?")) {
+                                deleteMutation.mutate({
+                                  id: c.id,
+                                  contactonombre: c.contactonombre,
+                                  workspace_id: c.workspace_id,
+                                });
+                              }
                             }}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />Eliminar
