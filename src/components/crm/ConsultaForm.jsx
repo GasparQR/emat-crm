@@ -52,19 +52,6 @@ const emptyForm = () => ({
   razonPerdida: "",
 });
 
-function generateNextNroPpto() {
-  try {
-    const items = JSON.parse(localStorage.getItem('emat_Consulta') || '[]');
-    const maxNro = items.reduce((max, item) => {
-      const n = parseInt(item.nroPpto);
-      return !isNaN(n) && n > max ? n : max;
-    }, 0);
-    return maxNro + 1;
-  } catch {
-    return 1;
-  }
-}
-
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
@@ -83,37 +70,57 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
 
   useEffect(() => {
-    if (open) {
-      if (consulta) {
-        setFormData({
-          ...emptyForm(),
-          nroPpto: consulta.nroppto ?? consulta.nroPpto ?? "",
-          contactoNombre: consulta.contactonombre ?? consulta.contactoNombre ?? "",
-          contactoWhatsapp: consulta.contactowhatsapp ?? consulta.contactoWhatsapp ?? "",
-          asesor: consulta.asesor ?? "",
-          tipoAplicacion: consulta.tipoaplicacion ?? consulta.tipoAplicacion ?? "",
-          ubicacionObra: consulta.ubicacionobra ?? consulta.ubicacionObra ?? "",
-          provincia: consulta.provincia ?? "",
-          superficieM2: consulta.superficiem2 ?? consulta.superficieM2 ?? "",
-          fibraKg: consulta.fibrakg ?? consulta.fibraKg ?? "",
-          adhLts: consulta.adhlts ?? consulta.adhLts ?? "",
-          kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
-          tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
-          canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
-          importe: consulta.importe ?? "",
-          etapa: consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa,
-          mes: consulta.mes ?? emptyForm().mes,
-          ano: consulta.ano ?? emptyForm().ano,
-          proximoSeguimiento: consulta.proximoseguimiento ?? consulta.proximoSeguimiento ?? "",
-          observaciones: consulta.observaciones ?? "",
-          razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
-        });
-      } else {
-        const nextNro = generateNextNroPpto();
-        setFormData({ ...emptyForm(), nroPpto: nextNro });
-      }
+    if (!open) return;
+
+    if (consulta) {
+      setFormData({
+        ...emptyForm(),
+        nroPpto: consulta.nroppto ?? consulta.nroPpto ?? "",
+        contactoNombre: consulta.contactonombre ?? consulta.contactoNombre ?? "",
+        contactoWhatsapp: consulta.contactowhatsapp ?? consulta.contactoWhatsapp ?? "",
+        asesor: consulta.asesor ?? "",
+        tipoAplicacion: consulta.tipoaplicacion ?? consulta.tipoAplicacion ?? "",
+        ubicacionObra: consulta.ubicacionobra ?? consulta.ubicacionObra ?? "",
+        provincia: consulta.provincia ?? "",
+        superficieM2: consulta.superficiem2 ?? consulta.superficieM2 ?? "",
+        fibraKg: consulta.fibrakg ?? consulta.fibraKg ?? "",
+        adhLts: consulta.adhlts ?? consulta.adhLts ?? "",
+        kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
+        tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
+        canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
+        importe: consulta.importe ?? "",
+        etapa: consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa,
+        mes: consulta.mes ?? emptyForm().mes,
+        ano: consulta.ano ?? emptyForm().ano,
+        proximoSeguimiento: consulta.proximoseguimiento ?? consulta.proximoSeguimiento ?? "",
+        observaciones: consulta.observaciones ?? "",
+        razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
+      });
+      return;
     }
-  }, [consulta, open]);
+
+    let active = true;
+    const loadNextNroPpto = async () => {
+      try {
+        const latest = await entities.Consulta.filter(
+          { workspace_id: workspace?.id || "local" },
+          "-nroppto",
+          1
+        );
+        const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+        if (active) {
+          setFormData({ ...emptyForm(), nroPpto: maxNro + 1 });
+        }
+      } catch {
+        if (active) {
+          setFormData({ ...emptyForm(), nroPpto: 1 });
+        }
+      }
+    };
+
+    loadNextNroPpto();
+    return () => { active = false; };
+  }, [consulta, open, workspace?.id]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
