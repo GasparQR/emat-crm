@@ -14,6 +14,17 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
+// Etapas del pipeline (normalizar nombres)
+const PIPELINE_STAGES = {
+  NUEVO_LEAD: "NUEVO LEAD",
+  A_COTIZAR: "A COTIZAR",
+  NEGOCIACION: "NEGOCIACION",
+  GANADA: "GANADA",
+  EJECUTADA: "EJECUTADA",
+  PAUSADA: "PAUSADA",
+  PERDIDA: "PERDIDA",
+};
+
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -27,25 +38,34 @@ export default function Pipeline() {
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
-    queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500) : [],
-    enabled: !!workspace
+    queryFn: () =>
+      workspace
+        ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500)
+        : [],
+    enabled: !!workspace,
   });
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
     queryFn: async () => {
       if (!workspace) return [];
-      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
-      return stages.filter(s => s.activa !== false);
+      const stages = await entities.PipelineStage.filter(
+        { workspace_id: workspace.id },
+        "orden",
+        100
+      );
+      return stages.filter((s) => s.activa !== false);
     },
-    enabled: !!workspace
+    enabled: !!workspace,
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', workspace?.id] });
-    }
+      queryClient.invalidateQueries({
+        queryKey: ['consultas-pipeline', workspace?.id],
+      });
+    },
   });
 
   const getNextNroPpto = async () => {
@@ -67,11 +87,14 @@ export default function Pipeline() {
 
     if (newEtapa === oldEtapa) return;
 
-    const updateData = { pipeline_stage: newEtapa };
+    // CORREGIDO: Usar una sola variable 'patch' en lugar de 'updateData' y 'patch'
+    const patch = { pipeline_stage: newEtapa };
 
-    // Auto-generate nroppto when moving out of NUEVO LEAD (orden=0) without one
-    const consulta = consultas.find(c => c.id === draggableId);
-    const sourceStage = etapas.find(e => e.pipeline_stage === oldEtapa);
+    // Buscar la consulta una sola vez
+    const consulta = consultas.find((c) => c.id === draggableId);
+    const sourceStage = etapas.find((e) => e.pipeline_stage === oldEtapa);
+
+    // Auto-generate nroppto cuando se mueve desde NUEVO LEAD sin uno
     if (sourceStage?.orden === 0 && (!consulta?.nroppto || consulta.nroppto === 0)) {
       try {
         const latest = await entities.Consulta.filter(
@@ -80,20 +103,21 @@ export default function Pipeline() {
           1
         );
         const maxNro = Number(latest?.[0]?.nroppto ?? 0);
-        updateData.nroppto = Number.isFinite(maxNro) ? maxNro + 1 : 1;
+        patch.nroppto = Number.isFinite(maxNro) ? maxNro + 1 : 1;
       } catch (e) {
         console.error("No se pudo generar nroppto:", e);
         toast.warning("No se pudo asignar número de presupuesto automáticamente");
       }
     }
 
-    const patch = { pipeline_stage: newEtapa };
-
-    // Assign nroppto when moving to a non-NUEVO LEAD stage and the consulta has none yet
-    const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
-    const consulta = consultas.find(c => c.id === draggableId);
+    // Asignar nroppto cuando se mueve a una etapa que no sea NUEVO LEAD sin uno
+    const destStage = etapas.find((s) => s.pipeline_stage === newEtapa);
     if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
-      patch.nroppto = await getNextNroPpto();
+      try {
+        patch.nroppto = await getNextNroPpto();
+      } catch (e) {
+        console.error("Error al obtener próximo nroppto:", e);
+      }
     }
 
     updateMutation.mutate({
@@ -111,31 +135,41 @@ export default function Pipeline() {
 
   const handleEdit = (consulta) => {
     setSelectedConsulta(consulta);
-    // Delay to let DropdownMenu fully close and release focus before Dialog opens
+    // Delay para permitir que DropdownMenu se cierre antes de abrir Dialog
     setTimeout(() => setShowForm(true), 100);
   };
 
-  // Nuevo: marcar como perdido directamente desde la card del pipeline
+  // CORREGIDO: Cambiar "Perdido" a "PERDIDA" para coincidir con el estado del pipeline
   const handleMarcarPerdido = async (consulta, motivo) => {
-    await updateMutation.mutateAsync({
-      id: consulta.id,
-      data: { pipeline_stage: "Perdido", razonperdida: motivo }
-    });
-    toast.success(`Marcado como Perdido — ${motivo}`);
+    try {
+      await updateMutation.mutateAsync({
+        id: consulta.id,
+        data: {
+          pipeline_stage: PIPELINE_STAGES.PERDIDA,
+          razonperdida: motivo,
+        },
+      });
+      toast.success(`Marcado como Perdido — ${motivo}`);
+    } catch (e) {
+      console.error("Error al marcar como perdido:", e);
+      toast.error("Error al marcar como perdido");
+    }
   };
 
-
   // Filtrar consultas
-  const consultasFiltradas = consultas.filter(c => {
+  const consultasFiltradas = consultas.filter((c) => {
     if (filtroCanal !== "todos" && c.canalorigen !== filtroCanal) return false;
-    if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
+    if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad)
+      return false;
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
   });
 
   // Agrupar por etapa
   const consultasPorEtapa = etapas.reduce((acc, etapa) => {
-    acc[etapa.pipeline_stage] = consultasFiltradas.filter(c => c.pipeline_stage === etapa.pipeline_stage);
+    acc[etapa.pipeline_stage] = consultasFiltradas.filter(
+      (c) => c.pipeline_stage === etapa.pipeline_stage
+    );
     return acc;
   }, {});
 
@@ -153,10 +187,18 @@ export default function Pipeline() {
                 </Button>
               </Link>
               <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
-              <p className="text-slate-500">{consultasFiltradas.length} consultas activas</p>
+              <p className="text-slate-500">
+                {consultasFiltradas.length} consultas activas
+              </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
+              <Button
+                onClick={() => {
+                  setSelectedConsulta(null);
+                  setShowForm(true);
+                }}
+                className="gap-2"
+              >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nueva</span>
               </Button>
@@ -172,7 +214,9 @@ export default function Pipeline() {
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="Meta">Meta</SelectItem>
                 <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
+                <SelectItem value="Cliente Fidelidad">
+                  Cliente Fidelidad
+                </SelectItem>
                 <SelectItem value="Referido">Referido</SelectItem>
                 <SelectItem value="REFERIDO">REFERIDO</SelectItem>
               </SelectContent>
@@ -194,8 +238,10 @@ export default function Pipeline() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Asesor</SelectItem>
-                {ASESORES.map(a => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {ASESORES.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -205,9 +251,12 @@ export default function Pipeline() {
 
       {/* Kanban */}
       <div className="p-4 sm:p-6 overflow-x-auto">
-        <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
+        <DragDropContext
+          key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`}
+          onDragEnd={handleDragEnd}
+        >
           <div className="flex gap-4 min-w-max">
-            {etapas.map(etapa => (
+            {etapas.map((etapa) => (
               <PipelineColumn
                 key={etapa.pipeline_stage}
                 etapa={etapa.pipeline_stage}
