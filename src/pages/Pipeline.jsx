@@ -48,6 +48,16 @@ export default function Pipeline() {
     }
   });
 
+  const getNextNroPpto = async () => {
+    const latest = await entities.Consulta.filter(
+      { workspace_id: workspace?.id || "local" },
+      "-nroppto",
+      1
+    );
+    const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+    return Number.isFinite(maxNro) ? maxNro + 1 : 1;
+  };
+
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
@@ -77,9 +87,18 @@ export default function Pipeline() {
       }
     }
 
+    const patch = { pipeline_stage: newEtapa };
+
+    // Assign nroppto when moving to a non-NUEVO LEAD stage and the consulta has none yet
+    const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
+    const consulta = consultas.find(c => c.id === draggableId);
+    if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
+      patch.nroppto = await getNextNroPpto();
+    }
+
     updateMutation.mutate({
       id: draggableId,
-      data: updateData
+      data: patch,
     });
 
     toast.success(`Movido a ${newEtapa}`);

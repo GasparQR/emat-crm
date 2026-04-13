@@ -177,10 +177,20 @@ export default function Contactos() {
     setPipelineDialog({ contacto: c, mensaje });
   };
 
+  const getNextNroPpto = async () => {
+    const latest = await entities.Consulta.filter(
+      { workspace_id: workspace?.id || "local" },
+      "-nroppto",
+      1
+    );
+    const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+    return Number.isFinite(maxNro) ? maxNro + 1 : 1;
+  };
+
   // Confirmar creación en pipeline con la etapa elegida
-  const handleConfirmPipeline = () => {
+  const handleConfirmPipeline = async () => {
     if (!etapaSeleccionada || !pipelineDialog) return;
-    const { contacto: c, mensaje } = pipelineDialog;
+    const { contacto: c } = pipelineDialog;
 
     // Chequeo de duplicado en CUALQUIER etapa
     const consultaExistente = consultas.find(q => q.contactonombre === c.nombre);
@@ -195,6 +205,13 @@ export default function Contactos() {
     const now = new Date();
     const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
 
+    // Assign nroppto only when the selected stage is not NUEVO LEAD (orden === 0)
+    const selectedStage = pipelineStages.find(s => s.pipeline_stage === etapaSeleccionada);
+    let nroPptoValue;
+    if (selectedStage && selectedStage.orden !== 0) {
+      nroPptoValue = await getNextNroPpto();
+    }
+
     createConsultaMutation.mutate({
       contactonombre: c.nombre,
       contactowhatsapp: c.whatsapp || "",
@@ -204,15 +221,24 @@ export default function Contactos() {
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
+      ...(nroPptoValue !== undefined && { nroppto: nroPptoValue }),
     });
   };
 
   // Actualizar etapa de una consulta existente
-  const handleUpdatePipelineStage = () => {
+  const handleUpdatePipelineStage = async () => {
     if (!etapaSeleccionada || !consultaExistenteEnDialog) return;
+    const patch = { pipeline_stage: etapaSeleccionada };
+
+    // If moving to a non-NUEVO LEAD stage and the consulta has no nroppto yet, assign one
+    const selectedStage = pipelineStages.find(s => s.pipeline_stage === etapaSeleccionada);
+    if (selectedStage && selectedStage.orden !== 0 && !consultaExistenteEnDialog.nroppto) {
+      patch.nroppto = await getNextNroPpto();
+    }
+
     updateConsultaMutation.mutate({
       id: consultaExistenteEnDialog.id,
-      data: { pipeline_stage: etapaSeleccionada },
+      data: patch,
     });
   };
 
@@ -270,6 +296,11 @@ export default function Contactos() {
         const patch = {};
         if (stage && consultaExistente.pipeline_stage !== stage) {
           patch.pipeline_stage = stage;
+          // Assign nroppto if moving to a non-NUEVO LEAD stage and consulta has none yet
+          const selectedStage = pipelineStages.find(s => s.pipeline_stage === stage);
+          if (selectedStage && selectedStage.orden !== 0 && !consultaExistente.nroppto) {
+            patch.nroppto = await getNextNroPpto();
+          }
         }
         const asesorActual = consultaExistente.asesor ?? "";
         if (asesorNuevo !== asesorActual) {
@@ -289,6 +320,11 @@ export default function Contactos() {
       } else if (stage) {
         const now = new Date();
         const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+        // Assign nroppto if the stage is not NUEVO LEAD (orden === 0)
+        const selectedStage = pipelineStages.find(s => s.pipeline_stage === stage);
+        const nroPptoValue = (selectedStage && selectedStage.orden !== 0)
+          ? await getNextNroPpto()
+          : undefined;
         await entities.Consulta.create({
           workspace_id: workspace?.id || "local",
           contactonombre: formData.nombre,
@@ -298,6 +334,7 @@ export default function Contactos() {
           asesor: asesorNuevo,
           mes: MESES[now.getMonth()],
           ano: now.getFullYear(),
+          ...(nroPptoValue !== undefined && { nroppto: nroPptoValue }),
         });
         invalidateConsultasQueries();
         toast.success(`Contacto asignado a "${stage}" en el pipeline`);

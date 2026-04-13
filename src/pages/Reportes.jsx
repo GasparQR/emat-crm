@@ -642,7 +642,7 @@ export default function Reportes() {
           <TabsContent value="pipeline" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Embudo de pipeline_stages</CardTitle>
+                <CardTitle className="text-base">Embudo del pipeline</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-3">
