@@ -51,12 +51,35 @@ export default function Pipeline() {
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
-    const { draggableId, destination } = result;
+    const { draggableId, destination, source } = result;
     const newEtapa = destination.droppableId;
+    const oldEtapa = source.droppableId;
+
+    if (newEtapa === oldEtapa) return;
+
+    const updateData = { pipeline_stage: newEtapa };
+
+    // Auto-generate nroppto when moving out of NUEVO LEAD (orden=0) without one
+    const consulta = consultas.find(c => c.id === draggableId);
+    const sourceStage = etapas.find(e => e.pipeline_stage === oldEtapa);
+    if (sourceStage?.orden === 0 && (!consulta?.nroppto || consulta.nroppto === 0)) {
+      try {
+        const latest = await entities.Consulta.filter(
+          { workspace_id: workspace?.id || "local" },
+          "-nroppto",
+          1
+        );
+        const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+        updateData.nroppto = Number.isFinite(maxNro) ? maxNro + 1 : 1;
+      } catch (e) {
+        console.error("No se pudo generar nroppto:", e);
+        toast.warning("No se pudo asignar número de presupuesto automáticamente");
+      }
+    }
 
     updateMutation.mutate({
       id: draggableId,
-      data: { pipeline_stage: newEtapa }
+      data: updateData
     });
 
     toast.success(`Movido a ${newEtapa}`);
