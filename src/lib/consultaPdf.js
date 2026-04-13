@@ -44,6 +44,19 @@ const money = (value) => {
   return `$${n.toLocaleString("es-AR")}`;
 };
 
+const sanitizeFilePart = (value = "") =>
+  String(value)
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, " ");
+
+const buildConsultaFileName = (consulta) => {
+  const c = normalizeConsulta(consulta);
+  const nro = sanitizeFilePart(c.nroppto || "S/N");
+  const cliente = sanitizeFilePart(c.contactoNombre || "Cliente");
+  return `Presupuesto nº ${nro} - ${cliente}.pdf`;
+};
+
 const calcularFechaValidez = (fechaString, diasValidez) => {
   const fecha = new Date(fechaString);
   fecha.setDate(fecha.getDate() + parseInt(diasValidez));
@@ -202,15 +215,13 @@ export const buildConsultaPdf = (consulta) => {
 };
 
 export const openConsultaPdf = (consulta) => {
-  const doc = buildConsultaPdf(consulta);
-  const blobUrl = doc.output("bloburl");
-  window.open(blobUrl, "_blank", "noopener,noreferrer");
+  const c = normalizeConsulta(consulta);
+  const doc = buildConsultaPdf(c);
+  doc.save(buildConsultaFileName(c));
 };
 
 export const saveConsultaPdf = (consulta) => {
   const c = normalizeConsulta(consulta);
   const doc = buildConsultaPdf(c);
-  const nombre = (c.contactoNombre || "cliente").replace(/\s+/g, "_");
-  const nro = c.nroppto || "sin_numero";
-  doc.save(`presupuesto_${nro}_${nombre}.pdf`);
+  doc.save(buildConsultaFileName(c));
 };
