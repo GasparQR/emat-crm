@@ -98,7 +98,7 @@ export default function Home() {
         asesor: newLeadData.asesor,
         mes: MESES[now.getMonth()],
         ano: now.getFullYear(),
-        fechaConsulta: now.toISOString().split("T")[0],
+        created_date: now.toISOString().split("T")[0],
       });
 
       setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "" });
