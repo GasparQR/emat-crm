@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
+import { openConsultaPdf } from "@/lib/consultaPdf";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -124,6 +125,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
+  const getNextNroPpto = async () => {
+    const latest = await entities.Consulta.filter(
+      { workspace_id: workspace?.id || "local" },
+      "-nroppto",
+      1
+    );
+    const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+    return Number.isFinite(maxNro) ? maxNro + 1 : 1;
+  };
+
   const handleCreateLead = async () => {
     if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
     try {
@@ -148,6 +159,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     if (!formData.contactoNombre) { toast.error("El nombre es requerido"); return; }
     setLoading(true);
     try {
+      let nroPptoValue = formData.nroPpto;
+      if (!consulta?.id) {
+        nroPptoValue = await getNextNroPpto();
+        set("nroPpto", nroPptoValue);
+      }
+
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
         contactonombre: formData.contactoNombre,
@@ -167,7 +184,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         tipocliente: formData.tipoCliente,
         canalorigen: formData.canalOrigen,
         observaciones: formData.observaciones,
-        nroppto: formData.nroPpto !== "" ? parseInt(formData.nroPpto) : null,
+        nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
         proximoseguimiento: formData.proximoSeguimiento || null,
         razonperdida: formData.razonPerdida || null,
         workspace_id: workspace?.id || "local",
@@ -339,6 +356,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         </div>
 
         <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => openConsultaPdf({
+              ...formData,
+              nroppto: formData.nroPpto,
+            })}
+            disabled={!formData.contactoNombre}
+          >
+            Ver PDF
+          </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Guardando..." : consulta ? "Guardar cambios" : "Crear presupuesto"}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { entities } from "@/api/supabaseClient";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -10,11 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Ruler } from "lucide-react";
+import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Ruler, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
+import { openConsultaPdf } from "@/lib/consultaPdf";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
@@ -58,13 +59,48 @@ export default function Consultas() {
     enabled: !!workspace,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => entities.Consulta.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
+  const handleDelete = async (consulta) => {
+    await entities.Consulta.delete(consulta.id);
+
+    queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
+    queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+    queryClient.invalidateQueries({ queryKey: ["consultas-hoy", workspace?.id] });
+
+    const nombre = consulta?.contactonombre;
+    const wid = consulta?.workspace_id ?? workspace?.id;
+    let syncOk = true;
+    if (nombre && wid) {
+      try {
+        const remaining = await entities.Consulta.filter(
+          { workspace_id: wid, contactonombre: nombre },
+          "-created_date",
+          200
+        );
+        const asesorSiguiente = remaining.length > 0 ? (remaining[0].asesor ?? "") : "";
+
+        const contactosMatch = await entities.Contacto.filter(
+          { workspace_id: wid, nombre: nombre },
+          "nombre",
+          50
+        );
+        for (const c of contactosMatch) {
+          if ((c.asesor ?? "") !== asesorSiguiente) {
+            await entities.Contacto.update(c.id, { asesor: asesorSiguiente });
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ["contactos", workspace?.id] });
+      } catch (e) {
+        console.error("Sync asesor en contacto tras borrar consulta:", e);
+        syncOk = false;
+      }
+    }
+
+    if (syncOk) {
       toast.success("Presupuesto eliminado");
-    },
-  });
+    } else {
+      toast.error("Presupuesto eliminado, pero no se pudo actualizar el asesor en Contactos.");
+    }
+  };
 
   const anos = [...new Set(consultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
 
@@ -261,11 +297,18 @@ export default function Consultas() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleEdit(c)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openConsultaPdf(c)}>
+                            <FileText className="w-4 h-4 mr-2" />Ver PDF
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => {
-                              if (window.confirm("¿Eliminar este presupuesto?")) deleteMutation.mutate(c.id);
+                              if (window.confirm("¿Eliminar este presupuesto?")) {
+                                handleDelete(c).catch((e) => {
+                                  toast.error("Error al eliminar: " + e.message);
+                                });
+                              }
                             }}
                           >
                             <Trash2 className="w-4 h-4 mr-2" />Eliminar
