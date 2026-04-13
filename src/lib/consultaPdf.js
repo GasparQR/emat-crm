@@ -79,7 +79,7 @@ export const buildConsultaPdf = (consulta) => {
   doc.text(`Cliente: ${fmt(c.contactoNombre)}`, 14, 35);
 
   // === TABLA DE DETALLE ===
-  const tableY = 42;
+  const tableY = 50;
   const colX = [14, 75, 130, 160];
   const colWidths = [61, 55, 30, 30];
   const rowHeight = 6;
