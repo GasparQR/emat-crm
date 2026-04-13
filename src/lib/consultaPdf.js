@@ -74,7 +74,7 @@ export const buildConsultaPdf = (consulta) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(200, 200, 200);
-  doc.text(c.descripcionServicio, pageWidth - 14, 12, { align: "right" });
+  doc.text("Presupuesto de Servicio", pageWidth - 14, 12, { align: "right" });
 
   // === TITULO Y DATOS PRINCIPALES ===
   doc.setTextColor(0, 0, 0);
@@ -116,7 +116,7 @@ export const buildConsultaPdf = (consulta) => {
   doc.setFontSize(9);
   let contentY = tableY + rowHeight + 6;
 
-  const detalle = fmt(c.tipoAplicacion, "Servicio de aislación");
+  const detalle = fmt(c.descripcionServicio, "Servicio de aislacion");
   const detalleWrapped = doc.splitTextToSize(detalle, colWidths[0] - 2);
   doc.text(detalleWrapped, colX[0] + 2, contentY);
   const detalleLines = detalleWrapped.length;
