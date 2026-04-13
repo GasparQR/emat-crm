@@ -98,11 +98,15 @@ export const buildConsultaPdf = (consulta) => {
   doc.text("Cantidad", colX[2] + 2, tableY + 4);
   doc.text("Importe ($)", colX[3] + 2, tableY + 4);
 
+  // Línea separadora debajo del header
+  doc.setDrawColor(200, 200, 200);
+  doc.line(14, tableY + rowHeight, pageWidth - 14, tableY + rowHeight);
+
   // Fila de detalle
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  let contentY = tableY + rowHeight + 2;
+  let contentY = tableY + rowHeight + 6;
 
   const detalle = fmt(c.tipoAplicacion, "Servicio de aislación");
   const detalleWrapped = doc.splitTextToSize(detalle, colWidths[0] - 2);
