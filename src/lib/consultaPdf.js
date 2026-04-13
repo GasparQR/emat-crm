@@ -28,6 +28,8 @@ const normalizeConsulta = (consulta = {}) => ({
   cotizador: consulta.cotizador ?? "",
   telefonoCotizador: consulta.telefonocotizador ?? consulta.telefonoCotizador ?? "",
   condicionesComerciales: consulta.condicionescomerciales ?? consulta.condicionesComerciales ?? "",
+  fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split('T')[0],
+  diasValidez: consulta.diasvalidez ?? consulta.diasValidez ?? 30,
 });
 
 const fmt = (value, fallback = "-") => {
@@ -40,6 +42,12 @@ const money = (value) => {
   const n = Number(value);
   if (Number.isNaN(n)) return String(value);
   return `$${n.toLocaleString("es-AR")}`;
+};
+
+const calcularFechaValidez = (fechaString, diasValidez) => {
+  const fecha = new Date(fechaString);
+  fecha.setDate(fecha.getDate() + parseInt(diasValidez));
+  return fecha.toLocaleDateString("es-AR");
 };
 
 const drawHeaderRect = (doc, x, y, w, h, bgColor, textColor) => {
@@ -179,17 +187,16 @@ export const buildConsultaPdf = (consulta) => {
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  const condLines = doc.splitTextToSize(fmt(c.condicionesComerciales, "Ver términos y condiciones"), 180);
+  const fechaValidez = calcularFechaValidez(c.fechaPresupuesto, c.diasValidez);
+  const condicionesConFecha = `Validez del presupuesto: hasta ${fechaValidez}\n${fmt(c.condicionesComerciales, "Ver términos y condiciones")}`;
+  const condLines = doc.splitTextToSize(condicionesConFecha, 180);
   doc.text(condLines, 14, contentY);
   contentY += condLines.length * 3 + 3;
 
   // === FIRMA Y DATOS COTIZADOR ===
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text(`Cotizó ${fmt(c.cotizador, "Asesor")}`, 14, pageHeight - 15);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.text(fmt(c.telefonoCotizador), 14, pageHeight - 11);
+  doc.text(`Cotizó ${fmt(c.asesor, "Asesor")}`, 14, pageHeight - 12);
 
   return doc;
 };
