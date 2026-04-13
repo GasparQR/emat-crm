@@ -17,6 +17,7 @@ const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const EMPRESAS = ["EMAT", "Aislaciones del Centro"];
 const MOTIVOS_PERDIDA = [
   "Sin respuesta","Se canceló la obra","Ganó la competencia",
   "Eligió otro material","Costos","Distancia/Logística",
@@ -44,7 +45,15 @@ const emptyForm = () => ({
   kmObra: "",
   tipoCliente: "",
   canalOrigen: "",
+  descripcionServicio: "Presupuesto de Servicio",
+  precioUnitario: "",
+  cantidad: "",
   importe: "",
+  iva: 21,
+  empresa: "EMAT",
+  fechaPresupuesto: new Date().toISOString().split("T")[0],
+  diasValidez: 30,
+  condicionesComerciales: "",
   etapa: "A COTIZAR",
   mes: MESES[new Date().getMonth()],
   ano: new Date().getFullYear(),
@@ -89,7 +98,15 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
         tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
         canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
+        descripcionServicio: consulta.descripcionservicio ?? consulta.descripcionServicio ?? "Presupuesto de Servicio",
+        precioUnitario: consulta.preciounitario ?? consulta.precioUnitario ?? "",
+        cantidad: consulta.cantidad ?? "",
         importe: consulta.importe ?? "",
+        iva: consulta.iva ?? 21,
+        empresa: consulta.empresa ?? "EMAT",
+        fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split("T")[0],
+        diasValidez: consulta.diasvalidez ?? consulta.diasValidez ?? 30,
+        condicionesComerciales: consulta.condicionescomerciales ?? consulta.condicionesComerciales ?? "",
         etapa: consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa,
         mes: consulta.mes ?? emptyForm().mes,
         ano: consulta.ano ?? emptyForm().ano,
@@ -124,6 +141,17 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   }, [consulta, open, workspace?.id]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    const precio = parseFloat(formData.precioUnitario);
+    const cantidad = parseFloat(formData.cantidad);
+    if (Number.isNaN(precio) || Number.isNaN(cantidad)) return;
+
+    const importeCalculado = (precio * cantidad).toFixed(2);
+    if (String(formData.importe ?? "") !== String(importeCalculado)) {
+      set("importe", importeCalculado);
+    }
+  }, [formData.precioUnitario, formData.cantidad]);
 
   const getNextNroPpto = async () => {
     const latest = await entities.Consulta.filter(
@@ -183,8 +211,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
         tipocliente: formData.tipoCliente,
         canalorigen: formData.canalOrigen,
+        descripcionservicio: formData.descripcionServicio,
+        preciounitario: formData.precioUnitario !== "" ? parseFloat(formData.precioUnitario) : null,
+        cantidad: formData.cantidad !== "" ? parseFloat(formData.cantidad) : null,
         observaciones: formData.observaciones,
         nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
+        iva: formData.iva !== "" ? parseFloat(formData.iva) : 21,
+        empresa: formData.empresa || "EMAT",
+        fechapresupuesto: formData.fechaPresupuesto || new Date().toISOString().split("T")[0],
+        diasvalidez: formData.diasValidez !== "" ? parseInt(formData.diasValidez) : 30,
+        condicionescomerciales: formData.condicionesComerciales,
         proximoseguimiento: formData.proximoSeguimiento || null,
         razonperdida: formData.razonPerdida || null,
         workspace_id: workspace?.id || "local",
@@ -326,6 +362,41 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Input type="number" value={formData.importe} onChange={e => set("importe", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1">
+                <Label>Precio unitario ($)</Label>
+                <Input type="number" value={formData.precioUnitario} onChange={e => set("precioUnitario", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1">
+                <Label>Cantidad</Label>
+                <Input type="number" value={formData.cantidad} onChange={e => set("cantidad", e.target.value)} placeholder="0" />
+              </div>
+              <div className="space-y-1">
+                <Label>IVA (%)</Label>
+                <Input type="number" value={formData.iva} onChange={e => set("iva", e.target.value)} placeholder="21" />
+              </div>
+              <div className="space-y-1">
+                <Label>Empresa</Label>
+                <Select value={formData.empresa} onValueChange={v => set("empresa", v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Detalle para PDF</Label>
+                <Input
+                  value={formData.descripcionServicio}
+                  onChange={e => set("descripcionServicio", e.target.value)}
+                  placeholder="Ej: Aplicación de aislación térmica en losa"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha presupuesto</Label>
+                <Input type="date" value={formData.fechaPresupuesto} onChange={e => set("fechaPresupuesto", e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Días de validez</Label>
+                <Input type="number" value={formData.diasValidez} onChange={e => set("diasValidez", e.target.value)} placeholder="30" />
+              </div>
+              <div className="space-y-1">
                 <Label>Mes</Label>
                 <Select value={formData.mes} onValueChange={v => set("mes", v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -335,6 +406,15 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
               <div className="space-y-1">
                 <Label>Próximo seguimiento</Label>
                 <Input type="date" value={formData.proximoSeguimiento} onChange={e => set("proximoSeguimiento", e.target.value)} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label>Condiciones comerciales</Label>
+                <Textarea
+                  value={formData.condicionesComerciales}
+                  onChange={e => set("condicionesComerciales", e.target.value)}
+                  placeholder="Forma de pago, plazo de ejecución, condiciones adicionales..."
+                  rows={2}
+                />
               </div>
             </div>
             {formData.etapa === "PERDIDA" && (
