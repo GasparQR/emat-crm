@@ -381,8 +381,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Descripción de servicio</Label>
-                <Input value={formData.descripcionServicio} onChange={e => set("descripcionServicio", e.target.value)} placeholder="Presupuesto de Servicio" />
+                <Label>Detalle para PDF</Label>
+                <Input
+                  value={formData.descripcionServicio}
+                  onChange={e => set("descripcionServicio", e.target.value)}
+                  placeholder="Ej: Aplicación de aislación térmica en losa"
+                />
               </div>
               <div className="space-y-1">
                 <Label>Fecha presupuesto</Label>
