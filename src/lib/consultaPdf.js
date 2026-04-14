@@ -181,11 +181,6 @@ export const buildConsultaPdf = (consulta) => {
     contentY += 3;
   });
 
-  // Línea separadora
-  doc.setDrawColor(200, 200, 200);
-  doc.line(14, contentY, pageWidth - 14, contentY);
-  contentY += 3;
-
   // === SUBTOTALES ===
   const subtotal =
     items.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0) ||
