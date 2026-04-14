@@ -149,12 +149,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     let active = true;
     const loadNextNroPpto = async () => {
       try {
-        const latest = await entities.Consulta.filter(
+        const rows = await entities.Consulta.filter(
           { workspace_id: workspace?.id || "local" },
           "-nroppto",
-          1
+          2000
         );
-        const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+        const maxNro = (rows || []).reduce((max, item) => {
+          const nro = Number(item?.nroppto);
+          if (!Number.isFinite(nro)) return max;
+          return Math.max(max, nro);
+        }, 0);
         const defaults = emptyForm();
         if (active) {
           setFormData({
@@ -237,13 +241,17 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   };
 
   const getNextNroPpto = async () => {
-    const latest = await entities.Consulta.filter(
+    const rows = await entities.Consulta.filter(
       { workspace_id: workspace?.id || "local" },
       "-nroppto",
-      1
+      2000
     );
-    const maxNro = Number(latest?.[0]?.nroppto ?? 0);
-    return Number.isFinite(maxNro) ? maxNro + 1 : 1;
+    const maxNro = (rows || []).reduce((max, item) => {
+      const nro = Number(item?.nroppto);
+      if (!Number.isFinite(nro)) return max;
+      return Math.max(max, nro);
+    }, 0);
+    return maxNro + 1;
   };
 
   const handleCreateLead = async () => {
@@ -321,8 +329,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         try {
           await entities.Consulta.update(consulta.id, payload);
         } catch (err) {
-          if (String(err?.message || "").toLowerCase().includes("items")) {
-            const { items, ...fallbackPayload } = payload;
+          const fallbackPayload = buildFallbackPayload(payload, err);
+          if (Object.keys(fallbackPayload).length !== Object.keys(payload).length) {
             await entities.Consulta.update(consulta.id, fallbackPayload);
           } else {
             throw err;
@@ -333,8 +341,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         try {
           await entities.Consulta.create(payload);
         } catch (err) {
-          if (String(err?.message || "").toLowerCase().includes("items")) {
-            const { items, ...fallbackPayload } = payload;
+          const fallbackPayload = buildFallbackPayload(payload, err);
+          if (Object.keys(fallbackPayload).length !== Object.keys(payload).length) {
             await entities.Consulta.create(fallbackPayload);
           } else {
             throw err;
