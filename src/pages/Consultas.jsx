@@ -16,6 +16,9 @@ import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
+import ConsultaFormConItems from "@/components/crm/ConsultaFormConItems";
+
+
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
@@ -327,6 +330,13 @@ export default function Consultas() {
           </Table>
         </div>
       </div>
+
+      // Cuando el usuario crea un NUEVO presupuesto
+      <ConsultaFormConItems
+        workspace_id={workspace.id}
+        onSave={() => refetch()}
+        onCancel={() => setShowForm(false)}
+      />
 
       <ConsultaForm
         open={showForm}
