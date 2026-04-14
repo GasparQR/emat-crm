@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
-import { openConsultaPdf } from "@/lib/consultaPdf";
+import { buildConsultaPdf } from "@/lib/consultaPdf";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -76,6 +76,9 @@ const emptyForm = () => ({
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
+  const [previewPayload, setPreviewPayload] = useState(null);
   const [showNewLead, setShowNewLead] = useState(false);
   const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
   const { workspace } = useWorkspace();
@@ -179,6 +182,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  useEffect(() => {
+    return () => {
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, [pdfPreviewUrl]);
 
   const updateItem = (index, field, value) => {
     setFormData((prev) => {
@@ -340,6 +349,29 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openPdfPreview = () => {
+    const payload = {
+      ...formData,
+      nroppto: formData.nroPpto,
+      firmaasesor: (currentUser?.consulta_firmas_asesor || {})[formData.asesor] || formData.asesor || "Asesor",
+    };
+    const doc = buildConsultaPdf(payload);
+    const blob = doc.output("blob");
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    const url = URL.createObjectURL(blob);
+    setPreviewPayload(payload);
+    setPdfPreviewUrl(url);
+    setShowPdfPreview(true);
+  };
+
+  const downloadPreviewPdf = () => {
+    if (!previewPayload) return;
+    const doc = buildConsultaPdf(previewPayload);
+    const nro = previewPayload.nroppto || "S/N";
+    const cliente = previewPayload.contactoNombre || "Cliente";
+    doc.save(`Presupuesto nº ${nro} - ${cliente}.pdf`);
   };
 
   return (
@@ -581,11 +613,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => openConsultaPdf({
-              ...formData,
-              nroppto: formData.nroPpto,
-              firmaasesor: (currentUser?.consulta_firmas_asesor || {})[formData.asesor] || formData.asesor || "Asesor",
-            })}
+            onClick={openPdfPreview}
             disabled={!formData.contactoNombre}
           >
             Ver PDF
@@ -593,6 +621,38 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Guardando..." : consulta ? "Guardar cambios" : "Crear presupuesto"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog
+      open={showPdfPreview}
+      onOpenChange={(next) => {
+        setShowPdfPreview(next);
+        if (!next && pdfPreviewUrl) {
+          URL.revokeObjectURL(pdfPreviewUrl);
+          setPdfPreviewUrl("");
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Vista preliminar del presupuesto</DialogTitle>
+        </DialogHeader>
+        <div className="w-full h-[70vh] rounded-md border overflow-hidden bg-slate-100">
+          {pdfPreviewUrl ? (
+            <iframe title="Vista previa PDF" src={pdfPreviewUrl} className="w-full h-full" />
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+              No se pudo generar la vista previa.
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowPdfPreview(false)}>Cerrar</Button>
+          <Button onClick={downloadPreviewPdf} disabled={!previewPayload}>
+            Descargar PDF
           </Button>
         </DialogFooter>
       </DialogContent>
