@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Database, Trash2, Loader2, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -20,10 +21,15 @@ export default function Configuracion() {
   const [isLoading, setIsLoading] = useState(false);
   const [consultaDays, setConsultaDays] = useState(3);
   const [savingDays, setSavingDays] = useState(false);
+  const [defaultCondiciones, setDefaultCondiciones] = useState("");
+  const [defaultObservaciones, setDefaultObservaciones] = useState("");
+  const [savingDefaults, setSavingDefaults] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
+      setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
+      setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
     }
   }, [currentUser]);
 
@@ -37,6 +43,20 @@ export default function Configuracion() {
       toast.success("Días hábiles guardados");
     } finally {
       setSavingDays(false);
+    }
+  };
+
+  const handleSaveDefaults = async () => {
+    setSavingDefaults(true);
+    try {
+      await auth.updateMe({
+        consulta_default_condiciones_comerciales: defaultCondiciones,
+        consulta_default_observaciones: defaultObservaciones,
+      });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      toast.success("Textos predeterminados guardados");
+    } finally {
+      setSavingDefaults(false);
     }
   };
 
@@ -110,6 +130,39 @@ export default function Configuracion() {
             <Button onClick={handleSaveDays} disabled={savingDays} className="gap-2">
               {savingDays && <Loader2 className="w-4 h-4 animate-spin" />}
               Guardar días hábiles
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Textos predeterminados de presupuesto</CardTitle>
+            <CardDescription>
+              Estos valores se completan automáticamente al crear un presupuesto nuevo
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Condiciones comerciales predeterminadas</Label>
+              <Textarea
+                value={defaultCondiciones}
+                onChange={(e) => setDefaultCondiciones(e.target.value)}
+                placeholder="Ej: Forma de pago, plazos, alcance del servicio..."
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observaciones predeterminadas</Label>
+              <Textarea
+                value={defaultObservaciones}
+                onChange={(e) => setDefaultObservaciones(e.target.value)}
+                placeholder="Ej: Consideraciones técnicas estándar para todos los presupuestos..."
+                rows={4}
+              />
+            </div>
+            <Button onClick={handleSaveDefaults} disabled={savingDefaults} className="gap-2">
+              {savingDefaults && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar textos predeterminados
             </Button>
           </CardContent>
         </Card>
