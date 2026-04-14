@@ -224,7 +224,7 @@ export default function Configuracion() {
         </Card>
 
         <div className="text-center text-sm text-slate-400 py-4">
-          Pragma Studio CRM v1.0 - Mini CRM para ventas por WhatsApp
+          Pragma CRM v1.0 - Mini CRM para ventas por WhatsApp
         </div>
       </div>
     </div>
