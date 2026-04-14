@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -23,6 +25,7 @@ export default function Configuracion() {
   const [savingDays, setSavingDays] = useState(false);
   const [defaultCondiciones, setDefaultCondiciones] = useState("");
   const [defaultObservaciones, setDefaultObservaciones] = useState("");
+  const [firmasAsesor, setFirmasAsesor] = useState({});
   const [savingDefaults, setSavingDefaults] = useState(false);
 
   useEffect(() => {
@@ -30,6 +33,9 @@ export default function Configuracion() {
       setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
       setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
       setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
+      const savedFirmas = currentUser.consulta_firmas_asesor ?? {};
+      const normalizedFirmas = Object.fromEntries(ASESORES.map((asesor) => [asesor, savedFirmas[asesor] ?? asesor]));
+      setFirmasAsesor(normalizedFirmas);
     }
   }, [currentUser]);
 
@@ -52,6 +58,7 @@ export default function Configuracion() {
       await auth.updateMe({
         consulta_default_condiciones_comerciales: defaultCondiciones,
         consulta_default_observaciones: defaultObservaciones,
+        consulta_firmas_asesor: firmasAsesor,
       });
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       toast.success("Textos predeterminados guardados");
@@ -160,6 +167,29 @@ export default function Configuracion() {
                 rows={4}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Firma predeterminada por asesor</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {ASESORES.map((asesor) => (
+                  <div key={asesor} className="space-y-1">
+                    <Label className="text-xs text-slate-500">{asesor}</Label>
+                    <Input
+                      value={firmasAsesor[asesor] ?? ""}
+                      onChange={(e) =>
+                        setFirmasAsesor((prev) => ({
+                          ...prev,
+                          [asesor]: e.target.value,
+                        }))
+                      }
+                      placeholder={`Firma para ${asesor}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400">
+                Este texto reemplaza el "Cotizó ..." al pie del PDF.
+              </p>
+            </div>
             <Button onClick={handleSaveDefaults} disabled={savingDefaults} className="gap-2">
               {savingDefaults && <Loader2 className="w-4 h-4 animate-spin" />}
               Guardar textos predeterminados
@@ -194,7 +224,7 @@ export default function Configuracion() {
         </Card>
 
         <div className="text-center text-sm text-slate-400 py-4">
-          Pragma CRM v1.0 - Mini CRM para ventas por WhatsApp
+          Pragma Studio CRM v1.0 - Mini CRM para ventas por WhatsApp
         </div>
       </div>
     </div>
