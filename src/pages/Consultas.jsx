@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Ruler, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
-import ConsultaForm from "@/components/crm/ConsultaForm";
+import ConsultaFormconItems from "@/components/crm/ConsultaFormconItems";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 
@@ -328,7 +328,7 @@ export default function Consultas() {
         </div>
       </div>
 
-      <ConsultaForm
+      <ConsultaFormconItems
         open={showForm}
         onOpenChange={setShowForm}
         consulta={selectedConsulta}
