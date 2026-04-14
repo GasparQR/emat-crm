@@ -164,14 +164,80 @@ const LOCAL_USER = {
   canEditContacts: true,
   canSendMessages: true,
   canViewReports: true,
+  consulta_follow_up_days: 3,
+  consulta_default_condiciones_comerciales: "",
+  consulta_default_observaciones: "",
+  consulta_firmas_asesor: {},
 };
 
 // ─── Autenticación ─────────────────────────────────────────────────────────────
 
 export const auth = {
-  me: async () => LOCAL_USER,
+  me: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('usuario')
+        .select('*')
+        .eq('id', LOCAL_USER.id)
+        .single();
+
+      if (error) {
+        // If row doesn't exist yet (or schema missing), fallback to in-memory user.
+        return LOCAL_USER;
+      }
+
+      const merged = {
+        ...LOCAL_USER,
+        ...data,
+        consulta_firmas_asesor:
+          data?.consulta_firmas_asesor && typeof data.consulta_firmas_asesor === 'object'
+            ? data.consulta_firmas_asesor
+            : {},
+      };
+      Object.assign(LOCAL_USER, merged);
+      return merged;
+    } catch {
+      return LOCAL_USER;
+    }
+  },
   updateMe: async (data) => {
-    Object.assign(LOCAL_USER, data);
+    const nextUser = {
+      ...LOCAL_USER,
+      ...data,
+      consulta_firmas_asesor:
+        data?.consulta_firmas_asesor && typeof data.consulta_firmas_asesor === 'object'
+          ? data.consulta_firmas_asesor
+          : (LOCAL_USER.consulta_firmas_asesor || {}),
+    };
+    Object.assign(LOCAL_USER, nextUser);
+
+    try {
+      const payload = {
+        id: LOCAL_USER.id,
+        workspace_id: 'local',
+        full_name: nextUser.full_name,
+        email: nextUser.email,
+        role: nextUser.role,
+        consulta_follow_up_days: nextUser.consulta_follow_up_days,
+        consulta_default_condiciones_comerciales: nextUser.consulta_default_condiciones_comerciales,
+        consulta_default_observaciones: nextUser.consulta_default_observaciones,
+        consulta_firmas_asesor: nextUser.consulta_firmas_asesor,
+        updated_date: new Date().toISOString(),
+      };
+
+      const { data: upserted, error } = await supabase
+        .from('usuario')
+        .upsert([payload], { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (!error && upserted) {
+        Object.assign(LOCAL_USER, upserted);
+      }
+    } catch {
+      // Keep local fallback to avoid blocking UI if schema is not ready yet.
+    }
+
     return LOCAL_USER;
   },
   logout: () => {
