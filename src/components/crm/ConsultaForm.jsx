@@ -32,6 +32,15 @@ const PROVINCIAS = [
   "Tierra del Fuego","Tucumán",
 ];
 
+const createItem = (overrides = {}) => ({
+  _localId: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  descripcionServicio: "Presupuesto de Servicio",
+  precioUnitario: "",
+  cantidad: "",
+  importe: "",
+  ...overrides,
+});
+
 const emptyForm = () => ({
   nroPpto: "",
   contactoNombre: "",
@@ -50,7 +59,7 @@ const emptyForm = () => ({
   precioUnitario: "",
   cantidad: "",
   importe: "",
-  items: [{ descripcionServicio: "Presupuesto de Servicio", precioUnitario: "", cantidad: "", importe: "" }],
+  items: [createItem()],
   iva: 21,
   empresa: "EMAT",
   fechaPresupuesto: new Date().toISOString().split("T")[0],
@@ -93,7 +102,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         importe: consulta.importe ?? "",
       };
       const rawItems = Array.isArray(consulta.items) && consulta.items.length > 0 ? consulta.items : [firstItem];
-      const mappedItems = rawItems.map((item) => ({
+      const mappedItems = rawItems.map((item) => createItem({
         descripcionServicio: item.descripcionServicio ?? item.descripcionservicio ?? firstItem.descripcionServicio,
         precioUnitario: item.precioUnitario ?? item.preciounitario ?? "",
         cantidad: item.cantidad ?? "",
@@ -198,14 +207,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const addItem = () => {
     setFormData((prev) => ({
       ...prev,
-      items: [...prev.items, { descripcionServicio: "", precioUnitario: "", cantidad: "", importe: "" }],
+      items: [...prev.items, createItem({ descripcionServicio: "" })],
     }));
   };
 
   const removeItem = (index) => {
     setFormData((prev) => {
       const filtered = prev.items.filter((_, i) => i !== index);
-      const nextItems = filtered.length > 0 ? filtered : [{ descripcionServicio: "Presupuesto de Servicio", precioUnitario: "", cantidad: "", importe: "" }];
+      const nextItems = filtered.length > 0 ? filtered : [createItem()];
       const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
       return {
         ...prev,
@@ -257,6 +266,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nroPptoValue = await getNextNroPpto();
         set("nroPpto", nroPptoValue);
       }
+      const firmasAsesor = currentUser?.consulta_firmas_asesor || {};
+      const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
@@ -288,6 +299,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         condicionescomerciales: formData.condicionesComerciales,
         proximoseguimiento: formData.proximoSeguimiento || null,
         razonperdida: formData.razonPerdida || null,
+        firmaasesor: firmaAsesor,
         items: formData.items.map((item) => ({
           descripcionServicio: item.descripcionServicio,
           precioUnitario: item.precioUnitario,
@@ -471,7 +483,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 </div>
                 <div className="space-y-2">
                   {formData.items.map((item, index) => (
-                    <div key={`${index}-${item.descripcionServicio}`} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-slate-50">
+                    <div key={item._localId || `item-${index}`} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-slate-50">
                       <div className="col-span-12 sm:col-span-5 space-y-1">
                         <Label className="text-xs">Detalle</Label>
                         <Input
@@ -572,6 +584,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             onClick={() => openConsultaPdf({
               ...formData,
               nroppto: formData.nroPpto,
+              firmaasesor: (currentUser?.consulta_firmas_asesor || {})[formData.asesor] || formData.asesor || "Asesor",
             })}
             disabled={!formData.contactoNombre}
           >
