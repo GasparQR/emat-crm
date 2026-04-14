@@ -28,6 +28,7 @@ const normalizeConsulta = (consulta = {}) => ({
   cotizador: consulta.cotizador ?? "",
   telefonoCotizador: consulta.telefonocotizador ?? consulta.telefonoCotizador ?? "",
   condicionesComerciales: consulta.condicionescomerciales ?? consulta.condicionesComerciales ?? "",
+  firmaAsesor: consulta.firmaasesor ?? consulta.firmaAsesor ?? "",
   fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split('T')[0],
   diasValidez: consulta.diasvalidez ?? consulta.diasValidez ?? 30,
   items: Array.isArray(consulta.items) ? consulta.items : [],
@@ -231,7 +232,7 @@ export const buildConsultaPdf = (consulta) => {
   // === FIRMA Y DATOS COTIZADOR ===
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text(`Cotizó ${fmt(c.asesor, "Asesor")}`, 14, pageHeight - 12);
+  doc.text(`Cotizó ${fmt(c.firmaAsesor || c.asesor, "Asesor")}`, 14, pageHeight - 12);
 
   return doc;
 };
