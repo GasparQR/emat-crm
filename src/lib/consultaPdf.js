@@ -118,7 +118,7 @@ export const buildConsultaPdf = (consulta) => {
   doc.text(`Cliente: ${fmt(c.contactoNombre)}`, 14, 35);
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
-  doc.text(`Localidad y provincia: ${fmt(c.ubicacionObra)}, ${fmt(c.provincia)}`, 14, 40);
+  doc.text(`Ubicación: ${fmt(c.ubicacionObra)}, ${fmt(c.provincia)}`, 14, 40);
   doc.setTextColor(0, 0, 0);
 
   // === TABLA DE DETALLE ===
@@ -142,7 +142,7 @@ export const buildConsultaPdf = (consulta) => {
   doc.text("Importe ($)", colX[3] + 2, tableY + 4);
 
   // Línea separadora debajo del header
-  doc.setDrawColor(200, 200, 200);
+
   doc.line(14, tableY + rowHeight, pageWidth - 14, tableY + rowHeight);
 
   // Filas de detalle
