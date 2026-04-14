@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Database, Trash2, Loader2, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -12,6 +13,8 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -20,10 +23,19 @@ export default function Configuracion() {
   const [isLoading, setIsLoading] = useState(false);
   const [consultaDays, setConsultaDays] = useState(3);
   const [savingDays, setSavingDays] = useState(false);
+  const [defaultCondiciones, setDefaultCondiciones] = useState("");
+  const [defaultObservaciones, setDefaultObservaciones] = useState("");
+  const [firmasAsesor, setFirmasAsesor] = useState({});
+  const [savingDefaults, setSavingDefaults] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
       setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
+      setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
+      setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
+      const savedFirmas = currentUser.consulta_firmas_asesor ?? {};
+      const normalizedFirmas = Object.fromEntries(ASESORES.map((asesor) => [asesor, savedFirmas[asesor] ?? asesor]));
+      setFirmasAsesor(normalizedFirmas);
     }
   }, [currentUser]);
 
@@ -37,6 +49,21 @@ export default function Configuracion() {
       toast.success("Días hábiles guardados");
     } finally {
       setSavingDays(false);
+    }
+  };
+
+  const handleSaveDefaults = async () => {
+    setSavingDefaults(true);
+    try {
+      await auth.updateMe({
+        consulta_default_condiciones_comerciales: defaultCondiciones,
+        consulta_default_observaciones: defaultObservaciones,
+        consulta_firmas_asesor: firmasAsesor,
+      });
+      queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      toast.success("Textos predeterminados guardados");
+    } finally {
+      setSavingDefaults(false);
     }
   };
 
@@ -114,6 +141,62 @@ export default function Configuracion() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Textos predeterminados de presupuesto</CardTitle>
+            <CardDescription>
+              Estos valores se completan automáticamente al crear un presupuesto nuevo
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Condiciones comerciales predeterminadas</Label>
+              <Textarea
+                value={defaultCondiciones}
+                onChange={(e) => setDefaultCondiciones(e.target.value)}
+                placeholder="Ej: Forma de pago, plazos, alcance del servicio..."
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observaciones predeterminadas</Label>
+              <Textarea
+                value={defaultObservaciones}
+                onChange={(e) => setDefaultObservaciones(e.target.value)}
+                placeholder="Ej: Consideraciones técnicas estándar para todos los presupuestos..."
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Firma predeterminada por asesor</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {ASESORES.map((asesor) => (
+                  <div key={asesor} className="space-y-1">
+                    <Label className="text-xs text-slate-500">{asesor}</Label>
+                    <Input
+                      value={firmasAsesor[asesor] ?? ""}
+                      onChange={(e) =>
+                        setFirmasAsesor((prev) => ({
+                          ...prev,
+                          [asesor]: e.target.value,
+                        }))
+                      }
+                      placeholder={`Firma para ${asesor}`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400">
+                Este texto reemplaza el "Cotizó ..." al pie del PDF.
+              </p>
+            </div>
+            <Button onClick={handleSaveDefaults} disabled={savingDefaults} className="gap-2">
+              {savingDefaults && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar textos predeterminados
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Datos */}
         <Card>
           <CardHeader>
@@ -141,7 +224,7 @@ export default function Configuracion() {
         </Card>
 
         <div className="text-center text-sm text-slate-400 py-4">
-          Pragma CRM v1.0 - Mini CRM para ventas por WhatsApp
+          Pragma Studio CRM v1.0 - Mini CRM para ventas por WhatsApp
         </div>
       </div>
     </div>

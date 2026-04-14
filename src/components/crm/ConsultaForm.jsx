@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
-import { openConsultaPdf } from "@/lib/consultaPdf";
+import { Plus, Trash2 } from "lucide-react";
+import { buildConsultaPdf } from "@/lib/consultaPdf";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -31,6 +32,15 @@ const PROVINCIAS = [
   "Tierra del Fuego","Tucumán",
 ];
 
+const createItem = (overrides = {}) => ({
+  _localId: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  descripcionServicio: "Presupuesto de Servicio",
+  precioUnitario: "",
+  cantidad: "",
+  importe: "",
+  ...overrides,
+});
+
 const emptyForm = () => ({
   nroPpto: "",
   contactoNombre: "",
@@ -49,6 +59,7 @@ const emptyForm = () => ({
   precioUnitario: "",
   cantidad: "",
   importe: "",
+  items: [createItem()],
   iva: 21,
   empresa: "EMAT",
   fechaPresupuesto: new Date().toISOString().split("T")[0],
@@ -65,9 +76,13 @@ const emptyForm = () => ({
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
+  const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
+  const [previewPayload, setPreviewPayload] = useState(null);
   const [showNewLead, setShowNewLead] = useState(false);
   const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
   const { workspace } = useWorkspace();
+  const { data: currentUser } = useCurrentUser();
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -83,6 +98,19 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     if (!open) return;
 
     if (consulta) {
+      const firstItem = {
+        descripcionServicio: consulta.descripcionservicio ?? consulta.descripcionServicio ?? "Presupuesto de Servicio",
+        precioUnitario: consulta.preciounitario ?? consulta.precioUnitario ?? "",
+        cantidad: consulta.cantidad ?? "",
+        importe: consulta.importe ?? "",
+      };
+      const rawItems = Array.isArray(consulta.items) && consulta.items.length > 0 ? consulta.items : [firstItem];
+      const mappedItems = rawItems.map((item) => createItem({
+        descripcionServicio: item.descripcionServicio ?? item.descripcionservicio ?? firstItem.descripcionServicio,
+        precioUnitario: item.precioUnitario ?? item.preciounitario ?? "",
+        cantidad: item.cantidad ?? "",
+        importe: item.importe ?? "",
+      }));
       setFormData({
         ...emptyForm(),
         nroPpto: consulta.nroppto ?? consulta.nroPpto ?? "",
@@ -98,10 +126,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
         tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
         canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
-        descripcionServicio: consulta.descripcionservicio ?? consulta.descripcionServicio ?? "Presupuesto de Servicio",
-        precioUnitario: consulta.preciounitario ?? consulta.precioUnitario ?? "",
-        cantidad: consulta.cantidad ?? "",
-        importe: consulta.importe ?? "",
+        descripcionServicio: mappedItems[0]?.descripcionServicio ?? "Presupuesto de Servicio",
+        precioUnitario: mappedItems[0]?.precioUnitario ?? "",
+        cantidad: mappedItems[0]?.cantidad ?? "",
+        importe: mappedItems[0]?.importe ?? "",
+        items: mappedItems,
         iva: consulta.iva ?? 21,
         empresa: consulta.empresa ?? "EMAT",
         fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split("T")[0],
@@ -126,32 +155,86 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           1
         );
         const maxNro = Number(latest?.[0]?.nroppto ?? 0);
+        const defaults = emptyForm();
         if (active) {
-          setFormData({ ...emptyForm(), nroPpto: maxNro + 1 });
+          setFormData({
+            ...defaults,
+            nroPpto: maxNro + 1,
+            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
+            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+          });
         }
       } catch {
+        const defaults = emptyForm();
         if (active) {
-          setFormData({ ...emptyForm(), nroPpto: 1 });
+          setFormData({
+            ...defaults,
+            nroPpto: 1,
+            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
+            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+          });
         }
       }
     };
 
     loadNextNroPpto();
     return () => { active = false; };
-  }, [consulta, open, workspace?.id]);
+  }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
   useEffect(() => {
-    const precio = parseFloat(formData.precioUnitario);
-    const cantidad = parseFloat(formData.cantidad);
-    if (Number.isNaN(precio) || Number.isNaN(cantidad)) return;
+    return () => {
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    };
+  }, [pdfPreviewUrl]);
 
-    const importeCalculado = (precio * cantidad).toFixed(2);
-    if (String(formData.importe ?? "") !== String(importeCalculado)) {
-      set("importe", importeCalculado);
-    }
-  }, [formData.precioUnitario, formData.cantidad]);
+  const updateItem = (index, field, value) => {
+    setFormData((prev) => {
+      const nextItems = prev.items.map((item, i) => {
+        if (i !== index) return item;
+        const updated = { ...item, [field]: value };
+        const precio = parseFloat(updated.precioUnitario);
+        const cantidad = parseFloat(updated.cantidad);
+        if (!Number.isNaN(precio) && !Number.isNaN(cantidad)) {
+          updated.importe = (precio * cantidad).toFixed(2);
+        }
+        return updated;
+      });
+      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      return {
+        ...prev,
+        items: nextItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: total > 0 ? total.toFixed(2) : "",
+      };
+    });
+  };
+
+  const addItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [...prev.items, createItem({ descripcionServicio: "" })],
+    }));
+  };
+
+  const removeItem = (index) => {
+    setFormData((prev) => {
+      const filtered = prev.items.filter((_, i) => i !== index);
+      const nextItems = filtered.length > 0 ? filtered : [createItem()];
+      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      return {
+        ...prev,
+        items: nextItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: total > 0 ? total.toFixed(2) : "",
+      };
+    });
+  };
 
   const getNextNroPpto = async () => {
     const latest = await entities.Consulta.filter(
@@ -192,6 +275,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nroPptoValue = await getNextNroPpto();
         set("nroPpto", nroPptoValue);
       }
+      const firmasAsesor = currentUser?.consulta_firmas_asesor || {};
+      const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
@@ -211,9 +296,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
         tipocliente: formData.tipoCliente,
         canalorigen: formData.canalOrigen,
-        descripcionservicio: formData.descripcionServicio,
-        preciounitario: formData.precioUnitario !== "" ? parseFloat(formData.precioUnitario) : null,
-        cantidad: formData.cantidad !== "" ? parseFloat(formData.cantidad) : null,
+        descripcionservicio: formData.items?.[0]?.descripcionServicio || formData.descripcionServicio,
+        preciounitario: formData.items?.[0]?.precioUnitario !== "" ? parseFloat(formData.items[0].precioUnitario) : null,
+        cantidad: formData.items?.[0]?.cantidad !== "" ? parseFloat(formData.items[0].cantidad) : null,
         observaciones: formData.observaciones,
         nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
         iva: formData.iva !== "" ? parseFloat(formData.iva) : 21,
@@ -223,13 +308,38 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         condicionescomerciales: formData.condicionesComerciales,
         proximoseguimiento: formData.proximoSeguimiento || null,
         razonperdida: formData.razonPerdida || null,
+        firmaasesor: firmaAsesor,
+        items: formData.items.map((item) => ({
+          descripcionServicio: item.descripcionServicio,
+          precioUnitario: item.precioUnitario,
+          cantidad: item.cantidad,
+          importe: item.importe,
+        })),
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {
-        await entities.Consulta.update(consulta.id, payload);
+        try {
+          await entities.Consulta.update(consulta.id, payload);
+        } catch (err) {
+          if (String(err?.message || "").toLowerCase().includes("items")) {
+            const { items, ...fallbackPayload } = payload;
+            await entities.Consulta.update(consulta.id, fallbackPayload);
+          } else {
+            throw err;
+          }
+        }
         toast.success("Presupuesto actualizado");
       } else {
-        await entities.Consulta.create(payload);
+        try {
+          await entities.Consulta.create(payload);
+        } catch (err) {
+          if (String(err?.message || "").toLowerCase().includes("items")) {
+            const { items, ...fallbackPayload } = payload;
+            await entities.Consulta.create(fallbackPayload);
+          } else {
+            throw err;
+          }
+        }
         toast.success("Presupuesto creado");
       }
       onSave?.();
@@ -239,6 +349,29 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openPdfPreview = () => {
+    const payload = {
+      ...formData,
+      nroppto: formData.nroPpto,
+      firmaasesor: (currentUser?.consulta_firmas_asesor || {})[formData.asesor] || formData.asesor || "Asesor",
+    };
+    const doc = buildConsultaPdf(payload);
+    const blob = doc.output("blob");
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+    const url = URL.createObjectURL(blob);
+    setPreviewPayload(payload);
+    setPdfPreviewUrl(url);
+    setShowPdfPreview(true);
+  };
+
+  const downloadPreviewPdf = () => {
+    if (!previewPayload) return;
+    const doc = buildConsultaPdf(previewPayload);
+    const nro = previewPayload.nroppto || "S/N";
+    const cliente = previewPayload.contactoNombre || "Cliente";
+    doc.save(`Presupuesto nº ${nro} - ${cliente}.pdf`);
   };
 
   return (
@@ -358,16 +491,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Importe ($)</Label>
-                <Input type="number" value={formData.importe} onChange={e => set("importe", e.target.value)} placeholder="0" />
-              </div>
-              <div className="space-y-1">
-                <Label>Precio unitario ($)</Label>
-                <Input type="number" value={formData.precioUnitario} onChange={e => set("precioUnitario", e.target.value)} placeholder="0" />
-              </div>
-              <div className="space-y-1">
-                <Label>Cantidad</Label>
-                <Input type="number" value={formData.cantidad} onChange={e => set("cantidad", e.target.value)} placeholder="0" />
+                <Label>Importe total ($)</Label>
+                <Input type="number" value={formData.importe} readOnly aria-readonly="true" className="bg-slate-50" />
               </div>
               <div className="space-y-1">
                 <Label>IVA (%)</Label>
@@ -380,13 +505,63 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   <SelectContent>{EMPRESAS.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label>Detalle para PDF</Label>
-                <Input
-                  value={formData.descripcionServicio}
-                  onChange={e => set("descripcionServicio", e.target.value)}
-                  placeholder="Ej: Aplicación de aislación térmica en losa"
-                />
+              <div className="space-y-1 col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label>Items del presupuesto</Label>
+                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addItem}>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Agregar item
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {formData.items.map((item, index) => (
+                    <div key={item._localId || `item-${index}`} className="grid grid-cols-12 gap-2 items-end border rounded-md p-2 bg-slate-50">
+                      <div className="col-span-12 sm:col-span-5 space-y-1">
+                        <Label className="text-xs">Detalle</Label>
+                        <Input
+                          value={item.descripcionServicio}
+                          onChange={(e) => updateItem(index, "descripcionServicio", e.target.value)}
+                          placeholder="Ej: Aplicación de aislación térmica"
+                        />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">P. Unitario</Label>
+                        <Input
+                          type="number"
+                          value={item.precioUnitario}
+                          onChange={(e) => updateItem(index, "precioUnitario", e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="col-span-4 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">Cantidad</Label>
+                        <Input
+                          type="number"
+                          value={item.cantidad}
+                          onChange={(e) => updateItem(index, "cantidad", e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="col-span-3 sm:col-span-2 space-y-1">
+                        <Label className="text-xs">Importe</Label>
+                        <Input type="number" value={item.importe} readOnly aria-readonly="true" className="bg-white" />
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600"
+                          onClick={() => removeItem(index)}
+                          disabled={formData.items.length === 1}
+                          title="Eliminar item"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="space-y-1">
                 <Label>Fecha presupuesto</Label>
@@ -438,10 +613,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => openConsultaPdf({
-              ...formData,
-              nroppto: formData.nroPpto,
-            })}
+            onClick={openPdfPreview}
             disabled={!formData.contactoNombre}
           >
             Ver PDF
@@ -449,6 +621,38 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Guardando..." : consulta ? "Guardar cambios" : "Crear presupuesto"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog
+      open={showPdfPreview}
+      onOpenChange={(next) => {
+        setShowPdfPreview(next);
+        if (!next && pdfPreviewUrl) {
+          URL.revokeObjectURL(pdfPreviewUrl);
+          setPdfPreviewUrl("");
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Vista preliminar del presupuesto</DialogTitle>
+        </DialogHeader>
+        <div className="w-full h-[70vh] rounded-md border overflow-hidden bg-slate-100">
+          {pdfPreviewUrl ? (
+            <iframe title="Vista previa PDF" src={pdfPreviewUrl} className="w-full h-full" />
+          ) : (
+            <div className="h-full flex items-center justify-center text-slate-500 text-sm">
+              No se pudo generar la vista previa.
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowPdfPreview(false)}>Cerrar</Button>
+          <Button onClick={downloadPreviewPdf} disabled={!previewPayload}>
+            Descargar PDF
           </Button>
         </DialogFooter>
       </DialogContent>
