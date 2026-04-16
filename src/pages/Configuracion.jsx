@@ -8,15 +8,17 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Database, Trash2, Loader2, Calendar } from "lucide-react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { auth, users } from "@/api/supabaseClient";
+import { auth, users, entities } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("user");
@@ -29,15 +31,37 @@ export default function Configuracion() {
   const [savingDefaults, setSavingDefaults] = useState(false);
 
   useEffect(() => {
-    if (currentUser) {
-      setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
-      setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
-      setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
-      const savedFirmas = currentUser.consulta_firmas_asesor ?? {};
-      const normalizedFirmas = Object.fromEntries(ASESORES.map((asesor) => [asesor, savedFirmas[asesor] ?? asesor]));
-      setFirmasAsesor(normalizedFirmas);
-    }
+    if (!currentUser) return;
+    setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
+    setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
+    setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
   }, [currentUser]);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadFirmasAsesor = async () => {
+      const workspaceId = workspace?.id || "local";
+      try {
+        const rows = await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000);
+        const byNombre = Object.fromEntries((rows || []).map((row) => [row.nombre, row.firma]));
+        const normalizedFirmas = Object.fromEntries(
+          ASESORES.map((asesor) => [asesor, byNombre[asesor] ?? asesor])
+        );
+        if (active) setFirmasAsesor(normalizedFirmas);
+      } catch {
+        // If schema/table is not ready, keep usable defaults in UI.
+        if (active) {
+          setFirmasAsesor(Object.fromEntries(ASESORES.map((asesor) => [asesor, asesor])));
+        }
+      }
+    };
+
+    loadFirmasAsesor();
+    return () => {
+      active = false;
+    };
+  }, [workspace?.id]);
 
   const handleSaveDays = async () => {
     setSavingDays(true);
@@ -58,9 +82,36 @@ export default function Configuracion() {
       await auth.updateMe({
         consulta_default_condiciones_comerciales: defaultCondiciones,
         consulta_default_observaciones: defaultObservaciones,
-        consulta_firmas_asesor: firmasAsesor,
       });
+
+      const workspaceId = workspace?.id || "local";
+      const existing = await entities.Asesor.filter({ workspace_id: workspaceId }, null, 2000);
+      const existingByNombre = new Map((existing || []).map((item) => [item.nombre, item]));
+
+      await Promise.all(
+        ASESORES.map((asesor) => {
+          const firma = firmasAsesor[asesor] ?? "";
+          const current = existingByNombre.get(asesor);
+          if (current?.id) {
+            return entities.Asesor.update(current.id, {
+              workspace_id: workspaceId,
+              nombre: asesor,
+              firma,
+              activo: true,
+            });
+          }
+          return entities.Asesor.create({
+            id: `asesor_${workspaceId}_${asesor.toLowerCase()}`,
+            workspace_id: workspaceId,
+            nombre: asesor,
+            firma,
+            activo: true,
+          });
+        })
+      );
+
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
+      queryClient.invalidateQueries({ queryKey: ['asesor-firmas'] });
       toast.success("Textos predeterminados guardados");
     } finally {
       setSavingDefaults(false);
