@@ -263,6 +263,7 @@ export const users = {
 export const entities = {
   Workspace: createEntityProxy('workspace'),
   WorkspaceMember: createEntityProxy('workspacemember'),
+  Asesor: createEntityProxy('asesor'),
   Consulta: createEntityProxy('consulta'),
   Contacto: createEntityProxy('contacto'),
   Proveedor: createEntityProxy('proveedor'),

@@ -94,6 +94,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     enabled: !!workspace,
   });
 
+  const { data: firmasAsesor = {} } = useQuery({
+    queryKey: ['asesor-firmas', workspace?.id],
+    queryFn: async () => {
+      const workspaceId = workspace?.id || "local";
+      const rows = await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000);
+      return Object.fromEntries((rows || []).map((row) => [row.nombre, row.firma]));
+    },
+    enabled: !!workspace,
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -283,7 +293,6 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nroPptoValue = await getNextNroPpto();
         set("nroPpto", nroPptoValue);
       }
-      const firmasAsesor = currentUser?.consulta_firmas_asesor || {};
       const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
       const payload = {
@@ -363,7 +372,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     const payload = {
       ...formData,
       nroppto: formData.nroPpto,
-      firmaasesor: (currentUser?.consulta_firmas_asesor || {})[formData.asesor] || formData.asesor || "Asesor",
+      firmaasesor: firmasAsesor[formData.asesor] || formData.asesor || "Asesor",
     };
     const doc = buildConsultaPdf(payload);
     const blob = doc.output("blob");
