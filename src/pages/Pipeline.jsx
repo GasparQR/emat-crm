@@ -27,7 +27,7 @@ export default function Pipeline() {
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
-    queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 500) : [],
+    queryFn: () => workspace ? entities.Consulta.filter({ workspace_id: workspace.id }, "-created_date", 1000) : [],
     enabled: !!workspace
   });
 
@@ -134,7 +134,7 @@ export default function Pipeline() {
                 </Button>
               </Link>
               <h1 className="text-2xl font-bold text-slate-900">Pipeline</h1>
-              <p className="text-slate-500">{consultasFiltradas.length} consultas activas</p>
+              <p className="text-slate-1000">{consultasFiltradas.length} consultas activas</p>
             </div>
             <div className="flex items-center gap-2">
               <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
