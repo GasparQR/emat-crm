@@ -214,7 +214,7 @@ export default function Contactos() {
     createConsultaMutation.mutate({
       contactonombre: c.nombre,
       contactowhatsapp: c.whatsapp || "",
-      canalOrigen: c.canalOrigen || "WhatsApp",
+      canalorigen: c.canalOrigen || "WhatsApp",
       pipeline_stage: etapaSeleccionada,
       asesor: c.asesor || "",
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
@@ -324,7 +324,7 @@ export default function Contactos() {
           workspace_id: workspace?.id || "local",
           contactonombre: formData.nombre,
           contactowhatsapp: formData.whatsapp || "",
-          canalOrigen: formData.canalOrigen || "",
+          canalorigen: formData.canalOrigen || "",
           pipeline_stage: stage,
           asesor: asesorNuevo,
           mes: MESES[now.getMonth()],
