@@ -104,14 +104,14 @@ export default function Home() {
         whatsapp: newLeadData.whatsapp.trim(),
         empresa: newLeadData.empresa.trim(),
         asesor: newLeadData.asesor,
-        canalorigen: newLeadData.canalOrigen,
+        canalOrigen: newLeadData.canalOrigen,
       });
 
       await entities.Consulta.create({
         workspace_id: wsId,
         contactonombre: newLeadData.nombre.trim(),
         contactowhatsapp: newLeadData.whatsapp.trim(),
-        canalorigen: newLeadData.canalOrigen,
+        canalOrigen: newLeadData.canalOrigen,
         pipeline_stage: "NUEVO LEAD",
         asesor: newLeadData.asesor,
         mes: MESES[now.getMonth()],
