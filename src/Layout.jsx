@@ -24,6 +24,7 @@ const ALL_NAV_ITEMS = [
 
 const LOGISTICA_NAV_ITEMS = [
   { name: "Hoy", icon: Calendar, page: "Hoy" },
+  { name: "Presupuestos", icon: List, page: "Consultas" },
 ];
 
 export default function Layout({ children, currentPageName }) {
