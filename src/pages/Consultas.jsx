@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
 import { entities } from "@/api/supabaseClient";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { useAuth } from "@/lib/SimpleAuthContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -14,6 +14,7 @@ import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Rule
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
+import DetalleConsultaDialog from "@/components/crm/DetalleConsultaDialog";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 
@@ -28,6 +29,7 @@ const ASESOR_COLORS = {
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
+  const [detalleConsulta, setDetalleConsulta] = useState(null);
   const [search, setSearch] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
@@ -35,6 +37,8 @@ export default function Consultas() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const { user } = useAuth();
+  const isLogistica = user?.role === "logistica";
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -50,6 +54,42 @@ export default function Consultas() {
     () => Object.fromEntries(etapas.map(s => [s.pipeline_stage, s.color])),
     [etapas]
   );
+
+  const getNextNroPpto = async () => {
+    const rows = await entities.Consulta.filter(
+      { workspace_id: workspace?.id || "local" },
+      "-nroppto",
+      2000
+    );
+    const maxNro = (rows || []).reduce((max, item) => {
+      const nro = Number(item?.nroppto);
+      if (!Number.isFinite(nro)) return max;
+      return Math.max(max, nro);
+    }, 0);
+    return maxNro + 1;
+  };
+
+  const stageMutation = useMutation({
+    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
+    onSuccess: () => {
+      const wid = workspace?.id;
+      queryClient.invalidateQueries({ queryKey: ["consultas-list", wid] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", wid] });
+      queryClient.invalidateQueries({ queryKey: ["consultas-hoy", wid] });
+      toast.success("Etapa actualizada");
+    },
+    onError: (e) => toast.error(e?.message || "Error al actualizar etapa"),
+  });
+
+  const handleEstadoChange = async (c, newStage) => {
+    if (!newStage || newStage === c.pipeline_stage) return;
+    const patch = { pipeline_stage: newStage };
+    const destStage = etapas.find(s => s.pipeline_stage === newStage);
+    if (destStage && destStage.orden !== 0 && !c.nroppto) {
+      patch.nroppto = await getNextNroPpto();
+    }
+    stageMutation.mutate({ id: c.id, data: patch });
+  };
 
   const { data: consultas = [], refetch, isLoading } = useQuery({
     queryKey: ["consultas-list", workspace?.id],
@@ -106,6 +146,9 @@ export default function Consultas() {
 
   // ✅ LÓGICA DE FILTRADO CORREGIDA
   const filtradas = consultas.filter(c => {
+    if (isLogistica && c.pipeline_stage !== "GANADA" && c.pipeline_stage !== "EJECUTADA") {
+      return false;
+    }
     // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
@@ -130,6 +173,11 @@ export default function Consultas() {
 
   const handleEdit = (c) => { setSelectedConsulta(c); setShowForm(true); };
 
+  const openRow = (c) => {
+    if (isLogistica) setDetalleConsulta(c);
+    else handleEdit(c);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Header */}
@@ -147,9 +195,11 @@ export default function Consultas() {
                 {isLoading ? "Cargando..." : `${filtradas.length} de ${consultas.length} presupuestos`}
               </p>
             </div>
-            <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
-              <Plus className="w-4 h-4" />Nuevo presupuesto
-            </Button>
+            {!isLogistica && (
+              <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
+                <Plus className="w-4 h-4" />Nuevo presupuesto
+              </Button>
+            )}
           </div>
 
           {/* Filtros */}
@@ -219,7 +269,7 @@ export default function Consultas() {
                 const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
                 const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
                 return (
-                  <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEdit(c)}>
+                  <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
 
                     {/* Cliente: nombre + #ppto + ubicación fusionados */}
                     <TableCell className="py-2">
@@ -271,10 +321,28 @@ export default function Consultas() {
                     </TableCell>
 
                     {/* Estado */}
-                    <TableCell className="py-2">
-                      <Badge className={cn("text-xs text-white", etapaColorMap[c.pipeline_stage] || "bg-slate-500")}>
-                        {c.pipeline_stage}
-                      </Badge>
+                    <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        value={c.pipeline_stage}
+                        onValueChange={(v) => handleEstadoChange(c, v)}
+                        disabled={stageMutation.isPending}
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            "h-8 text-xs text-white border-0 max-w-[160px]",
+                            etapaColorMap[c.pipeline_stage] || "bg-slate-500"
+                          )}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {etapas.map((s) => (
+                            <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>
+                              {s.pipeline_stage}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
 
                     {/* Seguimiento */}
@@ -296,23 +364,29 @@ export default function Consultas() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(c)}>Editar</DropdownMenuItem>
+                          {!isLogistica && (
+                            <DropdownMenuItem onClick={() => handleEdit(c)}>Editar</DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => openConsultaPdf(c)}>
                             <FileText className="w-4 h-4 mr-2" />Ver PDF
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={() => {
-                              if (window.confirm("¿Eliminar este presupuesto?")) {
-                                handleDelete(c).catch((e) => {
-                                  toast.error("Error al eliminar: " + e.message);
-                                });
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />Eliminar
-                          </DropdownMenuItem>
+                          {!isLogistica && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => {
+                                  if (window.confirm("¿Eliminar este presupuesto?")) {
+                                    handleDelete(c).catch((e) => {
+                                      toast.error("Error al eliminar: " + e.message);
+                                    });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -330,12 +404,21 @@ export default function Consultas() {
 
 
 
-      <ConsultaForm
-        open={showForm}
-        onOpenChange={setShowForm}
-        consulta={selectedConsulta}
-        onSave={() => { refetch(); setSelectedConsulta(null); }}
+      <DetalleConsultaDialog
+        consulta={detalleConsulta}
+        open={!!detalleConsulta}
+        onOpenChange={(o) => { if (!o) setDetalleConsulta(null); }}
+        mode="logistica"
       />
+
+      {!isLogistica && (
+        <ConsultaForm
+          open={showForm}
+          onOpenChange={setShowForm}
+          consulta={selectedConsulta}
+          onSave={() => { refetch(); setSelectedConsulta(null); }}
+        />
+      )}
     </div>
   );
 }
