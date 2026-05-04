@@ -108,7 +108,8 @@ export default function Pipeline() {
 
   // Filtrar consultas
   const consultasFiltradas = consultas.filter(c => {
-    if (filtroCanal !== "todos" && c.canalorigen !== filtroCanal) return false;
+    const canal = c.canalOrigen ?? c.canalorigen;
+    if (filtroCanal !== "todos" && canal !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
@@ -156,6 +157,7 @@ export default function Pipeline() {
                 <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
                 <SelectItem value="Referido">Referido</SelectItem>
                 <SelectItem value="REFERIDO">REFERIDO</SelectItem>
+                <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>

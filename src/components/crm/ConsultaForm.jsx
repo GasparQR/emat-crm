@@ -12,11 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { buildConsultaPdf } from "@/lib/consultaPdf";
+import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
-const CANALES = ["REFERIDO", "Meta", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const EMPRESAS = ["EMAT", "Aislaciones del Centro"];
 const MOTIVOS_PERDIDA = [
@@ -70,8 +71,18 @@ const emptyForm = () => ({
   ano: new Date().getFullYear(),
   proximoSeguimiento: "",
   observaciones: "",
+  notas: "",
   razonPerdida: "",
 });
+
+function buildFallbackPayload(payload, err) {
+  const next = { ...payload };
+  const msg = String(err?.message ?? err ?? "");
+  if (/notas/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.notas;
+  }
+  return next;
+}
 
 export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [formData, setFormData] = useState(emptyForm());
@@ -80,7 +91,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
   const [previewPayload, setPreviewPayload] = useState(null);
   const [showNewLead, setShowNewLead] = useState(false);
-  const [newLeadData, setNewLeadData] = useState({ nombre: "", whatsapp: "", empresa: "" });
+  const [newLeadData, setNewLeadData] = useState({
+    nombre: "", whatsapp: "", empresa: "", asesor: "", canalOrigen: "",
+  });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
 
@@ -151,6 +164,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         ano: consulta.ano ?? emptyForm().ano,
         proximoSeguimiento: consulta.proximoseguimiento ?? consulta.proximoSeguimiento ?? "",
         observaciones: consulta.observaciones ?? "",
+        notas: consulta.notas ?? "",
         razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
       });
       return;
@@ -170,20 +184,24 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           return Math.max(max, nro);
         }, 0);
         const defaults = emptyForm();
+        const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: maxNro + 1,
+            proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
           });
         }
       } catch {
         const defaults = emptyForm();
+        const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: 1,
+            proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
           });
@@ -193,7 +211,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
     loadNextNroPpto();
     return () => { active = false; };
-  }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones]);
+  }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones, currentUser?.consulta_follow_up_days]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -265,18 +283,36 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   };
 
   const handleCreateLead = async () => {
-    if (!newLeadData.nombre) { toast.error("El nombre del lead es requerido"); return; }
+    if (!newLeadData.nombre?.trim()) {
+      toast.error("El nombre del lead es requerido");
+      return;
+    }
+    if (!newLeadData.asesor) {
+      toast.error("Debe seleccionar un asesor");
+      return;
+    }
+    if (!newLeadData.whatsapp?.trim()) {
+      toast.error("El número de WhatsApp es requerido");
+      return;
+    }
+    if (!newLeadData.canalOrigen) {
+      toast.error("Seleccioná el canal de origen");
+      return;
+    }
     try {
       await entities.Contacto.create({
         workspace_id: workspace?.id || "local",
-        nombre: newLeadData.nombre,
-        whatsapp: newLeadData.whatsapp,
-        empresa: newLeadData.empresa,
+        nombre: newLeadData.nombre.trim(),
+        whatsapp: newLeadData.whatsapp.trim(),
+        empresa: newLeadData.empresa?.trim() || "",
         asesor: newLeadData.asesor,
+        canalOrigen: newLeadData.canalOrigen,
       });
-      set("asesor", newLeadData.contactoNombre);
-      set("contactoWhatsapp", newLeadData.whatsapp);
-      setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "" });
+      set("contactoNombre", newLeadData.nombre.trim());
+      set("asesor", newLeadData.asesor);
+      set("contactoWhatsapp", newLeadData.whatsapp.trim());
+      set("canalOrigen", newLeadData.canalOrigen);
+      setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "", canalOrigen: "" });
       setShowNewLead(false);
       toast.success("Lead creado y asignado");
     } catch (e) {
@@ -285,7 +321,28 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   };
 
   const handleSubmit = async () => {
-    if (!formData.contactoNombre) { toast.error("El nombre es requerido"); return; }
+    if (!formData.contactoNombre?.trim()) {
+      toast.error("El nombre es requerido");
+      return;
+    }
+    if (formData.etapa === "NUEVO LEAD") {
+      if (!formData.contactoWhatsapp?.trim()) {
+        toast.error("El número de teléfono / WhatsApp es requerido para NUEVO LEAD");
+        return;
+      }
+      if (!formData.canalOrigen) {
+        toast.error("El canal de origen es requerido para NUEVO LEAD");
+        return;
+      }
+      if (!formData.asesor) {
+        toast.error("El asesor es requerido para NUEVO LEAD");
+        return;
+      }
+      if (!formData.proximoSeguimiento) {
+        toast.error("La fecha de próximo seguimiento es requerida para NUEVO LEAD");
+        return;
+      }
+    }
     setLoading(true);
     try {
       let nroPptoValue = formData.nroPpto;
@@ -317,6 +374,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         preciounitario: formData.items?.[0]?.precioUnitario !== "" ? parseFloat(formData.items[0].precioUnitario) : null,
         cantidad: formData.items?.[0]?.cantidad !== "" ? parseFloat(formData.items[0].cantidad) : null,
         observaciones: formData.observaciones,
+        notas: formData.notas || null,
         nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
         iva: formData.iva !== "" ? parseFloat(formData.iva) : 21,
         empresa: formData.empresa || "EMAT",
@@ -620,10 +678,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             )}
           </div>
 
-          {/* OBSERVACIONES */}
+          {/* Texto presupuesto (PDF) */}
           <div className="space-y-1">
-            <Label>Observaciones</Label>
-            <Textarea value={formData.observaciones} onChange={e => set("observaciones", e.target.value)} placeholder="Notas sobre la obra, el cliente, seguimientos..." rows={3} />
+            <Label>Observaciones (presupuesto / PDF)</Label>
+            <Textarea value={formData.observaciones} onChange={e => set("observaciones", e.target.value)} placeholder="Texto que verá el cliente en el PDF..." rows={3} />
+          </div>
+          <div className="space-y-1">
+            <Label>Notas (solo CRM / pipeline)</Label>
+            <Textarea value={formData.notas} onChange={e => set("notas", e.target.value)} placeholder="Notas internas, no se incluyen en el PDF..." rows={3} />
           </div>
         </div>
 
@@ -687,8 +749,22 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             <Input value={newLeadData.nombre} onChange={e => setNewLeadData(prev => ({ ...prev, nombre: e.target.value }))} placeholder="Ej: Juan Pérez" />
           </div>
           <div className="space-y-1">
-            <Label>WhatsApp</Label>
-            <Input value={newLeadData.whatsapp} onChange={e => setNewLeadData(prev => ({ ...prev, whatsapp: e.target.value }))} placeholder="+54 9 351 123-4567" />
+            <Label>Asesor *</Label>
+            <Select value={newLeadData.asesor} onValueChange={v => setNewLeadData(prev => ({ ...prev, asesor: v }))}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+              <SelectContent>{ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>WhatsApp *</Label>
+            <Input value={newLeadData.whatsapp} onChange={e => setNewLeadData(prev => ({ ...prev, whatsapp: e.target.value }))} placeholder="+54 9 351 123-4567" type="tel" />
+          </div>
+          <div className="space-y-1">
+            <Label>Canal de origen *</Label>
+            <Select value={newLeadData.canalOrigen} onValueChange={v => setNewLeadData(prev => ({ ...prev, canalOrigen: v }))}>
+              <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+              <SelectContent>{CANALES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label>Empresa</Label>

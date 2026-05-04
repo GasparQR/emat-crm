@@ -110,18 +110,18 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
         </p>
       )}
 
-      {/* Observación */}
-      {consulta.observaciones && (
+      {consulta.notas && (
         <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 mb-2">
-          <p className="text-xs text-slate-600 line-clamp-3">{consulta.observaciones}</p>
+          <p className="text-xs font-medium text-amber-900 mb-0.5">Notas</p>
+          <p className="text-xs text-slate-600 line-clamp-3">{consulta.notas}</p>
         </div>
       )}
 
       {/* Footer: canal + seguimiento + whatsapp */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
         <div className="flex items-center gap-2">
-          {consulta.canalorigen && (
-            <span className="text-xs text-slate-400">{consulta.canalorigen}</span>
+          {(consulta.canalOrigen ?? consulta.canalorigen) && (
+            <span className="text-xs text-slate-400">{consulta.canalOrigen ?? consulta.canalorigen}</span>
           )}
         </div>
         <div className="flex items-center gap-2">

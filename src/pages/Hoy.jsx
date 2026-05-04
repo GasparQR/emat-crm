@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, AlertCircle, CheckCircle2, MessageCircle, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -14,6 +14,10 @@ import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { getNextFollowUpDate } from "@/components/utils/dateUtils";
+
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -21,22 +25,15 @@ const ASESOR_COLORS = {
   ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500",
 };
 
-const etapaColors = {
-  Nuevo: "bg-blue-100 text-blue-700",
-  Respondido: "bg-cyan-100 text-cyan-700",
-  Seguimiento1: "bg-amber-100 text-amber-700",
-  Seguimiento2: "bg-orange-100 text-orange-700",
-  Negociacion: "bg-purple-100 text-purple-700",
-  Concretado: "bg-emerald-100 text-emerald-700",
-};
-
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
+  const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = user?.role === "logistica";
+  const { data: currentUser } = useCurrentUser();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
@@ -44,18 +41,56 @@ export default function Hoy() {
     enabled: !!workspace
   });
 
+  const { data: etapas = [] } = useQuery({
+    queryKey: ['pipeline-stages', workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter(s => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const etapaColorMap = useMemo(
+    () => Object.fromEntries(etapas.map(s => [s.pipeline_stage, s.color])),
+    [etapas]
+  );
+
+  const getNextNroPpto = async () => {
+    const rows = await entities.Consulta.filter(
+      { workspace_id: workspace?.id || "local" },
+      "-nroppto",
+      2000
+    );
+    const maxNro = (rows || []).reduce((max, item) => {
+      const nro = Number(item?.nroppto);
+      if (!Number.isFinite(nro)) return max;
+      return Math.max(max, nro);
+    }, 0);
+    return maxNro + 1;
+  };
+
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['consultas-hoy', workspace?.id] });
+      const wid = workspace?.id;
+      queryClient.invalidateQueries({ queryKey: ['consultas-hoy', wid] });
+      queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', wid] });
+      queryClient.invalidateQueries({ queryKey: ['consultas-list', wid] });
       toast.success("Actualizado");
     }
   });
 
   const today = moment();
 
+  const baseFilter = (c) => {
+    if (isLogistica && c.pipeline_stage !== "GANADA" && c.pipeline_stage !== "EJECUTADA") return false;
+    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
+    return true;
+  };
+
   const hoy = consultas.filter(c => {
-    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
+    if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.pipeline_stage === "PERDIDA") return false;
@@ -63,7 +98,7 @@ export default function Hoy() {
   });
 
   const vencidos = consultas.filter(c => {
-    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
+    if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.pipeline_stage === "PERDIDA") return false;
@@ -71,7 +106,7 @@ export default function Hoy() {
   });
 
   const proximos3d = consultas.filter(c => {
-    if (isLogistica && c.pipeline_stage !== "GANADA") return false;
+    if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
     if (c.pipeline_stage === "PERDIDA") return false;
@@ -87,26 +122,54 @@ export default function Hoy() {
   };
 
   const handleMarcarCompletado = async (consulta) => {
-    const nuevaFecha = moment().add(3, 'days').format("YYYY-MM-DD");
+    const days = currentUser?.consulta_follow_up_days ?? 3;
+    const nuevaFecha = getNextFollowUpDate(days);
     await updateMutation.mutateAsync({
       id: consulta.id,
       data: { proximoseguimiento: nuevaFecha }
     });
   };
 
+  const handleStageChange = async (consulta, newStage) => {
+    if (!newStage || newStage === consulta.pipeline_stage) return;
+    const patch = { pipeline_stage: newStage };
+    const destStage = etapas.find(s => s.pipeline_stage === newStage);
+    if (destStage && destStage.orden !== 0 && !consulta.nroppto) {
+      patch.nroppto = await getNextNroPpto();
+    }
+    await updateMutation.mutateAsync({ id: consulta.id, data: patch });
+  };
+
   const ConsultaItem = ({ consulta, tipo }) => {
     const fechaMostrar = consulta.proximoseguimiento;
     const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+    const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
     return (
     <Card className="hover:shadow-md transition-all">
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
-              <Badge className={etapaColors[consulta.pipeline_stage] || "bg-slate-100 text-slate-700"}>
-                {consulta.pipeline_stage}
-              </Badge>
+              <div className="min-w-[140px]" onClick={(e) => e.stopPropagation()}>
+                <Select
+                  value={consulta.pipeline_stage}
+                  onValueChange={(v) => handleStageChange(consulta, v)}
+                >
+                  <SelectTrigger
+                    className={cn("h-8 text-xs text-white border-0", stageColor)}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {etapas.map((s) => (
+                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>
+                        {s.pipeline_stage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {consulta.asesor && (
                 <div className="flex items-center gap-1">
                   <div
@@ -163,8 +226,7 @@ export default function Hoy() {
   return (
     <div className="min-h-screen bg-slate-50/50 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <Link to={createPageUrl("Home")}>
               <Button variant="ghost" className="gap-2 mb-2 -ml-2">
@@ -173,15 +235,27 @@ export default function Hoy() {
               </Button>
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">
-              {isLogistica ? "Seguimientos — Logística (GANADA)" : "Seguimientos del Día"}
+              {isLogistica ? "Seguimientos — Logística (ganados)" : "Seguimientos del Día"}
             </h1>
             <p className="text-slate-500 mt-1">
               {today.format("dddd, DD [de] MMMM [de] YYYY")}
             </p>
           </div>
+          <div className="w-full sm:w-48">
+            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
+              <SelectTrigger>
+                <SelectValue placeholder="Asesor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos los asesores</SelectItem>
+                {ASESORES.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
@@ -209,7 +283,6 @@ export default function Hoy() {
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue={vencidos.length > 0 ? "vencidos" : "hoy"}>
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="vencidos" className="gap-2">

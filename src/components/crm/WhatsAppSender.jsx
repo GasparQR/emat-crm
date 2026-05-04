@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { entities } from "@/api/supabaseClient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -18,6 +20,22 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
   const [copied, setCopied] = useState(false);
 
   const { workspace } = useWorkspace();
+  const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+
+  const markSentMutation = useMutation({
+    mutationFn: ({ id, proximoseguimiento }) =>
+      entities.Consulta.update(id, { proximoseguimiento }),
+    onSuccess: (_, variables) => {
+      const workspaceId = variables.workspaceId;
+      const wid = workspaceId || workspace?.id;
+      if (wid) {
+        queryClient.invalidateQueries({ queryKey: ["consultas-hoy", wid] });
+        queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", wid] });
+        queryClient.invalidateQueries({ queryKey: ["consultas-list", wid] });
+      }
+    },
+  });
 
   const { data: plantillas = [] } = useQuery({
     queryKey: ["plantillas", workspace?.id],
@@ -141,10 +159,25 @@ export default function WhatsAppSender({ open, onOpenChange, consulta, onMessage
     window.open(url.toString(), "_blank", "noopener,noreferrer");
   };
 
-  const handleMarkSent = () => {
-    toast.success("Mensaje registrado correctamente");
-    onMessageSent?.();
-    onOpenChange(false);
+  const handleMarkSent = async () => {
+    if (!consulta?.id) return;
+    const days = currentUser?.consulta_follow_up_days ?? 3;
+    const proximoseguimiento = getNextFollowUpDate(days);
+    setLoading(true);
+    try {
+      await markSentMutation.mutateAsync({
+        id: consulta.id,
+        proximoseguimiento,
+        workspaceId: consulta.workspace_id ?? workspace?.id,
+      });
+      toast.success("Seguimiento programado correctamente");
+      onMessageSent?.();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e?.message || "No se pudo guardar el seguimiento");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!consulta) return null;

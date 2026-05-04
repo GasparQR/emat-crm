@@ -12,7 +12,10 @@ import { createPageUrl } from "@/utils";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 import { Plus, BarChart3, Users, List, TrendingUp, FileText, CheckCircle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import ConsultaForm from "@/components/crm/ConsultaForm";
+import ConsultaForm, { CANALES } from "@/components/crm/ConsultaForm";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { getNextFollowUpDate } from "@/components/utils/dateUtils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
@@ -39,8 +42,10 @@ export default function Home() {
     whatsapp: "",
     empresa: "",
     asesor: "",
+    canalOrigen: "",
   });
   const { workspace } = useWorkspace();
+  const { data: currentUser } = useCurrentUser();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
@@ -52,9 +57,16 @@ export default function Home() {
   });
 
   const handleCreateLead = async () => {
-    // Validaciones
     if (!newLeadData.nombre.trim()) {
       toast.error("El nombre del lead es requerido");
+      return;
+    }
+    if (!newLeadData.whatsapp?.trim()) {
+      toast.error("El número de teléfono / WhatsApp es requerido");
+      return;
+    }
+    if (!newLeadData.canalOrigen) {
+      toast.error("Seleccioná el canal de origen");
       return;
     }
     if (!newLeadData.asesor) {
@@ -79,29 +91,44 @@ export default function Home() {
         "DICIEMBRE",
       ];
       const now = new Date();
+      const followDays = currentUser?.consulta_follow_up_days ?? 3;
+      const proximoseguimiento = getNextFollowUpDate(followDays);
+      const condiciones =
+        currentUser?.consulta_default_condiciones_comerciales ?? "";
+      const observaciones =
+        currentUser?.consulta_default_observaciones ?? "";
 
-      // Crear contacto
       await entities.Contacto.create({
         workspace_id: wsId,
         nombre: newLeadData.nombre.trim(),
         whatsapp: newLeadData.whatsapp.trim(),
         empresa: newLeadData.empresa.trim(),
         asesor: newLeadData.asesor,
+        canalOrigen: newLeadData.canalOrigen,
       });
 
-      // Crear consulta automáticamente en etapa NUEVO LEAD
       await entities.Consulta.create({
         workspace_id: wsId,
         contactonombre: newLeadData.nombre.trim(),
-        contactowhatsapp: newLeadData.whatsapp.trim() || "",
+        contactowhatsapp: newLeadData.whatsapp.trim(),
+        canalorigen: newLeadData.canalOrigen,
         pipeline_stage: "NUEVO LEAD",
         asesor: newLeadData.asesor,
         mes: MESES[now.getMonth()],
         ano: now.getFullYear(),
         created_date: now.toISOString().split("T")[0],
+        proximoseguimiento,
+        condicionescomerciales: condiciones || null,
+        observaciones: observaciones || null,
       });
 
-      setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "" });
+      setNewLeadData({
+        nombre: "",
+        whatsapp: "",
+        empresa: "",
+        asesor: "",
+        canalOrigen: "",
+      });
       setShowNewLead(false);
       toast.success("Nuevo lead creado y asignado al pipeline");
       refetch();
@@ -451,7 +478,9 @@ export default function Home() {
 
             {/* WhatsApp */}
             <div className="space-y-1.5">
-              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Label htmlFor="whatsapp">
+                WhatsApp <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="whatsapp"
                 value={newLeadData.whatsapp}
@@ -461,6 +490,30 @@ export default function Home() {
                 placeholder="+54 9 351 123-4567"
                 type="tel"
               />
+            </div>
+
+            {/* Canal */}
+            <div className="space-y-1.5">
+              <Label>
+                Canal de origen <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={newLeadData.canalOrigen || undefined}
+                onValueChange={(v) =>
+                  setNewLeadData((prev) => ({ ...prev, canalOrigen: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar canal..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {CANALES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Empresa */}
