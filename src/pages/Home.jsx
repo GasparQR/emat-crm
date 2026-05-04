@@ -111,7 +111,7 @@ export default function Home() {
         workspace_id: wsId,
         contactonombre: newLeadData.nombre.trim(),
         contactowhatsapp: newLeadData.whatsapp.trim(),
-        canalOrigen: newLeadData.canalOrigen,
+        canalorigen: newLeadData.canalOrigen,
         pipeline_stage: "NUEVO LEAD",
         asesor: newLeadData.asesor,
         mes: MESES[now.getMonth()],
