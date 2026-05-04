@@ -156,6 +156,7 @@ export default function Pipeline() {
                 <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
                 <SelectItem value="Referido">Referido</SelectItem>
                 <SelectItem value="REFERIDO">REFERIDO</SelectItem>
+                <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
