@@ -108,7 +108,8 @@ export default function Pipeline() {
 
   // Filtrar consultas
   const consultasFiltradas = consultas.filter(c => {
-    if (filtroCanal !== "todos" && c.canalorigen !== filtroCanal) return false;
+    const canal = c.canalOrigen ?? c.canalorigen;
+    if (filtroCanal !== "todos" && canal !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
