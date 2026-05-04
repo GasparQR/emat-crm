@@ -306,7 +306,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         whatsapp: newLeadData.whatsapp.trim(),
         empresa: newLeadData.empresa?.trim() || "",
         asesor: newLeadData.asesor,
-        canalorigen: newLeadData.canalOrigen,
+        canalOrigen: newLeadData.canalOrigen,
       });
       set("contactoNombre", newLeadData.nombre.trim());
       set("asesor", newLeadData.asesor);
@@ -369,7 +369,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         kmobra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
         importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
         tipocliente: formData.tipoCliente,
-        canalorigen: formData.canalOrigen,
+        canalOrigen: formData.canalOrigen,
         descripcionservicio: formData.items?.[0]?.descripcionServicio || formData.descripcionServicio,
         preciounitario: formData.items?.[0]?.precioUnitario !== "" ? parseFloat(formData.items[0].precioUnitario) : null,
         cantidad: formData.items?.[0]?.cantidad !== "" ? parseFloat(formData.items[0].cantidad) : null,
