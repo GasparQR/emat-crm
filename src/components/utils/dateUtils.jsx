@@ -20,3 +20,10 @@ export function getNextBusinessDay(startDate, businessDaysToAdd) {
   const day = currentDate.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/** Próxima fecha de seguimiento según días hábiles configurados (p. ej. en Ajustes). */
+export function getNextFollowUpDate(businessDaysToAdd) {
+  const n = Number(businessDaysToAdd);
+  const days = Number.isFinite(n) && n > 0 ? n : 3;
+  return getNextBusinessDay(new Date(), days);
+}
