@@ -120,8 +120,8 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
       {/* Footer: canal + seguimiento + whatsapp */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
         <div className="flex items-center gap-2">
-          {consulta.canalorigen && (
-            <span className="text-xs text-slate-400">{consulta.canalorigen}</span>
+          {(consulta.canalOrigen ?? consulta.canalorigen) && (
+            <span className="text-xs text-slate-400">{consulta.canalOrigen ?? consulta.canalorigen}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
