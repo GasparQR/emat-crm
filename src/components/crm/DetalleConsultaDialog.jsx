@@ -61,8 +61,8 @@ export default function DetalleConsultaDialog({
           <Field label="Asesor" empty={!consulta.asesor}>
             {consulta.asesor}
           </Field>
-          <Field label="Canal de origen" empty={!consulta.canalorigen}>
-            {consulta.canalorigen}
+          <Field label="Canal de origen" empty={!(consulta.canalOrigen ?? consulta.canalorigen)}>
+            {consulta.canalOrigen ?? consulta.canalorigen}
           </Field>
           <Field label="Etapa">
             <Badge className="mt-0">{consulta.pipeline_stage}</Badge>
