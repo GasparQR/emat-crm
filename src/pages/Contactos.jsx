@@ -361,6 +361,16 @@ export default function Contactos() {
     ? consultas.find(q => q.contactonombre === pipelineDialog.contacto.nombre)
     : null;
 
+  const openEtapaDesdeTabla = (contacto) => {
+    const q = consultaMap[contacto.nombre];
+    if (!q) {
+      toast.info("Este contacto no tiene una consulta en el pipeline.");
+      return;
+    }
+    setEtapaSeleccionada(q.pipeline_stage || "");
+    setPipelineDialog({ contacto, mensaje: "", fromTable: true });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -482,10 +492,16 @@ export default function Contactos() {
                       if (!consulta) return <span className="text-slate-300">-</span>;
                       const colorClass = stageColorMap[consulta.pipeline_stage] || 'bg-slate-400';
                       return (
-                        <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 max-w-full text-left rounded-md px-1 py-0.5 hover:bg-slate-100 transition-colors"
+                          onClick={() => openEtapaDesdeTabla(contacto)}
+                        >
                           <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", colorClass)} />
-                          <span className="text-xs text-slate-700 truncate">{consulta.pipeline_stage}</span>
-                        </div>
+                          <span className="text-xs text-slate-700 truncate underline-offset-2 hover:underline">
+                            {consulta.pipeline_stage}
+                          </span>
+                        </button>
                       );
                     })()}
                   </TableCell>
@@ -635,12 +651,19 @@ export default function Contactos() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <p className="text-sm text-slate-600">
-              Mensaje enviado a <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>.{" "}
-              {consultaExistenteEnDialog
-                ? "Este contacto ya está en el pipeline. ¿Querés actualizar su etapa?"
-                : "¿En qué etapa querés registrar esta consulta?"}
-            </p>
+            {pipelineDialog?.fromTable ? (
+              <p className="text-sm text-slate-600">
+                Cambiar etapa del pipeline para{" "}
+                <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-600">
+                Mensaje enviado a <span className="font-semibold">{pipelineDialog?.contacto.nombre}</span>.{" "}
+                {consultaExistenteEnDialog
+                  ? "Este contacto ya está en el pipeline. ¿Querés actualizar su etapa?"
+                  : "¿En qué etapa querés registrar esta consulta?"}
+              </p>
+            )}
 
             {/* Warning si ya existe en pipeline */}
             {consultaExistenteEnDialog && (
@@ -672,9 +695,9 @@ export default function Contactos() {
               variant="outline"
               onClick={() => { setPipelineDialog(null); setEtapaSeleccionada(""); }}
             >
-              Omitir
+              {pipelineDialog?.fromTable ? "Cancelar" : "Omitir"}
             </Button>
-            {!consultaExistenteEnDialog && (
+            {!consultaExistenteEnDialog && !pipelineDialog?.fromTable && (
               <Button
                 onClick={handleConfirmPipeline}
                 disabled={!etapaSeleccionada || createConsultaMutation.isPending}
