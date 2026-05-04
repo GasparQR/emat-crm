@@ -182,6 +182,19 @@ export default function Reportes() {
     return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
   }, [filtradas]);
 
+  const canalOrigenData = useMemo(() => {
+    const map = {};
+    filtradas.forEach((c) => {
+      const ch = (c.canalorigen && String(c.canalorigen).trim()) || "Sin canal";
+      if (!map[ch]) map[ch] = { name: ch, cantidad: 0, ganados: 0 };
+      map[ch].cantidad++;
+      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
+        map[ch].ganados++;
+      }
+    });
+    return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
+  }, [filtradas]);
+
   const ubicacionData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
@@ -548,6 +561,57 @@ export default function Reportes() {
 
           {/* TAB 3: ANÁLISIS COMERCIAL */}
           <TabsContent value="comercial" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Presupuestos por canal de origen</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={Math.max(280, canalOrigenData.length * 44)}>
+                    <BarChart
+                      data={canalOrigenData}
+                      margin={{ top: 5, right: 10, left: 0, bottom: 70 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-35} textAnchor="end" interval={0} height={72} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="cantidad" name="Total" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ganados" name="Ganados" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Distribución por canal (total)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={canalOrigenData}
+                        cx="50%"
+                        cy="45%"
+                        outerRadius={85}
+                        dataKey="cantidad"
+                        nameKey="name"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {canalOrigenData.map((entry, i) => (
+                          <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
