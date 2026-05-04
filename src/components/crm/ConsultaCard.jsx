@@ -110,10 +110,10 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
         </p>
       )}
 
-      {/* Observación */}
-      {consulta.observaciones && (
+      {consulta.notas && (
         <div className="bg-amber-50 border border-amber-100 rounded-lg p-2 mb-2">
-          <p className="text-xs text-slate-600 line-clamp-3">{consulta.observaciones}</p>
+          <p className="text-xs font-medium text-amber-900 mb-0.5">Notas</p>
+          <p className="text-xs text-slate-600 line-clamp-3">{consulta.notas}</p>
         </div>
       )}
 
