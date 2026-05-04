@@ -185,7 +185,8 @@ export default function Reportes() {
   const canalOrigenData = useMemo(() => {
     const map = {};
     filtradas.forEach((c) => {
-      const ch = (c.canalorigen && String(c.canalorigen).trim()) || "Sin canal";
+      const raw = c.canalOrigen ?? c.canalorigen;
+      const ch = (raw && String(raw).trim()) || "Sin canal";
       if (!map[ch]) map[ch] = { name: ch, cantidad: 0, ganados: 0 };
       map[ch].cantidad++;
       if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
