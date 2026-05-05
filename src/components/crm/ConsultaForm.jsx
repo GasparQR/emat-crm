@@ -491,14 +491,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         <div className="space-y-5 py-2">
           {/* CLIENTE */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
               <Button type="button" variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setShowNewLead(true)}>
                 <Plus className="w-3 h-3" />
                 Nuevo cliente / lead
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label>Nombre *</Label>
                 <Input value={formData.contactoNombre} onChange={e => set("contactoNombre", e.target.value)} placeholder="Ej: Juan Pérez" />
@@ -527,7 +527,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* OBRA */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Obra</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ubicación</Label>
                 <Input value={formData.ubicacionObra} onChange={e => set("ubicacionObra", e.target.value)} placeholder="Ej: Barrio Arguello, Córdoba" />
@@ -536,7 +536,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Provincia</Label>
                 <Select value={formData.provincia} onValueChange={v => set("provincia", v)}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{PROVINCIAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {PROVINCIAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -556,7 +558,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* CANTIDADES */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cantidades</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>Superficie (m²)</Label>
                 <Input type="number" value={formData.superficieM2} onChange={e => set("superficieM2", e.target.value)} placeholder="0" />
@@ -575,7 +577,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* COMERCIAL */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Comercial</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>N° Presupuesto</Label>
                 <Input type="number" value={formData.nroPpto} readOnly aria-readonly="true" className="bg-slate-50" />
