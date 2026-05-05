@@ -42,6 +42,31 @@ const createItem = (overrides = {}) => ({
   ...overrides,
 });
 
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = String(value).replace(",", ".").trim();
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+
+const computeItemsAndTotal = (items = []) => {
+  const nextItems = items.map((item) => {
+    const precio = toNumberOrNull(item.precioUnitario);
+    const cantidad = toNumberOrNull(item.cantidad);
+    const importeNum = precio !== null && cantidad !== null ? precio * cantidad : null;
+    return {
+      ...item,
+      importe: importeNum !== null ? importeNum.toFixed(2) : "",
+    };
+  });
+
+  const total = nextItems.reduce((acc, item) => acc + (toNumberOrNull(item.importe) || 0), 0);
+  return {
+    nextItems,
+    totalText: total > 0 ? total.toFixed(2) : "",
+  };
+};
+
 const emptyForm = () => ({
   nroPpto: "",
   contactoNombre: "",
@@ -223,47 +248,51 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   const updateItem = (index, field, value) => {
     setFormData((prev) => {
-      const nextItems = prev.items.map((item, i) => {
+      const itemsEdited = prev.items.map((item, i) => {
         if (i !== index) return item;
-        const updated = { ...item, [field]: value };
-        const precio = parseFloat(updated.precioUnitario);
-        const cantidad = parseFloat(updated.cantidad);
-        if (!Number.isNaN(precio) && !Number.isNaN(cantidad)) {
-          updated.importe = (precio * cantidad).toFixed(2);
-        }
-        return updated;
+        return { ...item, [field]: value };
       });
-      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      const { nextItems, totalText } = computeItemsAndTotal(itemsEdited);
       return {
         ...prev,
         items: nextItems,
         descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
         precioUnitario: nextItems[0]?.precioUnitario ?? "",
         cantidad: nextItems[0]?.cantidad ?? "",
-        importe: total > 0 ? total.toFixed(2) : "",
+        importe: totalText,
       };
     });
   };
 
   const addItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, createItem({ descripcionServicio: "" })],
-    }));
+    setFormData((prev) => {
+      const { nextItems, totalText } = computeItemsAndTotal([
+        ...prev.items,
+        createItem({ descripcionServicio: "" }),
+      ]);
+      return {
+        ...prev,
+        items: nextItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: totalText,
+      };
+    });
   };
 
   const removeItem = (index) => {
     setFormData((prev) => {
       const filtered = prev.items.filter((_, i) => i !== index);
       const nextItems = filtered.length > 0 ? filtered : [createItem()];
-      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      const { nextItems: recalculatedItems, totalText } = computeItemsAndTotal(nextItems);
       return {
         ...prev,
-        items: nextItems,
-        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
-        precioUnitario: nextItems[0]?.precioUnitario ?? "",
-        cantidad: nextItems[0]?.cantidad ?? "",
-        importe: total > 0 ? total.toFixed(2) : "",
+        items: recalculatedItems,
+        descripcionServicio: recalculatedItems[0]?.descripcionServicio ?? "",
+        precioUnitario: recalculatedItems[0]?.precioUnitario ?? "",
+        cantidad: recalculatedItems[0]?.cantidad ?? "",
+        importe: totalText,
       };
     });
   };
@@ -462,14 +491,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         <div className="space-y-5 py-2">
           {/* CLIENTE */}
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Cliente</p>
               <Button type="button" variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setShowNewLead(true)}>
                 <Plus className="w-3 h-3" />
                 Nuevo cliente / lead
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label>Nombre *</Label>
                 <Input value={formData.contactoNombre} onChange={e => set("contactoNombre", e.target.value)} placeholder="Ej: Juan Pérez" />
@@ -498,7 +527,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* OBRA */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Obra</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Ubicación</Label>
                 <Input value={formData.ubicacionObra} onChange={e => set("ubicacionObra", e.target.value)} placeholder="Ej: Barrio Arguello, Córdoba" />
@@ -507,7 +536,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Provincia</Label>
                 <Select value={formData.provincia} onValueChange={v => set("provincia", v)}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{PROVINCIAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
+                    {PROVINCIAS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -527,7 +558,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* CANTIDADES */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cantidades</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1">
                 <Label>Superficie (m²)</Label>
                 <Input type="number" value={formData.superficieM2} onChange={e => set("superficieM2", e.target.value)} placeholder="0" />
@@ -546,7 +577,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           {/* COMERCIAL */}
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Comercial</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>N° Presupuesto</Label>
                 <Input type="number" value={formData.nroPpto} readOnly aria-readonly="true" className="bg-slate-50" />
@@ -636,6 +667,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                       </div>
                     </div>
                   ))}
+                  <div className="flex items-center justify-between rounded-md border bg-white px-3 py-2">
+                    <span className="text-sm font-medium text-slate-600">Total ítems</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {formData.importe ? `$${Number(formData.importe).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "$0,00"}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="space-y-1">
