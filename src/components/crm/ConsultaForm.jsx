@@ -667,6 +667,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                       </div>
                     </div>
                   ))}
+                  <div className="flex items-center justify-between rounded-md border bg-white px-3 py-2">
+                    <span className="text-sm font-medium text-slate-600">Total ítems</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {formData.importe ? `$${Number(formData.importe).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "$0,00"}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="space-y-1">
