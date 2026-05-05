@@ -42,6 +42,31 @@ const createItem = (overrides = {}) => ({
   ...overrides,
 });
 
+const toNumberOrNull = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = String(value).replace(",", ".").trim();
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+};
+
+const computeItemsAndTotal = (items = []) => {
+  const nextItems = items.map((item) => {
+    const precio = toNumberOrNull(item.precioUnitario);
+    const cantidad = toNumberOrNull(item.cantidad);
+    const importeNum = precio !== null && cantidad !== null ? precio * cantidad : null;
+    return {
+      ...item,
+      importe: importeNum !== null ? importeNum.toFixed(2) : "",
+    };
+  });
+
+  const total = nextItems.reduce((acc, item) => acc + (toNumberOrNull(item.importe) || 0), 0);
+  return {
+    nextItems,
+    totalText: total > 0 ? total.toFixed(2) : "",
+  };
+};
+
 const emptyForm = () => ({
   nroPpto: "",
   contactoNombre: "",
@@ -223,47 +248,51 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   const updateItem = (index, field, value) => {
     setFormData((prev) => {
-      const nextItems = prev.items.map((item, i) => {
+      const itemsEdited = prev.items.map((item, i) => {
         if (i !== index) return item;
-        const updated = { ...item, [field]: value };
-        const precio = parseFloat(updated.precioUnitario);
-        const cantidad = parseFloat(updated.cantidad);
-        if (!Number.isNaN(precio) && !Number.isNaN(cantidad)) {
-          updated.importe = (precio * cantidad).toFixed(2);
-        }
-        return updated;
+        return { ...item, [field]: value };
       });
-      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      const { nextItems, totalText } = computeItemsAndTotal(itemsEdited);
       return {
         ...prev,
         items: nextItems,
         descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
         precioUnitario: nextItems[0]?.precioUnitario ?? "",
         cantidad: nextItems[0]?.cantidad ?? "",
-        importe: total > 0 ? total.toFixed(2) : "",
+        importe: totalText,
       };
     });
   };
 
   const addItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, createItem({ descripcionServicio: "" })],
-    }));
+    setFormData((prev) => {
+      const { nextItems, totalText } = computeItemsAndTotal([
+        ...prev.items,
+        createItem({ descripcionServicio: "" }),
+      ]);
+      return {
+        ...prev,
+        items: nextItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: totalText,
+      };
+    });
   };
 
   const removeItem = (index) => {
     setFormData((prev) => {
       const filtered = prev.items.filter((_, i) => i !== index);
       const nextItems = filtered.length > 0 ? filtered : [createItem()];
-      const total = nextItems.reduce((acc, item) => acc + (parseFloat(item.importe) || 0), 0);
+      const { nextItems: recalculatedItems, totalText } = computeItemsAndTotal(nextItems);
       return {
         ...prev,
-        items: nextItems,
-        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
-        precioUnitario: nextItems[0]?.precioUnitario ?? "",
-        cantidad: nextItems[0]?.cantidad ?? "",
-        importe: total > 0 ? total.toFixed(2) : "",
+        items: recalculatedItems,
+        descripcionServicio: recalculatedItems[0]?.descripcionServicio ?? "",
+        precioUnitario: recalculatedItems[0]?.precioUnitario ?? "",
+        cantidad: recalculatedItems[0]?.cantidad ?? "",
+        importe: totalText,
       };
     });
   };
