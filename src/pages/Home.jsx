@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
   ROCIO: "#f43f5e", JULIAN: "#6366f1", PABLO: "#f97316",
-  ESTEBAN: "#06b6d4", MACA: "#d946ef",
+  ESTEBAN: "#06b6d4", MACA: "#d946ef", "MIRTA LOPEZ": "#14b8a6",
 };
 
 const ESTADO_PIE_COLORS = {
