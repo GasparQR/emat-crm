@@ -98,9 +98,10 @@ export default function Reportes() {
       if (anoDiff !== 0) return anoDiff;
       const idxA = MESES_ORDEN.indexOf(a.mes);
       const idxB = MESES_ORDEN.indexOf(b.mes);
-      const safeA = idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA;
-      const safeB = idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB;
-      return safeA - safeB;
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxB - idxA;
     });
   }, [consultas]);
 
