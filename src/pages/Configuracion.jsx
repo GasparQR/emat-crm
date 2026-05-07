@@ -14,7 +14,7 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
