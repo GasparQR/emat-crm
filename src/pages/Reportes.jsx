@@ -28,6 +28,7 @@ const ASESOR_COLORS = {
   PABLO: "#f97316",
   ESTEBAN: "#06b6d4",
   MACA: "#d946ef",
+  "MIRTA LOPEZ": "#14b8a6",
 };
 
 const ESTADO_COLORS = {
@@ -58,7 +59,7 @@ const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDi
 const fmtMonthYear = (mes, ano) =>
   mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
-  const [periodo, setPeriodo] = useState("todos");
+  const [filtroMesAno, setFiltroMesAno] = useState("todos");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
   const { workspace } = useWorkspace();
@@ -82,19 +83,41 @@ export default function Reportes() {
     [consultas]
   );
 
+  const mesesAnosDisponibles = useMemo(() => {
+    const unique = new Map();
+    consultas.forEach((c) => {
+      if (!c?.mes || !c?.ano) return;
+      const mes = String(c.mes).trim().toUpperCase();
+      const ano = String(c.ano).trim();
+      if (!mes || !ano) return;
+      const key = `${mes}|${ano}`;
+      unique.set(key, { key, mes, ano, label: `${mes} ${ano}` });
+    });
+    return [...unique.values()].sort((a, b) => {
+      const anoDiff = Number(b.ano) - Number(a.ano);
+      if (anoDiff !== 0) return anoDiff;
+      const idxA = MESES_ORDEN.indexOf(a.mes);
+      const idxB = MESES_ORDEN.indexOf(b.mes);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxB - idxA;
+    });
+  }, [consultas]);
+
   const filtradas = useMemo(() => {
-    const hoy = moment();
     return consultas.filter((c) => {
       if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
       if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
-      if (periodo !== "todos") {
-        const dias = parseInt(periodo);
-        if (!c.created_date || !moment(c.created_date).isAfter(hoy.clone().subtract(dias, "days")))
-          return false;
+      if (filtroMesAno !== "todos") {
+        const [mesSel, anoSel] = filtroMesAno.split("|");
+        const mesConsulta = String(c?.mes || "").trim().toUpperCase();
+        const anoConsulta = String(c?.ano || "").trim();
+        if (mesConsulta !== mesSel || anoConsulta !== anoSel) return false;
       }
       return true;
     });
-  }, [consultas, filtroAsesor, filtroAno, periodo]);
+  }, [consultas, filtroAsesor, filtroAno, filtroMesAno]);
 
   // TAB 1 - DASHBOARD EJECUTIVO
   const kpis = useMemo(() => {
@@ -324,15 +347,17 @@ export default function Reportes() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Select value={periodo} onValueChange={setPeriodo}>
+            <Select value={filtroMesAno} onValueChange={setFiltroMesAno}>
               <SelectTrigger className="w-40">
-                <SelectValue />
+                <SelectValue placeholder="Mes" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="7">Últimos 7 días</SelectItem>
-                <SelectItem value="30">Últimos 30 días</SelectItem>
-                <SelectItem value="90">Últimos 90 días</SelectItem>
+                {mesesAnosDisponibles.map((item) => (
+                  <SelectItem key={item.key} value={item.key}>
+                    {item.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

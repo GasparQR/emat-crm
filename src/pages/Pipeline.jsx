@@ -100,7 +100,7 @@ export default function Pipeline() {
   const handleMarcarPerdido = async (consulta, motivo) => {
     await updateMutation.mutateAsync({
       id: consulta.id,
-      data: { pipeline_stage: "Perdido", razonperdida: motivo }
+      data: { pipeline_stage: "PERDIDA", razonperdida: motivo }
     });
     toast.success(`Marcado como Perdido — ${motivo}`);
   };
