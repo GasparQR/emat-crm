@@ -17,12 +17,12 @@ import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA"];
+const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
   ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500",
+  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
 };
 
 export default function Hoy() {
