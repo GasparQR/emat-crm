@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, Send } from "lucide-react";
+import QuickCallButton from "./QuickCallButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -134,6 +135,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
               {moment(consulta.proximoseguimiento).format("DD/MM")}
             </div>
           )}
+          <QuickCallButton phone={consulta.contactowhatsapp} className="h-6 w-6 sm:min-h-6 sm:min-w-6" />
           {consulta.contactowhatsapp && (
             <Button
               size="sm"

@@ -5,7 +5,10 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
+import PipelineMobileView from "@/components/crm/PipelineMobileView";
 import ConsultaForm from "@/components/crm/ConsultaForm";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Button } from "@/components/ui/button";
@@ -13,6 +16,7 @@ import { Plus, Filter, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -24,6 +28,8 @@ export default function Pipeline() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const isMobile = useIsMobile();
+  const { setCallTarget } = useActiveCall();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
@@ -62,27 +68,30 @@ export default function Pipeline() {
     return maxNro + 1;
   };
 
-  const handleDragEnd = async (result) => {
-    if (!result.destination) return;
-
-    const { draggableId, destination } = result;
-    const newEtapa = destination.droppableId;
+  const moveConsultaToStage = async (consulta, newEtapa) => {
+    if (!newEtapa || newEtapa === consulta.pipeline_stage) return;
 
     const patch = { pipeline_stage: newEtapa };
-
-    // Assign nroppto when moving to a non-NUEVO LEAD stage and the consulta has none yet
     const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
-    const consulta = consultas.find(c => c.id === draggableId);
     if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
       patch.nroppto = await getNextNroPpto();
     }
 
     updateMutation.mutate({
-      id: draggableId,
+      id: consulta.id,
       data: patch,
     });
 
     toast.success(`Movido a ${newEtapa}`);
+  };
+
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const { draggableId, destination } = result;
+    const newEtapa = destination.droppableId;
+    const consulta = consultas.find(c => c.id === draggableId);
+    if (consulta) await moveConsultaToStage(consulta, newEtapa);
   };
 
   const handleWhatsApp = (consulta) => {
@@ -92,8 +101,18 @@ export default function Pipeline() {
 
   const handleEdit = (consulta) => {
     setSelectedConsulta(consulta);
-    // Delay to let DropdownMenu fully close and release focus before Dialog opens
+    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
+    if (phone) {
+      setCallTarget({ phone, label: consulta.contactonombre });
+    }
     setTimeout(() => setShowForm(true), 100);
+  };
+
+  const handleSelectConsulta = (consulta) => {
+    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
+    if (phone) {
+      setCallTarget({ phone, label: consulta.contactonombre });
+    }
   };
 
   // Nuevo: marcar como perdido directamente desde la card del pipeline
@@ -144,8 +163,8 @@ export default function Pipeline() {
               </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Filter className="w-4 h-4 text-slate-400" />
+          <div className={cn("flex items-center gap-2", isMobile ? "flex-col items-stretch" : "flex-wrap")}>
+            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
             <Select value={filtroCanal} onValueChange={setFiltroCanal}>
               <SelectTrigger className="w-[130px] h-9">
                 <SelectValue />
@@ -186,23 +205,35 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Kanban */}
-      <div className="p-4 sm:p-6 overflow-x-auto">
-        <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
-          <div className="flex gap-4 min-w-max">
-            {etapas.map(etapa => (
-              <PipelineColumn
-                key={etapa.pipeline_stage}
-                etapa={etapa.pipeline_stage}
-                etapaColor={etapa.color}
-                consultas={consultasPorEtapa[etapa.pipeline_stage]}
-                onWhatsApp={handleWhatsApp}
-                onEdit={handleEdit}
-                onMarcarPerdido={handleMarcarPerdido}
-              />
-            ))}
-          </div>
-        </DragDropContext>
+      {/* Kanban / Mobile stacked */}
+      <div className={cn("p-4 sm:p-6", !isMobile && "overflow-x-auto")}>
+        {isMobile ? (
+          <PipelineMobileView
+            etapas={etapas}
+            consultasPorEtapa={consultasPorEtapa}
+            onStageChange={moveConsultaToStage}
+            onEdit={handleEdit}
+            onWhatsApp={handleWhatsApp}
+            onMarcarPerdido={handleMarcarPerdido}
+            onSelectConsulta={handleSelectConsulta}
+          />
+        ) : (
+          <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
+            <div className="flex gap-4 min-w-max">
+              {etapas.map(etapa => (
+                <PipelineColumn
+                  key={etapa.pipeline_stage}
+                  etapa={etapa.pipeline_stage}
+                  etapaColor={etapa.color}
+                  consultas={consultasPorEtapa[etapa.pipeline_stage]}
+                  onWhatsApp={handleWhatsApp}
+                  onEdit={handleEdit}
+                  onMarcarPerdido={handleMarcarPerdido}
+                />
+              ))}
+            </div>
+          </DragDropContext>
+        )}
       </div>
 
       <ConsultaForm

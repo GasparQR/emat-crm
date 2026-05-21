@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import SelectorListasWhatsApp from "./SelectorListasWhatsApp";
 import HistorialEnvios from "./HistorialEnvios";
-import { X, MapPin, Phone } from "lucide-react";
+import { X, MapPin, MessageCircle } from "lucide-react";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
+import QuickCallButton from "./QuickCallButton";
 
 export default function DetalleContactoDialog({ contacto, open, onOpenChange }) {
+  const { setCallTarget, clearCallTarget } = useActiveCall();
+
+  useEffect(() => {
+    if (open && contacto?.whatsapp) {
+      setCallTarget({ phone: contacto.whatsapp, label: contacto.nombre });
+    } else if (!open) {
+      clearCallTarget();
+    }
+  }, [open, contacto, setCallTarget, clearCallTarget]);
+
   if (!contacto) return null;
 
   const handleClose = () => {
@@ -50,13 +63,17 @@ export default function DetalleContactoDialog({ contacto, open, onOpenChange }) 
                       <Label className="text-xs font-semibold text-slate-500">WhatsApp</Label>
                       <p className="text-sm mt-1">{contacto.whatsapp}</p>
                     </div>
-                    <Button
-                      size="sm"
-                      className="bg-[#25D366] hover:bg-[#20bd5a] text-white"
-                      onClick={() => window.open(`https://wa.me/${contacto.whatsapp}`, "_blank")}
-                    >
-                      <Phone className="w-3 h-3" />
-                    </Button>
+                    <QuickCallButton phone={contacto.whatsapp} />
+                    {contacto.whatsapp && (
+                      <Button
+                        size="sm"
+                        className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-7 w-7 p-0"
+                        onClick={() => window.open(`https://wa.me/${contacto.whatsapp}`, "_blank")}
+                        title="WhatsApp"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                   {contacto.localidad && (
                     <div>

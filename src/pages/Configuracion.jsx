@@ -144,8 +144,8 @@ export default function Configuracion() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-6 px-0 sm:px-0">
         <div>
           <Link to={createPageUrl("Ajustes")}>
             <Button variant="ghost" className="gap-2 mb-2 -ml-2">

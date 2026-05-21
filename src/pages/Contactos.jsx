@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Search, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
+import MobileContactoListItem from "@/components/crm/MobileContactoListItem";
+import QuickCallButton from "@/components/crm/QuickCallButton";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextBusinessDay } from "@/components/utils/dateUtils";
 
@@ -48,6 +52,8 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const isMobile = useIsMobile();
+  const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: contactos = [], isLoading } = useQuery({
     queryKey: ["contactos", workspace?.id],
@@ -252,6 +258,9 @@ export default function Contactos() {
   };
 
   const handleEdit = (contacto) => {
+    if (contacto.whatsapp) {
+      setCallTarget({ phone: contacto.whatsapp, label: contacto.nombre });
+    }
     setSelectedContacto(contacto);
     // Look up existing consulta for this contact to pre-populate pipeline stage
     const consultaExistente = consultas.find(q => q.contactonombre === contacto.nombre);
@@ -361,6 +370,15 @@ export default function Contactos() {
     ? consultas.find(q => q.contactonombre === pipelineDialog.contacto.nombre)
     : null;
 
+  useEffect(() => {
+    if (!showForm) return;
+    if (formData.whatsapp) {
+      setCallTarget({ phone: formData.whatsapp, label: formData.nombre });
+    } else {
+      clearCallTarget();
+    }
+  }, [showForm, formData.whatsapp, formData.nombre, setCallTarget, clearCallTarget]);
+
   const openEtapaDesdeTabla = (contacto) => {
     const q = consultaMap[contacto.nombre];
     if (!q) {
@@ -372,7 +390,7 @@ export default function Contactos() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* Header */}
@@ -428,9 +446,34 @@ export default function Contactos() {
           </Select>
         </div>
 
-        {/* Tabla */}
-        <Card className="overflow-hidden">
-          <Table className="w-full table-fixed">
+        {isMobile ? (
+          <div className="space-y-2">
+            {isLoading ? (
+              <p className="text-center py-12 text-slate-400">Cargando contactos...</p>
+            ) : contactosFiltrados.length === 0 ? (
+              <p className="text-center py-12 text-slate-400">No hay contactos</p>
+            ) : (
+              contactosFiltrados.map(contacto => (
+                <MobileContactoListItem
+                  key={contacto.id}
+                  contacto={contacto}
+                  consulta={consultaMap[contacto.nombre]}
+                  stageColor={stageColorMap[consultaMap[contacto.nombre]?.pipeline_stage]}
+                  onSelect={setCallTarget}
+                  onEdit={handleEdit}
+                  onWhatsApp={setWhatsappTarget}
+                  onMail={(c) => window.open(`mailto:${c.email}`, "_blank")}
+                  onDelete={(c) => {
+                    if (window.confirm("¿Eliminar este contacto?")) deleteMutation.mutate(c.id);
+                  }}
+                  onEtapaClick={openEtapaDesdeTabla}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+        <Card className="overflow-hidden overflow-x-auto">
+          <Table className="w-full table-fixed min-w-[640px]">
             <colgroup>
               <col className="w-[28%]" />
               <col className="w-[16%]" />
@@ -458,7 +501,10 @@ export default function Contactos() {
                 <TableRow key={contacto.id} className="hover:bg-slate-50">
                   <TableCell className="py-2">
                     <div className="min-w-0">
-                      <p className="font-medium text-slate-900 truncate text-sm">{contacto.nombre}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-slate-900 truncate text-sm flex-1">{contacto.nombre}</p>
+                        <QuickCallButton phone={contacto.whatsapp} />
+                      </div>
                       {contacto.empresa && contacto.empresa !== contacto.nombre && (
                         <p className="text-xs text-slate-500 truncate">{contacto.empresa}</p>
                       )}
@@ -547,10 +593,14 @@ export default function Contactos() {
             </TableBody>
           </Table>
         </Card>
+        )}
       </div>
 
       {/* Form Dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); else setShowForm(true); }}>
+      <Dialog open={showForm} onOpenChange={(open) => {
+        if (!open) { resetForm(); clearCallTarget(); }
+        else setShowForm(true);
+      }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedContacto ? "Editar contacto" : "Nuevo contacto"}</DialogTitle>
