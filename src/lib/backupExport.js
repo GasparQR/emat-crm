@@ -2,8 +2,6 @@ import JSZip from "jszip";
 import { entities } from "@/api/supabaseClient";
 import { rowsToCsv, downloadBlob } from "@/lib/csvExport";
 
-const BACKUP_LIMIT = 5000;
-
 export const BACKUP_ENTITIES = [
   {
     id: "presupuestos",
@@ -18,41 +16,6 @@ export const BACKUP_ENTITIES = [
     entityKey: "Contacto",
     filenamePrefix: "contactos",
     sortField: "nombre",
-  },
-  {
-    id: "pipeline_stages",
-    label: "Etapas del pipeline",
-    entityKey: "PipelineStage",
-    filenamePrefix: "etapas_pipeline",
-    sortField: "orden",
-  },
-  {
-    id: "asesores",
-    label: "Asesores y firmas",
-    entityKey: "Asesor",
-    filenamePrefix: "asesores",
-    sortField: "nombre",
-  },
-  {
-    id: "plantillas_whatsapp",
-    label: "Plantillas WhatsApp",
-    entityKey: "PlantillaWhatsApp",
-    filenamePrefix: "plantillas_whatsapp",
-    sortField: "nombre",
-  },
-  {
-    id: "listas_whatsapp",
-    label: "Listas WhatsApp",
-    entityKey: "ListaWhatsApp",
-    filenamePrefix: "listas_whatsapp",
-    sortField: "nombre",
-  },
-  {
-    id: "historial_envios",
-    label: "Historial de envíos",
-    entityKey: "HistorialEnvios",
-    filenamePrefix: "historial_envios",
-    sortField: "-created_date",
   },
 ];
 
@@ -73,7 +36,7 @@ export async function fetchBackupData(workspaceId, selectedIds) {
   const results = await Promise.all(
     selected.map(async (config) => {
       const entity = entities[config.entityKey];
-      const rows = await entity.filter(filter, config.sortField, BACKUP_LIMIT);
+      const rows = await entity.filter(filter, config.sortField, null);
       return { config, rows: rows || [] };
     })
   );
@@ -107,10 +70,14 @@ export async function exportWorkspaceBackup({ workspaceId, selectedIds }) {
 
   const withData = fetched.filter(({ rows }) => rows.length > 0).length;
   const empty = fetched.length - withData;
+  const rowCounts = Object.fromEntries(
+    fetched.map(({ config, rows }) => [config.id, rows.length])
+  );
 
   return {
     total: fetched.length,
     withData,
     empty,
+    rowCounts,
   };
 }

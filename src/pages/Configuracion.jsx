@@ -64,9 +64,15 @@ export default function Configuracion() {
     try {
       const workspaceId = workspace?.id || "local";
       const result = await exportWorkspaceBackup({ workspaceId, selectedIds });
-      const emptyMsg =
-        result.empty > 0 ? ` (${result.empty} sin datos)` : "";
-      toast.success(`Backup exportado: ${result.withData} archivo(s) con datos${emptyMsg}`);
+      const parts = [];
+      if (result.rowCounts?.presupuestos !== undefined) {
+        parts.push(`${result.rowCounts.presupuestos} presupuestos`);
+      }
+      if (result.rowCounts?.contactos !== undefined) {
+        parts.push(`${result.rowCounts.contactos} contactos`);
+      }
+      const detail = parts.length > 0 ? `: ${parts.join(", ")}` : "";
+      toast.success(`Backup exportado${detail}`);
     } catch (error) {
       console.error(error);
       toast.error("Error al exportar el backup");
@@ -305,7 +311,7 @@ export default function Configuracion() {
           <CardContent className="space-y-4">
             <div className="space-y-3">
               <p className="text-sm text-slate-600">
-                Exporta una copia de los datos del workspace actual. Elegí qué incluir en el backup.
+                Respalda contactos y presupuestos del workspace actual en un ZIP con archivos CSV.
               </p>
               <div className="flex items-center gap-3 text-sm">
                 <button
