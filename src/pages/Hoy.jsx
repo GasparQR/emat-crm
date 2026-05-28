@@ -5,9 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, AlertCircle, CheckCircle2, MessageCircle, ArrowLeft, Phone } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { getTelHref, hasCallablePhone } from "@/lib/phone";
+import { Calendar, AlertCircle, CheckCircle2, MessageCircle, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -39,7 +37,6 @@ export default function Hoy() {
   const isLogistica = user?.role === "logistica";
   const { data: currentUser } = useCurrentUser();
   const { setCallTarget } = useActiveCall();
-  const isMobile = useIsMobile();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
@@ -151,7 +148,6 @@ export default function Hoy() {
     const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
     const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
     const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
-    const telHref = hasCallablePhone(phone) ? getTelHref(phone) : null;
     return (
     <Card
       className="hover:shadow-md transition-all cursor-pointer"
@@ -164,7 +160,6 @@ export default function Hoy() {
           <div className="flex-1" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
-              {!isMobile && <QuickCallButton phone={phone} />}
               <div className="min-w-[140px]" onClick={(e) => e.stopPropagation()}>
                 <Select
                   value={consulta.pipeline_stage}
@@ -216,17 +211,10 @@ export default function Hoy() {
             </div>
           </div>
           <div className="flex flex-col gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-            {isMobile && telHref && (
-              <Button
-                size="sm"
-                asChild
-                className="bg-blue-600 hover:bg-blue-700 text-white h-9 w-9 p-0"
-              >
-                <a href={telHref} title="Llamar" aria-label="Llamar">
-                  <Phone className="w-4 h-4" />
-                </a>
-              </Button>
-            )}
+            <QuickCallButton
+              phone={phone}
+              className="h-9 w-9 min-h-9 min-w-9 p-0 rounded-md"
+            />
             <Button
               size="sm"
               onClick={() => handleWhatsApp(consulta)}

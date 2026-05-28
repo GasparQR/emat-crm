@@ -1,6 +1,7 @@
 import { Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTelHref, hasCallablePhone } from "@/lib/phone";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function QuickCallButton({
   phone,
@@ -8,7 +9,9 @@ export default function QuickCallButton({
   onClick,
   title = "Llamar",
 }) {
-  if (!hasCallablePhone(phone)) return null;
+  const isMobile = useIsMobile();
+
+  if (!isMobile || !hasCallablePhone(phone)) return null;
 
   const href = getTelHref(phone);
 

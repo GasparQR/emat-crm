@@ -1,12 +1,14 @@
 import { Phone } from "lucide-react";
 import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { getTelHref, hasCallablePhone } from "@/lib/phone";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 export default function FloatingCallButton() {
   const { callTarget } = useActiveCall();
+  const isMobile = useIsMobile();
 
-  if (!callTarget?.phone || !hasCallablePhone(callTarget.phone)) {
+  if (!isMobile || !callTarget?.phone || !hasCallablePhone(callTarget.phone)) {
     return null;
   }
 
