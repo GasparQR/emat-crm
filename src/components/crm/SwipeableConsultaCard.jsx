@@ -13,6 +13,7 @@ export default function SwipeableConsultaCard({
   onWhatsApp,
   onMarcarPerdido,
   onSelect,
+  onPreviewPdf,
 }) {
   const x = useMotionValue(0);
   const [swipeHint, setSwipeHint] = useState(null);
@@ -78,6 +79,7 @@ export default function SwipeableConsultaCard({
           onWhatsApp={onWhatsApp}
           onEdit={onEdit}
           onMarcarPerdido={onMarcarPerdido}
+          onPreviewPdf={onPreviewPdf}
         />
       </motion.div>
     </div>

@@ -7,6 +7,7 @@ import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
 import PipelineMobileView from "@/components/crm/PipelineMobileView";
 import ConsultaForm from "@/components/crm/ConsultaForm";
+import ConsultaPdfPreviewDialog from "@/components/crm/ConsultaPdfPreviewDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { ASESORES } from "@/components/crm/ConsultaForm";
@@ -22,6 +23,7 @@ export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
+  const [previewConsulta, setPreviewConsulta] = useState(null);
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
@@ -106,6 +108,10 @@ export default function Pipeline() {
       setCallTarget({ phone, label: consulta.contactonombre });
     }
     setTimeout(() => setShowForm(true), 100);
+  };
+
+  const handlePreviewPdf = (consulta) => {
+    setPreviewConsulta(consulta);
   };
 
   const handleSelectConsulta = (consulta) => {
@@ -216,6 +222,7 @@ export default function Pipeline() {
             onWhatsApp={handleWhatsApp}
             onMarcarPerdido={handleMarcarPerdido}
             onSelectConsulta={handleSelectConsulta}
+            onPreviewPdf={handlePreviewPdf}
           />
         ) : (
           <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
@@ -229,6 +236,7 @@ export default function Pipeline() {
                   onWhatsApp={handleWhatsApp}
                   onEdit={handleEdit}
                   onMarcarPerdido={handleMarcarPerdido}
+                  onPreviewPdf={handlePreviewPdf}
                 />
               ))}
             </div>
@@ -251,6 +259,12 @@ export default function Pipeline() {
         onOpenChange={setShowWhatsApp}
         consulta={selectedConsulta}
         onMessageSent={refetch}
+      />
+
+      <ConsultaPdfPreviewDialog
+        consulta={previewConsulta}
+        open={!!previewConsulta}
+        onOpenChange={(open) => { if (!open) setPreviewConsulta(null); }}
       />
     </div>
   );
