@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { buildConsultaPdf } from "@/lib/consultaPdf";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
@@ -121,6 +122,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -237,6 +239,20 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     loadNextNroPpto();
     return () => { active = false; };
   }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones, currentUser?.consulta_follow_up_days]);
+
+  useEffect(() => {
+    if (!open) {
+      clearCallTarget();
+      return;
+    }
+    const phone = formData.contactoWhatsapp;
+    const label = formData.contactoNombre;
+    if (phone) {
+      setCallTarget({ phone, label });
+    } else {
+      clearCallTarget();
+    }
+  }, [open, formData.contactoWhatsapp, formData.contactoNombre, setCallTarget, clearCallTarget]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -480,7 +496,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) clearCallTarget();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>

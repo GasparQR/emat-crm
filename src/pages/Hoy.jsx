@@ -11,6 +11,8 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
+import QuickCallButton from "@/components/crm/QuickCallButton";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,7 @@ export default function Hoy() {
   const { user } = useAuth();
   const isLogistica = user?.role === "logistica";
   const { data: currentUser } = useCurrentUser();
+  const { setCallTarget } = useActiveCall();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
@@ -144,11 +147,17 @@ export default function Hoy() {
     const fechaMostrar = consulta.proximoseguimiento;
     const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
     const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
+    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
     return (
-    <Card className="hover:shadow-md transition-all">
+    <Card
+      className="hover:shadow-md transition-all cursor-pointer"
+      onClick={() => {
+        if (phone) setCallTarget({ phone, label: consulta.contactonombre });
+      }}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
+          <div className="flex-1" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
               <div className="min-w-[140px]" onClick={(e) => e.stopPropagation()}>
@@ -201,11 +210,15 @@ export default function Hoy() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col gap-2 ml-4">
+          <div className="flex flex-col gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
+            <QuickCallButton
+              phone={phone}
+              className="h-9 w-9 min-h-9 min-w-9 p-0 rounded-md"
+            />
             <Button
               size="sm"
               onClick={() => handleWhatsApp(consulta)}
-              className="bg-[#25D366] hover:bg-[#20bd5a] text-white"
+              className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-9 w-9 p-0"
             >
               <MessageCircle className="w-4 h-4" />
             </Button>
@@ -213,6 +226,7 @@ export default function Hoy() {
               size="sm"
               variant="outline"
               onClick={() => handleMarcarCompletado(consulta)}
+              className="h-9 w-9 p-0"
             >
               <CheckCircle2 className="w-4 h-4" />
             </Button>
@@ -224,7 +238,7 @@ export default function Hoy() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -256,7 +270,7 @@ export default function Hoy() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500">Hoy</CardTitle>

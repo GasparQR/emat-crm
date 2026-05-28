@@ -9,6 +9,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
 import { WorkspaceProvider } from "@/components/context/WorkspaceContext";
+import { ActiveCallProvider } from "@/components/context/ActiveCallContext";
+import FloatingCallButton from "@/components/crm/FloatingCallButton";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -37,6 +39,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <WorkspaceProvider>
+      <ActiveCallProvider>
       <div className="min-h-screen bg-slate-50">
       <Toaster position="top-right" richColors />
       
@@ -149,7 +152,9 @@ export default function Layout({ children, currentPageName }) {
       <main className={cn("transition-all duration-300", sidebarCollapsed ? "lg:ml-16" : "lg:ml-64")}>
         {children}
       </main>
+      <FloatingCallButton />
       </div>
+      </ActiveCallProvider>
     </WorkspaceProvider>
   );
 }

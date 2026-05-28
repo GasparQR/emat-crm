@@ -15,6 +15,10 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import DetalleConsultaDialog from "@/components/crm/DetalleConsultaDialog";
+import MobileConsultaListItem from "@/components/crm/MobileConsultaListItem";
+import QuickCallButton from "@/components/crm/QuickCallButton";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 
@@ -39,6 +43,8 @@ export default function Consultas() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = user?.role === "logistica";
+  const isMobile = useIsMobile();
+  const { setCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -171,17 +177,30 @@ export default function Consultas() {
     return true;
   });
 
-  const handleEdit = (c) => { setSelectedConsulta(c); setShowForm(true); };
+  const setCallFromConsulta = (c) => {
+    const phone = c.contactowhatsapp ?? c.contactoWhatsapp;
+    if (phone) setCallTarget({ phone, label: c.contactonombre });
+  };
+
+  const handleEdit = (c) => {
+    setCallFromConsulta(c);
+    setSelectedConsulta(c);
+    setShowForm(true);
+  };
 
   const openRow = (c) => {
+    setCallFromConsulta(c);
     if (isLogistica) setDetalleConsulta(c);
-    else handleEdit(c);
+    else {
+      setSelectedConsulta(c);
+      setShowForm(true);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -238,10 +257,29 @@ export default function Consultas() {
         </div>
       </div>
 
-      {/* Tabla — 6 columnas con anchos fijos que suman 100% */}
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 overflow-hidden">
-          <Table className="w-full table-fixed">
+      <div className="p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
+        {isMobile ? (
+          <div className="space-y-2">
+            {isLoading ? (
+              <p className="text-center py-12 text-slate-400">Cargando...</p>
+            ) : filtradas.length === 0 ? (
+              <p className="text-center py-12 text-slate-400">No hay presupuestos</p>
+            ) : (
+              filtradas.map(c => (
+                <MobileConsultaListItem
+                  key={c.id}
+                  consulta={c}
+                  etapaColor={etapaColorMap[c.pipeline_stage]}
+                  onCallTarget={setCallTarget}
+                  onClick={openRow}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-x-auto">
+          <Table className="w-full table-fixed min-w-[720px]">
             <colgroup>
               <col className="w-[30%]" /> {/* Cliente + ubicación + #ppto */}
               <col className="w-[8%]"  /> {/* Asesor (avatar) */}
@@ -273,8 +311,11 @@ export default function Consultas() {
 
                     {/* Cliente: nombre + #ppto + ubicación fusionados */}
                     <TableCell className="py-2">
+                      <div className="min-w-0 flex items-center gap-1.5">
+                        <p className="font-medium text-slate-900 truncate text-sm flex-1">{c.contactonombre}</p>
+                        <QuickCallButton phone={c.contactowhatsapp ?? c.contactoWhatsapp} />
+                      </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactonombre}</p>
                         {c.nroppto && (
                           <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
                         )}
@@ -400,9 +441,9 @@ export default function Consultas() {
             </TableBody>
           </Table>
         </div>
+        )}
+        </div>
       </div>
-
-
 
       <DetalleConsultaDialog
         consulta={detalleConsulta}
