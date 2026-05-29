@@ -23,6 +23,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextBusinessDay } from "@/components/utils/dateUtils";
+import {
+  buildPipelineStagePatch,
+  buildPipelineStagePatchAsync,
+} from "@/lib/pipelineStage";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
@@ -233,13 +237,12 @@ export default function Contactos() {
   // Actualizar etapa de una consulta existente
   const handleUpdatePipelineStage = async () => {
     if (!etapaSeleccionada || !consultaExistenteEnDialog) return;
-    const patch = { pipeline_stage: etapaSeleccionada };
-
-    // If moving to a non-NUEVO LEAD stage and the consulta has no nroppto yet, assign one
-    const selectedStage = pipelineStages.find(s => s.pipeline_stage === etapaSeleccionada);
-    if (selectedStage && selectedStage.orden !== 0 && !consultaExistenteEnDialog.nroppto) {
-      patch.nroppto = await getNextNroPpto();
-    }
+    const patch = await buildPipelineStagePatchAsync(
+      consultaExistenteEnDialog,
+      etapaSeleccionada,
+      { etapas: pipelineStages, getNextNroPpto }
+    );
+    if (!patch) return;
 
     updateConsultaMutation.mutate({
       id: consultaExistenteEnDialog.id,
@@ -303,8 +306,8 @@ export default function Contactos() {
       if (consultaExistente) {
         const patch = {};
         if (stage && consultaExistente.pipeline_stage !== stage) {
-          patch.pipeline_stage = stage;
-          // Assign nroppto if moving to a non-NUEVO LEAD stage and consulta has none yet
+          const stagePatch = buildPipelineStagePatch(consultaExistente, stage);
+          if (stagePatch) Object.assign(patch, stagePatch);
           const selectedStage = pipelineStages.find(s => s.pipeline_stage === stage);
           if (selectedStage && selectedStage.orden !== 0 && !consultaExistente.nroppto) {
             patch.nroppto = await getNextNroPpto();

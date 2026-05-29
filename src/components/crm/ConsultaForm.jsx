@@ -14,6 +14,10 @@ import { Plus, Trash2 } from "lucide-react";
 import { buildConsultaPdf } from "@/lib/consultaPdf";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { useActiveCall } from "@/components/context/ActiveCallContext";
+import {
+  applyFechaGanadoOnStageChange,
+  getFechaGanadoFromConsulta,
+} from "@/lib/pipelineStage";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
@@ -99,6 +103,7 @@ const emptyForm = () => ({
   observaciones: "",
   notas: "",
   razonPerdida: "",
+  fechaGanado: "",
 });
 
 function buildFallbackPayload(payload, err) {
@@ -106,6 +111,9 @@ function buildFallbackPayload(payload, err) {
   const msg = String(err?.message ?? err ?? "");
   if (/notas/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
     delete next.notas;
+  }
+  if (/fecha_ganado/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.fecha_ganado;
   }
   return next;
 }
@@ -193,6 +201,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         observaciones: consulta.observaciones ?? "",
         notas: consulta.notas ?? "",
         razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
+        fechaGanado: getFechaGanadoFromConsulta(consulta) ?? "",
       });
       return;
     }
@@ -397,6 +406,17 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       }
       const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
+      let fechaGanadoValue = formData.fechaGanado || null;
+      if (!fechaGanadoValue) {
+        const autoFecha = applyFechaGanadoOnStageChange({
+          previousStage: consulta?.pipeline_stage,
+          nextStage: formData.etapa,
+          currentFechaGanado: getFechaGanadoFromConsulta(consulta),
+          patch: {},
+        });
+        fechaGanadoValue = autoFecha.fecha_ganado ?? getFechaGanadoFromConsulta(consulta) ?? null;
+      }
+
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
         contactonombre: formData.contactoNombre,
@@ -427,6 +447,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         diasvalidez: formData.diasValidez !== "" ? parseInt(formData.diasValidez) : 30,
         condicionescomerciales: formData.condicionesComerciales,
         proximoseguimiento: formData.proximoSeguimiento || null,
+        fecha_ganado: fechaGanadoValue,
         razonperdida: formData.razonPerdida || null,
         firmaasesor: firmaAsesor,
         items: formData.items.map((item) => ({
@@ -617,6 +638,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha ganada</Label>
+                <Input
+                  type="date"
+                  value={formData.fechaGanado}
+                  onChange={(e) => set("fechaGanado", e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Importe total ($)</Label>

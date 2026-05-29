@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import SelectorListasWhatsApp from "./SelectorListasWhatsApp";
 import HistorialEnvios from "./HistorialEnvios";
 import { openConsultaPdf } from "@/lib/consultaPdf";
+import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import moment from "moment";
 import { X, FileText } from "lucide-react";
 
@@ -86,6 +87,9 @@ export default function DetalleConsultaDialog({
           </Field>
           <Field label="Etapa">
             <Badge className="mt-0">{consulta.pipeline_stage}</Badge>
+          </Field>
+          <Field label="Fecha ganada" empty={!getFechaGanadoFromConsulta(consulta)}>
+            {moment(getFechaGanadoFromConsulta(consulta)).format("DD/MM/YYYY")}
           </Field>
           <Field label="Ubicación obra" empty={!consulta.ubicacionobra}>
             {consulta.ubicacionobra}
