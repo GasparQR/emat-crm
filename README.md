@@ -538,7 +538,7 @@ No está licenciado para redistribución sin autorización escrita. Contactá pa
 | Repositorio | [github.com/GasparQR/emat-crm](https://github.com/GasparQR/emat-crm) |
 | Demo | _Solicitar acceso a entorno de demostración_ |
 | Implementación / CRM a medida | _Contacto comercial Pragma_ |
-| Email | _comercial@pragma.example_ |
+| Email | pragmasolucionesdigitales@gmail.com |
 | LinkedIn | _Perfil del equipo Pragma_ |
 
 ---
