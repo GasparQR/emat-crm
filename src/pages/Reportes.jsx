@@ -711,7 +711,19 @@ export default function Reportes() {
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value) => [`${value} presupuestos`, 'Total']} />
+                      <Tooltip 
+                        contentStyle={{
+                          backgroundColor: "#fff",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "0.5rem",
+                          padding: "0.5rem 0.75rem",
+                          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                        }}
+                        formatter={(value, name, props) => [
+                          `${value} presupuestos`,
+                          `Total ${props.payload.name}`
+                        ]}
+                      />
                       <Legend 
                         verticalAlign="bottom" 
                         height={36}
