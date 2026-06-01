@@ -281,7 +281,7 @@ export default function Reportes() {
     );
     const tiemposEnPipeline = filtradas
       .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
-      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
+      .map((c) => moment(c.fecha_ganado || c.created_date).diff(moment(c.created_date), "days"))
       .filter((d) => d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
