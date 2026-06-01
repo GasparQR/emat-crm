@@ -4,8 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Database, Trash2, Loader2, Calendar, Download } from "lucide-react";
+import { ArrowLeft, Database, Loader2, Calendar, Download } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   BACKUP_ENTITIES,
@@ -306,7 +305,7 @@ export default function Configuracion() {
               <Database className="w-5 h-5" />
               Gestión de datos
             </CardTitle>
-            <CardDescription>Exportar o eliminar tus datos</CardDescription>
+            <CardDescription>Exportar una copia de seguridad de tus datos</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
@@ -362,14 +361,6 @@ export default function Configuracion() {
                   <Download className="w-4 h-4" />
                 )}
                 Exportar backup (ZIP)
-              </Button>
-            </div>
-            <Separator />
-            <div>
-              <p className="text-sm text-slate-500 mb-2">Zona peligrosa</p>
-              <Button variant="destructive" className="w-full gap-2">
-                <Trash2 className="w-4 h-4" />
-                Eliminar todas las consultas
               </Button>
             </div>
           </CardContent>
