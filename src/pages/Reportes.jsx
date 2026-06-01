@@ -56,6 +56,13 @@ const MIN_ADVISOR_BUDGETS = 3;
 
 const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
 const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+const fmtCompacto = (n) => {
+  if (!n) return "0";
+  if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 >= 100000 ? 1 : 0)}M`.replace('.0', '');
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}K`.replace('.0', '');
+  return n?.toLocaleString("es-AR") ?? "0";
+};
+const fmtPesosCompacto = (n) => `$${fmtCompacto(n || 0)}`;
 const fmtMonthYear = (mes, ano) =>
   mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
@@ -126,6 +133,7 @@ export default function Reportes() {
     const tasa =
       conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
     const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
+    const fibraKgTotal = filtradas.reduce((s, c) => s + (c.fibrakg || 0), 0);
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
@@ -135,6 +143,7 @@ export default function Reportes() {
       total: filtradas.length,
       tasa,
       m2Total: Math.round(m2Total),
+      fibraKgTotal: Math.round(fibraKgTotal),
       importeGanado,
       ticketPromedio,
       enSeguimiento: enSeguimiento.length,
@@ -279,7 +288,7 @@ export default function Reportes() {
     );
     const tiemposEnPipeline = filtradas
       .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
-      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
+      .map((c) => moment(c.fecha_ganado || c.created_date).diff(moment(c.created_date), "days"))
       .filter((d) => d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
@@ -399,7 +408,7 @@ export default function Reportes() {
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
@@ -429,7 +438,18 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{fmt(kpis.m2Total)}</p>
+                  <p className="text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5" />Fibra kg
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
                 </CardContent>
               </Card>
 
@@ -440,7 +460,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-green-800">{fmtPesos(kpis.importeGanado)}</p>
+                  <p className="text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
                 </CardContent>
               </Card>
 
@@ -451,7 +471,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-slate-900">{fmtPesos(kpis.ticketPromedio)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
                 </CardContent>
               </Card>
 
