@@ -416,7 +416,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{kpis.total}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{kpis.total}</p>
                 </CardContent>
               </Card>
 
@@ -427,7 +427,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
                 </CardContent>
               </Card>
 
@@ -438,7 +438,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
                 </CardContent>
               </Card>
 
@@ -449,7 +449,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
                 </CardContent>
               </Card>
 
@@ -460,7 +460,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
                 </CardContent>
               </Card>
 
@@ -471,7 +471,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
                 </CardContent>
               </Card>
 
@@ -482,7 +482,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
                 </CardContent>
               </Card>
             </div>
