@@ -56,6 +56,13 @@ const MIN_ADVISOR_BUDGETS = 3;
 
 const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
 const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
+const fmtCompacto = (n) => {
+  if (!n) return "0";
+  if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 >= 100000 ? 1 : 0)}M`.replace('.0', '');
+  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}K`.replace('.0', '');
+  return n?.toLocaleString("es-AR") ?? "0";
+};
+const fmtPesosCompacto = (n) => `$${fmtCompacto(n || 0)}`;
 const fmtMonthYear = (mes, ano) =>
   mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
@@ -126,6 +133,7 @@ export default function Reportes() {
     const tasa =
       conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
     const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
+    const fibraKgTotal = filtradas.reduce((s, c) => s + (c.fibrakg || 0), 0);
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
@@ -135,6 +143,7 @@ export default function Reportes() {
       total: filtradas.length,
       tasa,
       m2Total: Math.round(m2Total),
+      fibraKgTotal: Math.round(fibraKgTotal),
       importeGanado,
       ticketPromedio,
       enSeguimiento: enSeguimiento.length,
@@ -247,6 +256,23 @@ export default function Reportes() {
     });
   }, [filtradas]);
 
+  const metricasCrecimiento = useMemo(() => {
+    if (evolucionMensual.length < 2) return null;
+    const primero = evolucionMensual[0].total;
+    const ultimo = evolucionMensual[evolucionMensual.length - 1].total;
+    const crecimiento = primero > 0 ? ((ultimo - primero) / primero) * 100 : 0;
+    const promedio = Math.round(evolucionMensual.reduce((sum, m) => sum + m.total, 0) / evolucionMensual.length);
+    return {
+      crecimiento: crecimiento.toFixed(1),
+      direccion: crecimiento >= 0 ? "↑" : "↓",
+      color: crecimiento >= 0 ? "text-green-700" : "text-red-700",
+      primero,
+      ultimo,
+      promedio,
+      meses: evolucionMensual.length,
+    };
+  }, [evolucionMensual]);
+
   // TAB 4 - PIPELINE & SEGUIMIENTO
   const pipelineData = useMemo(() => {
     const pipeline_stages = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
@@ -279,7 +305,7 @@ export default function Reportes() {
     );
     const tiemposEnPipeline = filtradas
       .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
-      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
+      .map((c) => moment(c.fecha_ganado || c.created_date).diff(moment(c.created_date), "days"))
       .filter((d) => d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
@@ -399,7 +425,7 @@ export default function Reportes() {
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
@@ -407,7 +433,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{kpis.total}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{kpis.total}</p>
                 </CardContent>
               </Card>
 
@@ -418,7 +444,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
                 </CardContent>
               </Card>
 
@@ -429,7 +455,18 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-slate-900">{fmt(kpis.m2Total)}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5" />Fibra kg
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
                 </CardContent>
               </Card>
 
@@ -440,7 +477,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-green-800">{fmtPesos(kpis.importeGanado)}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
                 </CardContent>
               </Card>
 
@@ -451,7 +488,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold text-slate-900">{fmtPesos(kpis.ticketPromedio)}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
                 </CardContent>
               </Card>
 
@@ -462,7 +499,7 @@ export default function Reportes() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
+                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
                 </CardContent>
               </Card>
             </div>
@@ -587,6 +624,50 @@ export default function Reportes() {
 
           {/* TAB 3: ANÁLISIS COMERCIAL */}
           <TabsContent value="comercial" className="space-y-6">
+            {/* EVOLUCIÓN MENSUAL - PRIMERO Y DESTACADO */}
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-base sm:text-lg">Evolución mensual de presupuestos</CardTitle>
+                    <p className="text-xs text-slate-500 mt-1">Impacto del CRM Pragma en tu pipeline</p>
+                  </div>
+                  {metricasCrecimiento && (
+                    <div className="text-right">
+                      <p className={`text-2xl sm:text-3xl font-bold ${metricasCrecimiento.color}`}>
+                        {metricasCrecimiento.direccion} {Math.abs(metricasCrecimiento.crecimiento)}%
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {metricasCrecimiento.ultimo} presupuestos últimamente
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Promedio: {metricasCrecimiento.promedio}/mes en {metricasCrecimiento.meses} meses
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      name="Presupuestos"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#3b82f6" }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -614,24 +695,28 @@ export default function Reportes() {
                 <CardHeader>
                   <CardTitle className="text-base">Distribución por canal (total)</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={280}>
+                <CardContent className="flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
                       <Pie
                         data={canalOrigenData}
                         cx="50%"
-                        cy="45%"
-                        outerRadius={85}
+                        cy="50%"
+                        outerRadius={80}
                         dataKey="cantidad"
                         nameKey="name"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {canalOrigenData.map((entry, i) => (
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
-                      <Legend />
+                      <Tooltip formatter={(value) => [`${value} presupuestos`, 'Total']} />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36}
+                        formatter={(value) => <span className="text-xs sm:text-sm">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -699,30 +784,6 @@ export default function Reportes() {
                     <Tooltip />
                     <Bar dataKey="value" name="Presupuestos" fill="#f59e0b" radius={[0,4,4,0]} />
                   </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Evolucion mensual de presupuestos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      name="Presupuestos"
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
