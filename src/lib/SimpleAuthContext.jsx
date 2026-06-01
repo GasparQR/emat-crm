@@ -1,21 +1,18 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { auth } from '@/api/supabaseClient';
 
 const AuthContext = createContext();
 
-const USERS = {
-  admin: {
-    id: 'user_1',
-    name: 'Demo User',
-    email: 'demo@emat.com',
-    role: 'admin'
-  },
-  logistica: {
-    id: 'user_logistica',
-    name: 'Logística',
-    email: 'logistica@emat.com',
-    role: 'logistica'
-  }
-};
+function mapAuthUserToContext(profile, authUser) {
+  if (!authUser && !profile) return null;
+  return {
+    id: profile?.id ?? authUser?.id,
+    name: profile?.full_name ?? authUser?.email?.split('@')[0] ?? 'Usuario',
+    email: profile?.email ?? authUser?.email ?? '',
+    role: profile?.role === 'logistica' ? 'logistica' : 'admin',
+    profile,
+  };
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -24,70 +21,83 @@ export const AuthProvider = ({ children }) => {
   const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  useEffect(() => {
-    // Simulate auth check
-    const checkAuth = async () => {
-      try {
-        setIsLoadingAuth(true);
-        // Simulate delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        // Check if a user was previously selected
-        const savedUser = localStorage.getItem('emat_user');
-        if (savedUser) {
-          try {
-            const parsed = JSON.parse(savedUser);
-            setUser(parsed);
-            setIsAuthenticated(true);
-            setAuthError(null);
-            return;
-          } catch {
-            // ignore parse errors
-          }
-        }
-
-        // Default to admin user
-        setUser(USERS.admin);
-        setIsAuthenticated(true);
+  const loadSession = useCallback(async () => {
+    try {
+      const { data: { session } } = await auth.getSession();
+      if (!session?.user) {
+        setUser(null);
+        setIsAuthenticated(false);
         setAuthError(null);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setAuthError({ type: 'auth_error', message: error.message });
-      } finally {
-        setIsLoadingAuth(false);
+        return;
       }
-    };
 
-    checkAuth();
+      const profile = await auth.ensureUsuarioProfile(session.user);
+      setUser(mapAuthUserToContext(profile, session.user));
+      setIsAuthenticated(true);
+      setAuthError(null);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      setAuthError({ type: 'auth_error', message: error.message });
+    }
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      setIsLoadingAuth(true);
+      await loadSession();
+      if (mounted) setIsLoadingAuth(false);
+    };
+
+    init();
+
+    const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        setUser(null);
+        setIsAuthenticated(false);
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        try {
+          const profile = await auth.ensureUsuarioProfile(session.user);
+          setUser(mapAuthUserToContext(profile, session.user));
+          setIsAuthenticated(true);
+          setAuthError(null);
+        } catch (error) {
+          setAuthError({ type: 'auth_error', message: error.message });
+        }
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadSession]);
+
   const navigateToLogin = () => {
-    // Placeholder for future login redirect
-    console.log('Redirect to login');
+    window.location.href = '/login';
   };
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('emat_user');
+  const logout = async () => {
+    await auth.logout();
   };
 
-  const login = (email, password) => {
-    // Simple demo login
-    if (email && password) {
-      const newUser = { ...USERS.admin, email };
-      setUser(newUser);
-      setIsAuthenticated(true);
-      localStorage.setItem('emat_user', JSON.stringify(newUser));
-      return true;
-    }
-    return false;
-  };
+  const login = async (email, password) => {
+    const data = await auth.signInWithPassword(email.trim(), password);
+    const authUser = data?.user;
+    if (!authUser) return { ok: false, message: 'No se pudo iniciar sesión' };
 
-  const switchRole = (role) => {
-    const selectedUser = USERS[role] || USERS.admin;
-    setUser(selectedUser);
-    localStorage.setItem('emat_user', JSON.stringify(selectedUser));
+    const profile = await auth.ensureUsuarioProfile(authUser);
+    const ctxUser = mapAuthUserToContext(profile, authUser);
+    setUser(ctxUser);
+    setIsAuthenticated(true);
+    setAuthError(null);
+    return { ok: true };
   };
 
   const value = {
@@ -99,7 +109,6 @@ export const AuthProvider = ({ children }) => {
     navigateToLogin,
     logout,
     login,
-    switchRole
   };
 
   return (

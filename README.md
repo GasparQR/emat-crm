@@ -286,14 +286,14 @@ emat-crm/
 
 | Aspecto | Estado actual | Recomendación producción |
 |---------|---------------|---------------------------|
-| Autenticación | Contexto local + perfil `usuario` | Migrar a **Supabase Auth** (JWT) |
+| Autenticación | **Supabase Auth** (solo login; sin registro público) | Desactivar sign up en Providers → Email; ver `scripts/setup-auth-user.md` |
 | Autorización | Roles `admin` / `logistica` en UI | **RLS** en todas las tablas `public` |
 | API keys | Solo `anon` en frontend | Nunca exponer `service_role` |
 | Datos por tenant | `workspace_id` en entidades | Políticas RLS por `workspace_id` |
 | Validación | Zod + reglas en formularios | Validar también en DB (constraints) |
 | HTTPS | Vercel / Supabase por defecto | Obligatorio en producción |
 | Backups | Export manual ZIP en Configuración | Backups automáticos Supabase + retención |
-| Invitación usuarios | Stub (`users.inviteUser`) | Supabase Auth + invitaciones por email |
+| Alta de usuarios | Panel Supabase → Users → Add user | Sin `signUp` en la app; signup deshabilitado en Auth |
 
 Buenas prácticas ya consideradas en el código:
 
