@@ -15,8 +15,13 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import DetalleConsultaDialog from "@/components/crm/DetalleConsultaDialog";
+import MobileConsultaListItem from "@/components/crm/MobileConsultaListItem";
+import QuickCallButton from "@/components/crm/QuickCallButton";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
+import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
@@ -34,11 +39,15 @@ export default function Consultas() {
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
+  const [filtroFechaGanadoDesde, setFiltroFechaGanadoDesde] = useState("");
+  const [filtroFechaGanadoHasta, setFiltroFechaGanadoHasta] = useState("");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = user?.role === "logistica";
+  const isMobile = useIsMobile();
+  const { setCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -82,12 +91,11 @@ export default function Consultas() {
   });
 
   const handleEstadoChange = async (c, newStage) => {
-    if (!newStage || newStage === c.pipeline_stage) return;
-    const patch = { pipeline_stage: newStage };
-    const destStage = etapas.find(s => s.pipeline_stage === newStage);
-    if (destStage && destStage.orden !== 0 && !c.nroppto) {
-      patch.nroppto = await getNextNroPpto();
-    }
+    const patch = await buildPipelineStagePatchAsync(c, newStage, {
+      etapas,
+      getNextNroPpto,
+    });
+    if (!patch) return;
     stageMutation.mutate({ id: c.id, data: patch });
   };
 
@@ -168,20 +176,44 @@ export default function Consultas() {
     // Filtro de año (solo si no es "todos")
     if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
 
+    if (filtroFechaGanadoDesde || filtroFechaGanadoHasta) {
+      const fechaGanado = getFechaGanadoFromConsulta(c);
+      if (!fechaGanado) return false;
+      if (filtroFechaGanadoDesde && moment(fechaGanado).isBefore(moment(filtroFechaGanadoDesde), "day")) {
+        return false;
+      }
+      if (filtroFechaGanadoHasta && moment(fechaGanado).isAfter(moment(filtroFechaGanadoHasta), "day")) {
+        return false;
+      }
+    }
+
     return true;
   });
 
-  const handleEdit = (c) => { setSelectedConsulta(c); setShowForm(true); };
+  const setCallFromConsulta = (c) => {
+    const phone = c.contactowhatsapp ?? c.contactoWhatsapp;
+    if (phone) setCallTarget({ phone, label: c.contactonombre });
+  };
+
+  const handleEdit = (c) => {
+    setCallFromConsulta(c);
+    setSelectedConsulta(c);
+    setShowForm(true);
+  };
 
   const openRow = (c) => {
+    setCallFromConsulta(c);
     if (isLogistica) setDetalleConsulta(c);
-    else handleEdit(c);
+    else {
+      setSelectedConsulta(c);
+      setShowForm(true);
+    }
   };
 
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -234,22 +266,58 @@ export default function Consultas() {
                 {anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Input
+              type="date"
+              value={filtroFechaGanadoDesde}
+              onChange={(e) => setFiltroFechaGanadoDesde(e.target.value)}
+              className="w-40"
+              title="Fecha ganada desde"
+              aria-label="Fecha ganada desde"
+            />
+            <Input
+              type="date"
+              value={filtroFechaGanadoHasta}
+              onChange={(e) => setFiltroFechaGanadoHasta(e.target.value)}
+              className="w-40"
+              title="Fecha ganada hasta"
+              aria-label="Fecha ganada hasta"
+            />
           </div>
         </div>
       </div>
 
-      {/* Tabla — 6 columnas con anchos fijos que suman 100% */}
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 overflow-hidden">
-          <Table className="w-full table-fixed">
+      <div className="p-4 sm:p-6">
+        <div className="max-w-7xl mx-auto">
+        {isMobile ? (
+          <div className="space-y-2">
+            {isLoading ? (
+              <p className="text-center py-12 text-slate-400">Cargando...</p>
+            ) : filtradas.length === 0 ? (
+              <p className="text-center py-12 text-slate-400">No hay presupuestos</p>
+            ) : (
+              filtradas.map(c => (
+                <MobileConsultaListItem
+                  key={c.id}
+                  consulta={c}
+                  etapaColor={etapaColorMap[c.pipeline_stage]}
+                  onCallTarget={setCallTarget}
+                  onClick={openRow}
+                />
+              ))
+            )}
+          </div>
+        ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-x-auto">
+          <Table className="w-full table-fixed min-w-[820px]">
             <colgroup>
-              <col className="w-[30%]" /> {/* Cliente + ubicación + #ppto */}
-              <col className="w-[8%]"  /> {/* Asesor (avatar) */}
-              <col className="w-[14%]" /> {/* m² / Tipo */}
-              <col className="w-[14%]" /> {/* Importe */}
-              <col className="w-[14%]" /> {/* Estado */}
-              <col className="w-[14%]" /> {/* Seguimiento */}
-              <col className="w-[6%]"  /> {/* Acciones */}
+              <col className="w-[26%]" />
+              <col className="w-[7%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[12%]" />
+              <col className="w-[5%]" />
             </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
@@ -258,13 +326,14 @@ export default function Consultas() {
                 <TableHead className="font-semibold">m² / Tipo</TableHead>
                 <TableHead className="font-semibold">Importe</TableHead>
                 <TableHead className="font-semibold">Estado</TableHead>
+                <TableHead className="font-semibold">Fecha ganada</TableHead>
                 <TableHead className="font-semibold">Seguimiento</TableHead>
                 <TableHead className="font-semibold text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
                 const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
                 const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
@@ -273,8 +342,11 @@ export default function Consultas() {
 
                     {/* Cliente: nombre + #ppto + ubicación fusionados */}
                     <TableCell className="py-2">
+                      <div className="min-w-0 flex items-center gap-1.5">
+                        <p className="font-medium text-slate-900 truncate text-sm flex-1">{c.contactonombre}</p>
+                        <QuickCallButton phone={c.contactowhatsapp ?? c.contactoWhatsapp} />
+                      </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-slate-900 truncate text-sm">{c.contactonombre}</p>
                         {c.nroppto && (
                           <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
                         )}
@@ -345,6 +417,16 @@ export default function Consultas() {
                       </Select>
                     </TableCell>
 
+                    <TableCell className="py-2">
+                      {getFechaGanadoFromConsulta(c) ? (
+                        <span className="text-sm text-slate-600">
+                          {moment(getFechaGanadoFromConsulta(c)).format("DD/MM/YY")}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </TableCell>
+
                     {/* Seguimiento */}
                     <TableCell className="py-2">
                       {c.proximoseguimiento ? (
@@ -395,14 +477,14 @@ export default function Consultas() {
                 );
               })}
               {!isLoading && filtradas.length === 0 && (
-                <TableRow><TableCell colSpan={7} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </div>
+        )}
+        </div>
       </div>
-
-
 
       <DetalleConsultaDialog
         consulta={detalleConsulta}

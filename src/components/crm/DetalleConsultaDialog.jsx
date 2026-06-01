@@ -1,4 +1,7 @@
+import { useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
+import QuickCallButton from "./QuickCallButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import SelectorListasWhatsApp from "./SelectorListasWhatsApp";
 import HistorialEnvios from "./HistorialEnvios";
 import { openConsultaPdf } from "@/lib/consultaPdf";
+import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import moment from "moment";
 import { X, FileText } from "lucide-react";
 
@@ -27,9 +31,23 @@ export default function DetalleConsultaDialog({
   onSave,
   mode = "full",
 }) {
+  const { setCallTarget, clearCallTarget } = useActiveCall();
+
+  useEffect(() => {
+    if (open && consulta) {
+      const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
+      if (phone) {
+        setCallTarget({ phone, label: consulta.contactonombre });
+      }
+    } else if (!open) {
+      clearCallTarget();
+    }
+  }, [open, consulta, setCallTarget, clearCallTarget]);
+
   if (!consulta) return null;
 
   const logistica = mode === "logistica";
+  const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
   const item0 = Array.isArray(consulta.items) && consulta.items.length > 0 ? consulta.items[0] : null;
   const detalleServicio =
     item0?.descripcionServicio ??
@@ -55,8 +73,11 @@ export default function DetalleConsultaDialog({
             {consulta.mes} {consulta.ano}
           </Field>
           <Field label="Contacto">{consulta.contactonombre}</Field>
-          <Field label="WhatsApp / tel." empty={!consulta.contactowhatsapp}>
-            {consulta.contactowhatsapp}
+          <Field label="WhatsApp / tel." empty={!phone}>
+            <div className="flex items-center gap-2">
+              <span>{phone}</span>
+              <QuickCallButton phone={phone} />
+            </div>
           </Field>
           <Field label="Asesor" empty={!consulta.asesor}>
             {consulta.asesor}
@@ -66,6 +87,9 @@ export default function DetalleConsultaDialog({
           </Field>
           <Field label="Etapa">
             <Badge className="mt-0">{consulta.pipeline_stage}</Badge>
+          </Field>
+          <Field label="Fecha ganada" empty={!getFechaGanadoFromConsulta(consulta)}>
+            {moment(getFechaGanadoFromConsulta(consulta)).format("DD/MM/YYYY")}
           </Field>
           <Field label="Ubicación obra" empty={!consulta.ubicacionobra}>
             {consulta.ubicacionobra}

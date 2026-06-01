@@ -6,6 +6,7 @@
  */
 
 import { entities } from "@/api/supabaseClient";
+import { applyFechaGanadoOnStageChange, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
 /**
  * Guardar una consulta con múltiples items
@@ -58,6 +59,21 @@ export const guardarConsultaConItems = async (consulta, items, workspace_id) => 
       pipeline_stage: consulta.pipeline_stage || "NUEVO LEAD",
       workspace_id: workspace_id || consulta.workspace_id,
     };
+
+    const existingFecha = getFechaGanadoFromConsulta(consulta);
+    if (existingFecha) {
+      dataToSave.fecha_ganado = existingFecha;
+    } else if (!consulta.id) {
+      const fechaPatch = applyFechaGanadoOnStageChange({
+        previousStage: null,
+        nextStage: dataToSave.pipeline_stage,
+        currentFechaGanado: null,
+        patch: {},
+      });
+      if (fechaPatch.fecha_ganado) {
+        dataToSave.fecha_ganado = fechaPatch.fecha_ganado;
+      }
+    }
 
     // 3. Guardar o actualizar
     let resultado;

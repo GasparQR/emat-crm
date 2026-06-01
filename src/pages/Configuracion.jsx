@@ -4,8 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Database, Trash2, Loader2, Calendar } from "lucide-react";
+import { ArrowLeft, Database, Loader2, Calendar, Download } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  BACKUP_ENTITIES,
+  getDefaultBackupSelection,
+  exportWorkspaceBackup,
+} from "@/lib/backupExport";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { auth, users, entities } from "@/api/supabaseClient";
@@ -29,6 +34,51 @@ export default function Configuracion() {
   const [defaultObservaciones, setDefaultObservaciones] = useState("");
   const [firmasAsesor, setFirmasAsesor] = useState({});
   const [savingDefaults, setSavingDefaults] = useState(false);
+  const [backupSelection, setBackupSelection] = useState(getDefaultBackupSelection);
+  const [exporting, setExporting] = useState(false);
+
+  const selectedBackupCount = BACKUP_ENTITIES.filter((e) => backupSelection[e.id]).length;
+  const allBackupSelected = selectedBackupCount === BACKUP_ENTITIES.length;
+
+  const handleToggleBackupItem = (id, checked) => {
+    setBackupSelection((prev) => ({ ...prev, [id]: checked }));
+  };
+
+  const handleSelectAllBackup = () => {
+    setBackupSelection(getDefaultBackupSelection());
+  };
+
+  const handleDeselectAllBackup = () => {
+    setBackupSelection(Object.fromEntries(BACKUP_ENTITIES.map((e) => [e.id, false])));
+  };
+
+  const handleExportBackup = async () => {
+    const selectedIds = BACKUP_ENTITIES.filter((e) => backupSelection[e.id]).map((e) => e.id);
+    if (selectedIds.length === 0) {
+      toast.error("Seleccioná al menos un ítem para exportar");
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const workspaceId = workspace?.id || "local";
+      const result = await exportWorkspaceBackup({ workspaceId, selectedIds });
+      const parts = [];
+      if (result.rowCounts?.presupuestos !== undefined) {
+        parts.push(`${result.rowCounts.presupuestos} presupuestos`);
+      }
+      if (result.rowCounts?.contactos !== undefined) {
+        parts.push(`${result.rowCounts.contactos} contactos`);
+      }
+      const detail = parts.length > 0 ? `: ${parts.join(", ")}` : "";
+      toast.success(`Backup exportado${detail}`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Error al exportar el backup");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -144,8 +194,8 @@ export default function Configuracion() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
+      <div className="max-w-4xl mx-auto space-y-6 px-0 sm:px-0">
         <div>
           <Link to={createPageUrl("Ajustes")}>
             <Button variant="ghost" className="gap-2 mb-2 -ml-2">
@@ -255,20 +305,62 @@ export default function Configuracion() {
               <Database className="w-5 h-5" />
               Gestión de datos
             </CardTitle>
-            <CardDescription>Exportar o eliminar tus datos</CardDescription>
+            <CardDescription>Exportar una copia de seguridad de tus datos</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Button variant="outline" className="w-full">
-                Exportar todos los datos (CSV)
-              </Button>
-            </div>
-            <Separator />
-            <div>
-              <p className="text-sm text-slate-500 mb-2">Zona peligrosa</p>
-              <Button variant="destructive" className="w-full gap-2">
-                <Trash2 className="w-4 h-4" />
-                Eliminar todas las consultas
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Respalda contactos y presupuestos del workspace actual en un ZIP con archivos CSV.
+              </p>
+              <div className="flex items-center gap-3 text-sm">
+                <button
+                  type="button"
+                  onClick={handleSelectAllBackup}
+                  className="text-blue-600 hover:underline disabled:opacity-50"
+                  disabled={allBackupSelected}
+                >
+                  Seleccionar todo
+                </button>
+                <span className="text-slate-300">|</span>
+                <button
+                  type="button"
+                  onClick={handleDeselectAllBackup}
+                  className="text-blue-600 hover:underline disabled:opacity-50"
+                  disabled={selectedBackupCount === 0}
+                >
+                  Deseleccionar todo
+                </button>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white divide-y divide-slate-100">
+                {BACKUP_ENTITIES.map((entity) => (
+                  <label
+                    key={entity.id}
+                    htmlFor={`backup-${entity.id}`}
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50"
+                  >
+                    <Checkbox
+                      id={`backup-${entity.id}`}
+                      checked={!!backupSelection[entity.id]}
+                      onCheckedChange={(checked) =>
+                        handleToggleBackupItem(entity.id, checked === true)
+                      }
+                    />
+                    <span className="text-sm text-slate-800">{entity.label}</span>
+                  </label>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={handleExportBackup}
+                disabled={exporting || selectedBackupCount === 0}
+              >
+                {exporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Exportar backup (ZIP)
               </Button>
             </div>
           </CardContent>

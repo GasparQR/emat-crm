@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, Send } from "lucide-react";
+import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, Send, FileText } from "lucide-react";
+import QuickCallButton from "./QuickCallButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import moment from "moment";
@@ -21,7 +22,7 @@ const MOTIVOS_PERDIDA = [
   { value: "Otro", label: "Otro" },
 ];
 
-export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPerdido, isDragging }) {
+export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPerdido, onPreviewPdf, isDragging }) {
   const seguimientoVencido = consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
   const seguimientoHoy = consulta.proximoseguimiento &&
@@ -53,7 +54,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100" onClick={e => e.stopPropagation()}>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100" onClick={e => e.stopPropagation()}>
               <MoreHorizontal className="w-3.5 h-3.5" />
             </Button>
           </DropdownMenuTrigger>
@@ -67,6 +68,10 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
                 WhatsApp
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem onClick={e => { e.stopPropagation(); onPreviewPdf?.(consulta); }}>
+              <FileText className="w-4 h-4 mr-2" />
+              Ver PDF
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <p className="text-xs text-slate-400 px-2 py-1">Marcar como perdido</p>
             {MOTIVOS_PERDIDA.map(m => (
@@ -134,6 +139,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
               {moment(consulta.proximoseguimiento).format("DD/MM")}
             </div>
           )}
+          <QuickCallButton phone={consulta.contactowhatsapp} className="h-6 w-6 sm:min-h-6 sm:min-w-6" />
           {consulta.contactowhatsapp && (
             <Button
               size="sm"

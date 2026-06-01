@@ -13,6 +13,11 @@ import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { buildConsultaPdf } from "@/lib/consultaPdf";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
+import { useActiveCall } from "@/components/context/ActiveCallContext";
+import {
+  applyFechaGanadoOnStageChange,
+  getFechaGanadoFromConsulta,
+} from "@/lib/pipelineStage";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
@@ -98,6 +103,7 @@ const emptyForm = () => ({
   observaciones: "",
   notas: "",
   razonPerdida: "",
+  fechaGanado: "",
 });
 
 function buildFallbackPayload(payload, err) {
@@ -105,6 +111,9 @@ function buildFallbackPayload(payload, err) {
   const msg = String(err?.message ?? err ?? "");
   if (/notas/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
     delete next.notas;
+  }
+  if (/fecha_ganado/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.fecha_ganado;
   }
   return next;
 }
@@ -121,6 +130,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
     queryKey: ['pipeline-stages', workspace?.id],
@@ -191,6 +201,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         observaciones: consulta.observaciones ?? "",
         notas: consulta.notas ?? "",
         razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
+        fechaGanado: getFechaGanadoFromConsulta(consulta) ?? "",
       });
       return;
     }
@@ -237,6 +248,20 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     loadNextNroPpto();
     return () => { active = false; };
   }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones, currentUser?.consulta_follow_up_days]);
+
+  useEffect(() => {
+    if (!open) {
+      clearCallTarget();
+      return;
+    }
+    const phone = formData.contactoWhatsapp;
+    const label = formData.contactoNombre;
+    if (phone) {
+      setCallTarget({ phone, label });
+    } else {
+      clearCallTarget();
+    }
+  }, [open, formData.contactoWhatsapp, formData.contactoNombre, setCallTarget, clearCallTarget]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -381,6 +406,17 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       }
       const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
+      let fechaGanadoValue = formData.fechaGanado || null;
+      if (!fechaGanadoValue) {
+        const autoFecha = applyFechaGanadoOnStageChange({
+          previousStage: consulta?.pipeline_stage,
+          nextStage: formData.etapa,
+          currentFechaGanado: getFechaGanadoFromConsulta(consulta),
+          patch: {},
+        });
+        fechaGanadoValue = autoFecha.fecha_ganado ?? getFechaGanadoFromConsulta(consulta) ?? null;
+      }
+
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
         contactonombre: formData.contactoNombre,
@@ -411,6 +447,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         diasvalidez: formData.diasValidez !== "" ? parseInt(formData.diasValidez) : 30,
         condicionescomerciales: formData.condicionesComerciales,
         proximoseguimiento: formData.proximoSeguimiento || null,
+        fecha_ganado: fechaGanadoValue,
         razonperdida: formData.razonPerdida || null,
         firmaasesor: firmaAsesor,
         items: formData.items.map((item) => ({
@@ -480,7 +517,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) clearCallTarget();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
@@ -595,6 +638,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha ganada</Label>
+                <Input
+                  type="date"
+                  value={formData.fechaGanado}
+                  onChange={(e) => set("fechaGanado", e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Importe total ($)</Label>
