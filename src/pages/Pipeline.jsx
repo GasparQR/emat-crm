@@ -5,11 +5,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
-import PipelineMobileView from "@/components/crm/PipelineMobileView";
 import ConsultaForm from "@/components/crm/ConsultaForm";
-import ConsultaPdfPreviewDialog from "@/components/crm/ConsultaPdfPreviewDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Button } from "@/components/ui/button";
@@ -17,22 +13,17 @@ import { Plus, Filter, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
-  const [previewConsulta, setPreviewConsulta] = useState(null);
   const [filtroCanal, setFiltroCanal] = useState("todos");
   const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
-  const isMobile = useIsMobile();
-  const { setCallTarget } = useActiveCall();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
@@ -71,28 +62,27 @@ export default function Pipeline() {
     return maxNro + 1;
   };
 
-  const moveConsultaToStage = async (consulta, newEtapa) => {
-    const patch = await buildPipelineStagePatchAsync(consulta, newEtapa, {
-      etapas,
-      getNextNroPpto,
-    });
-    if (!patch) return;
-
-    updateMutation.mutate({
-      id: consulta.id,
-      data: patch,
-    });
-
-    toast.success(`Movido a ${newEtapa}`);
-  };
-
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
     const { draggableId, destination } = result;
     const newEtapa = destination.droppableId;
+
+    const patch = { pipeline_stage: newEtapa };
+
+    // Assign nroppto when moving to a non-NUEVO LEAD stage and the consulta has none yet
+    const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
     const consulta = consultas.find(c => c.id === draggableId);
-    if (consulta) await moveConsultaToStage(consulta, newEtapa);
+    if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
+      patch.nroppto = await getNextNroPpto();
+    }
+
+    updateMutation.mutate({
+      id: draggableId,
+      data: patch,
+    });
+
+    toast.success(`Movido a ${newEtapa}`);
   };
 
   const handleWhatsApp = (consulta) => {
@@ -102,22 +92,8 @@ export default function Pipeline() {
 
   const handleEdit = (consulta) => {
     setSelectedConsulta(consulta);
-    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
-    if (phone) {
-      setCallTarget({ phone, label: consulta.contactonombre });
-    }
+    // Delay to let DropdownMenu fully close and release focus before Dialog opens
     setTimeout(() => setShowForm(true), 100);
-  };
-
-  const handlePreviewPdf = (consulta) => {
-    setPreviewConsulta(consulta);
-  };
-
-  const handleSelectConsulta = (consulta) => {
-    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
-    if (phone) {
-      setCallTarget({ phone, label: consulta.contactonombre });
-    }
   };
 
   // Nuevo: marcar como perdido directamente desde la card del pipeline
@@ -168,8 +144,8 @@ export default function Pipeline() {
               </Button>
             </div>
           </div>
-          <div className={cn("flex items-center gap-2", isMobile ? "flex-col items-stretch" : "flex-wrap")}>
-            <Filter className="w-4 h-4 text-slate-400 hidden sm:block" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
             <Select value={filtroCanal} onValueChange={setFiltroCanal}>
               <SelectTrigger className="w-[130px] h-9">
                 <SelectValue />
@@ -180,21 +156,10 @@ export default function Pipeline() {
                 <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                 <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
                 <SelectItem value="Referido">Referido</SelectItem>
-                <SelectItem value="REFERIDO">REFERIDO</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
-              <SelectTrigger className="w-[110px] h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="Alta">Alta</SelectItem>
-                <SelectItem value="Media">Media</SelectItem>
-                <SelectItem value="Baja">Baja</SelectItem>
-              </SelectContent>
-            </Select>
+            
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
               <SelectTrigger className="w-[130px] h-9">
                 <SelectValue />
@@ -210,37 +175,23 @@ export default function Pipeline() {
         </div>
       </div>
 
-      {/* Kanban / Mobile stacked */}
-      <div className={cn("p-4 sm:p-6", !isMobile && "overflow-x-auto")}>
-        {isMobile ? (
-          <PipelineMobileView
-            etapas={etapas}
-            consultasPorEtapa={consultasPorEtapa}
-            onStageChange={moveConsultaToStage}
-            onEdit={handleEdit}
-            onWhatsApp={handleWhatsApp}
-            onMarcarPerdido={handleMarcarPerdido}
-            onSelectConsulta={handleSelectConsulta}
-            onPreviewPdf={handlePreviewPdf}
-          />
-        ) : (
-          <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
-            <div className="flex gap-4 min-w-max">
-              {etapas.map(etapa => (
-                <PipelineColumn
-                  key={etapa.pipeline_stage}
-                  etapa={etapa.pipeline_stage}
-                  etapaColor={etapa.color}
-                  consultas={consultasPorEtapa[etapa.pipeline_stage]}
-                  onWhatsApp={handleWhatsApp}
-                  onEdit={handleEdit}
-                  onMarcarPerdido={handleMarcarPerdido}
-                  onPreviewPdf={handlePreviewPdf}
-                />
-              ))}
-            </div>
-          </DragDropContext>
-        )}
+      {/* Kanban */}
+      <div className="p-4 sm:p-6 overflow-x-auto">
+        <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
+          <div className="flex gap-4 min-w-max">
+            {etapas.map(etapa => (
+              <PipelineColumn
+                key={etapa.pipeline_stage}
+                etapa={etapa.pipeline_stage}
+                etapaColor={etapa.color}
+                consultas={consultasPorEtapa[etapa.pipeline_stage]}
+                onWhatsApp={handleWhatsApp}
+                onEdit={handleEdit}
+                onMarcarPerdido={handleMarcarPerdido}
+              />
+            ))}
+          </div>
+        </DragDropContext>
       </div>
 
       <ConsultaForm
@@ -258,12 +209,6 @@ export default function Pipeline() {
         onOpenChange={setShowWhatsApp}
         consulta={selectedConsulta}
         onMessageSent={refetch}
-      />
-
-      <ConsultaPdfPreviewDialog
-        consulta={previewConsulta}
-        open={!!previewConsulta}
-        onOpenChange={(open) => { if (!open) setPreviewConsulta(null); }}
       />
     </div>
   );
