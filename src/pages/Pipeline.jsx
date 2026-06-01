@@ -156,21 +156,10 @@ export default function Pipeline() {
                 <SelectItem value="WhatsApp">WhatsApp</SelectItem>
                 <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
                 <SelectItem value="Referido">Referido</SelectItem>
-                <SelectItem value="REFERIDO">REFERIDO</SelectItem>
                 <SelectItem value="Google">Google</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filtroPrioridad} onValueChange={setFiltroPrioridad}>
-              <SelectTrigger className="w-[110px] h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="Alta">Alta</SelectItem>
-                <SelectItem value="Media">Media</SelectItem>
-                <SelectItem value="Baja">Baja</SelectItem>
-              </SelectContent>
-            </Select>
+            
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
               <SelectTrigger className="w-[130px] h-9">
                 <SelectValue />
