@@ -18,6 +18,7 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
+import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6",
@@ -278,9 +279,13 @@ export default function Reportes() {
         ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     const tiemposEnPipeline = filtradas
-      .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
-      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
-      .filter((d) => d >= 0);
+      .filter((c) => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA")
+      .map((c) => {
+        const fechaGanado = getFechaGanadoFromConsulta(c);
+        if (!fechaGanado || !c.created_date) return null;
+        return moment(fechaGanado).diff(moment(c.created_date), "days");
+      })
+      .filter((d) => d !== null && d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
         ? Math.round(tiemposEnPipeline.reduce((a, b) => a + b, 0) / tiemposEnPipeline.length)
@@ -791,7 +796,7 @@ export default function Reportes() {
                   <p className="text-4xl font-bold text-slate-900">
                     {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "—"}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">días desde creacion (ganados/ejecutados)</p>
+                  <p className="text-xs text-slate-500 mt-1">días desde creación hasta fecha ganada (con fecha registrada)</p>
                 </CardContent>
               </Card>
             </div>

@@ -18,6 +18,7 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -71,13 +72,11 @@ export default function Pipeline() {
   };
 
   const moveConsultaToStage = async (consulta, newEtapa) => {
-    if (!newEtapa || newEtapa === consulta.pipeline_stage) return;
-
-    const patch = { pipeline_stage: newEtapa };
-    const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
-    if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
-      patch.nroppto = await getNextNroPpto();
-    }
+    const patch = await buildPipelineStagePatchAsync(consulta, newEtapa, {
+      etapas,
+      getNextNroPpto,
+    });
+    if (!patch) return;
 
     updateMutation.mutate({
       id: consulta.id,

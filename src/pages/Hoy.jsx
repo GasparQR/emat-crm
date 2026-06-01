@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/SimpleAuthContext";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
+import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
@@ -134,12 +135,11 @@ export default function Hoy() {
   };
 
   const handleStageChange = async (consulta, newStage) => {
-    if (!newStage || newStage === consulta.pipeline_stage) return;
-    const patch = { pipeline_stage: newStage };
-    const destStage = etapas.find(s => s.pipeline_stage === newStage);
-    if (destStage && destStage.orden !== 0 && !consulta.nroppto) {
-      patch.nroppto = await getNextNroPpto();
-    }
+    const patch = await buildPipelineStagePatchAsync(consulta, newStage, {
+      etapas,
+      getNextNroPpto,
+    });
+    if (!patch) return;
     await updateMutation.mutateAsync({ id: consulta.id, data: patch });
   };
 

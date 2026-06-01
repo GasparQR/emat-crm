@@ -3,6 +3,7 @@ import { Calendar, MapPin, Ruler } from "lucide-react";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import QuickCallButton from "./QuickCallButton";
+import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -21,6 +22,7 @@ export default function MobileConsultaListItem({
     consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
   const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+  const fechaGanado = getFechaGanadoFromConsulta(consulta);
 
   const handleClick = () => {
     if (phone && onCallTarget) {
@@ -93,17 +95,24 @@ export default function MobileConsultaListItem({
         ) : (
           <span className="text-slate-400 text-sm">-</span>
         )}
-        {consulta.proximoseguimiento && (
-          <span
-            className={cn(
-              "flex items-center gap-1 text-xs",
-              seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500"
-            )}
-          >
-            <Calendar className="w-3 h-3" />
-            {moment(consulta.proximoseguimiento).format("DD/MM/YY")}
-          </span>
-        )}
+        <div className="flex flex-col items-end gap-0.5">
+          {fechaGanado && (
+            <span className="text-xs text-green-700">
+              Ganada {moment(fechaGanado).format("DD/MM/YY")}
+            </span>
+          )}
+          {consulta.proximoseguimiento && (
+            <span
+              className={cn(
+                "flex items-center gap-1 text-xs",
+                seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500"
+              )}
+            >
+              <Calendar className="w-3 h-3" />
+              {moment(consulta.proximoseguimiento).format("DD/MM/YY")}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   );
