@@ -256,6 +256,23 @@ export default function Reportes() {
     });
   }, [filtradas]);
 
+  const metricasCrecimiento = useMemo(() => {
+    if (evolucionMensual.length < 2) return null;
+    const primero = evolucionMensual[0].total;
+    const ultimo = evolucionMensual[evolucionMensual.length - 1].total;
+    const crecimiento = primero > 0 ? ((ultimo - primero) / primero) * 100 : 0;
+    const promedio = Math.round(evolucionMensual.reduce((sum, m) => sum + m.total, 0) / evolucionMensual.length);
+    return {
+      crecimiento: crecimiento.toFixed(1),
+      direccion: crecimiento >= 0 ? "↑" : "↓",
+      color: crecimiento >= 0 ? "text-green-700" : "text-red-700",
+      primero,
+      ultimo,
+      promedio,
+      meses: evolucionMensual.length,
+    };
+  }, [evolucionMensual]);
+
   // TAB 4 - PIPELINE & SEGUIMIENTO
   const pipelineData = useMemo(() => {
     const pipeline_stages = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
@@ -607,6 +624,50 @@ export default function Reportes() {
 
           {/* TAB 3: ANÁLISIS COMERCIAL */}
           <TabsContent value="comercial" className="space-y-6">
+            {/* EVOLUCIÓN MENSUAL - PRIMERO Y DESTACADO */}
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-base sm:text-lg">Evolución mensual de presupuestos</CardTitle>
+                    <p className="text-xs text-slate-500 mt-1">Impacto del CRM Pragma en tu pipeline</p>
+                  </div>
+                  {metricasCrecimiento && (
+                    <div className="text-right">
+                      <p className={`text-2xl sm:text-3xl font-bold ${metricasCrecimiento.color}`}>
+                        {metricasCrecimiento.direccion} {Math.abs(metricasCrecimiento.crecimiento)}%
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {metricasCrecimiento.ultimo} presupuestos últimamente
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Promedio: {metricasCrecimiento.promedio}/mes en {metricasCrecimiento.meses} meses
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="total"
+                      name="Presupuestos"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#3b82f6" }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -634,24 +695,28 @@ export default function Reportes() {
                 <CardHeader>
                   <CardTitle className="text-base">Distribución por canal (total)</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={280}>
+                <CardContent className="flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height={320}>
                     <PieChart>
                       <Pie
                         data={canalOrigenData}
                         cx="50%"
-                        cy="45%"
-                        outerRadius={85}
+                        cy="50%"
+                        outerRadius={80}
                         dataKey="cantidad"
                         nameKey="name"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {canalOrigenData.map((entry, i) => (
                           <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip />
-                      <Legend />
+                      <Tooltip formatter={(value) => [`${value} presupuestos`, 'Total']} />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36}
+                        formatter={(value) => <span className="text-xs sm:text-sm">{value}</span>}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -719,30 +784,6 @@ export default function Reportes() {
                     <Tooltip />
                     <Bar dataKey="value" name="Presupuestos" fill="#f59e0b" radius={[0,4,4,0]} />
                   </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Evolucion mensual de presupuestos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={evolucionMensual} margin={{ top: 5, right: 10, left: 0, bottom: 70 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} height={80} />
-                    <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      name="Presupuestos"
-                      stroke="#6366f1"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
