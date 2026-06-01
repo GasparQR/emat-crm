@@ -18,7 +18,6 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
-import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6",
@@ -127,6 +126,7 @@ export default function Reportes() {
     const tasa =
       conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
     const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
+    const fibraKgTotal = filtradas.reduce((s, c) => s + (c.fibrakg || 0), 0);
     const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
     const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
     const enSeguimiento = filtradas.filter(
@@ -136,6 +136,7 @@ export default function Reportes() {
       total: filtradas.length,
       tasa,
       m2Total: Math.round(m2Total),
+      fibraKgTotal: Math.round(fibraKgTotal),
       importeGanado,
       ticketPromedio,
       enSeguimiento: enSeguimiento.length,
@@ -279,13 +280,9 @@ export default function Reportes() {
         ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
     );
     const tiemposEnPipeline = filtradas
-      .filter((c) => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA")
-      .map((c) => {
-        const fechaGanado = getFechaGanadoFromConsulta(c);
-        if (!fechaGanado || !c.created_date) return null;
-        return moment(fechaGanado).diff(moment(c.created_date), "days");
-      })
-      .filter((d) => d !== null && d >= 0);
+      .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
+      .map((c) => moment(c.updated_date || c.created_date).diff(moment(c.created_date), "days"))
+      .filter((d) => d >= 0);
     const tiempoProm =
       tiemposEnPipeline.length > 0
         ? Math.round(tiemposEnPipeline.reduce((a, b) => a + b, 0) / tiemposEnPipeline.length)
@@ -404,7 +401,7 @@ export default function Reportes() {
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
@@ -435,6 +432,17 @@ export default function Reportes() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-3xl font-bold text-slate-900">{fmt(kpis.m2Total)}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5" />Fibra kg
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-slate-900">{fmt(kpis.fibraKgTotal)}</p>
                 </CardContent>
               </Card>
 
@@ -796,7 +804,7 @@ export default function Reportes() {
                   <p className="text-4xl font-bold text-slate-900">
                     {seguimientoInfo.tiempoProm !== null ? seguimientoInfo.tiempoProm : "—"}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">días desde creación hasta fecha ganada (con fecha registrada)</p>
+                  <p className="text-xs text-slate-500 mt-1">días desde creacion (ganados/ejecutados)</p>
                 </CardContent>
               </Card>
             </div>
