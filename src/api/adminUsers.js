@@ -1,7 +1,21 @@
 import { supabase } from "@/api/supabaseClient";
 
 async function invoke(name, body) {
-  const { data, error } = await supabase.functions.invoke(name, { body });
+  // Obtener el token de sesión
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  if (sessionError || !session?.access_token) {
+    throw new Error('No session available');
+  }
+
+  // Invocar con Authorization header
+  const { data, error } = await supabase.functions.invoke(name, { 
+    body,
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+    }
+  });
+  
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
