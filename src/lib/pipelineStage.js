@@ -35,6 +35,10 @@ export function applyFechaGanadoOnStageChange({
     next.fecha_ganado = todayDateString();
   }
 
+  if (!isNowWon && wasWon) {
+    next.fecha_ganado = null;
+  }
+
   return next;
 }
 

@@ -17,7 +17,10 @@ import { useActiveCall } from "@/components/context/ActiveCallContext";
 import {
   applyFechaGanadoOnStageChange,
   getFechaGanadoFromConsulta,
+  isWonStage,
+  todayDateString,
 } from "@/lib/pipelineStage";
+import { parseConsultaItems } from "@/utils/parseConsultaItems";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
@@ -156,19 +159,23 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     if (!open) return;
 
     if (consulta) {
+      const etapa = consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa;
       const firstItem = {
         descripcionServicio: consulta.descripcionservicio ?? consulta.descripcionServicio ?? "Presupuesto de Servicio",
         precioUnitario: consulta.preciounitario ?? consulta.precioUnitario ?? "",
         cantidad: consulta.cantidad ?? "",
         importe: consulta.importe ?? "",
       };
-      const rawItems = Array.isArray(consulta.items) && consulta.items.length > 0 ? consulta.items : [firstItem];
+      const parsedItems = parseConsultaItems(consulta.items);
+      const rawItems = parsedItems.length > 0 ? parsedItems : [firstItem];
       const mappedItems = rawItems.map((item) => createItem({
         descripcionServicio: item.descripcionServicio ?? item.descripcionservicio ?? firstItem.descripcionServicio,
         precioUnitario: item.precioUnitario ?? item.preciounitario ?? "",
         cantidad: item.cantidad ?? "",
         importe: item.importe ?? "",
       }));
+      const { nextItems, totalText } = computeItemsAndTotal(mappedItems);
+      const fechaGanadoStored = getFechaGanadoFromConsulta(consulta);
       setFormData({
         ...emptyForm(),
         nroPpto: consulta.nroppto ?? consulta.nroPpto ?? "",
@@ -184,24 +191,24 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         kmObra: consulta.kmobra ?? consulta.kmObra ?? "",
         tipoCliente: consulta.tipocliente ?? consulta.tipoCliente ?? "",
         canalOrigen: consulta.canalorigen ?? consulta.canalOrigen ?? "",
-        descripcionServicio: mappedItems[0]?.descripcionServicio ?? "Presupuesto de Servicio",
-        precioUnitario: mappedItems[0]?.precioUnitario ?? "",
-        cantidad: mappedItems[0]?.cantidad ?? "",
-        importe: mappedItems[0]?.importe ?? "",
-        items: mappedItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "Presupuesto de Servicio",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: totalText,
+        items: nextItems,
         iva: consulta.iva ?? 21,
         empresa: consulta.empresa ?? "EMAT",
         fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split("T")[0],
         diasValidez: consulta.diasvalidez ?? consulta.diasValidez ?? 30,
         condicionesComerciales: consulta.condicionescomerciales ?? consulta.condicionesComerciales ?? "",
-        etapa: consulta.pipeline_stage ?? consulta.etapa ?? emptyForm().etapa,
+        etapa,
         mes: consulta.mes ?? emptyForm().mes,
         ano: consulta.ano ?? emptyForm().ano,
         proximoSeguimiento: consulta.proximoseguimiento ?? consulta.proximoSeguimiento ?? "",
         observaciones: consulta.observaciones ?? "",
         notas: consulta.notas ?? "",
         razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
-        fechaGanado: getFechaGanadoFromConsulta(consulta) ?? "",
+        fechaGanado: isWonStage(etapa) ? (fechaGanadoStored ?? "") : "",
       });
       return;
     }
@@ -264,6 +271,15 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   }, [open, formData.contactoWhatsapp, formData.contactoNombre, setCallTarget, clearCallTarget]);
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
+
+  const handleEtapaChange = (etapa) => {
+    setFormData((prev) => {
+      const fechaGanado = isWonStage(etapa)
+        ? (prev.fechaGanado || todayDateString())
+        : "";
+      return { ...prev, etapa, fechaGanado };
+    });
+  };
 
   useEffect(() => {
     return () => {
@@ -406,15 +422,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       }
       const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
 
-      let fechaGanadoValue = formData.fechaGanado || null;
-      if (!fechaGanadoValue) {
-        const autoFecha = applyFechaGanadoOnStageChange({
-          previousStage: consulta?.pipeline_stage,
+      let fechaGanadoValue = null;
+      if (isWonStage(formData.etapa)) {
+        const existing = getFechaGanadoFromConsulta(consulta);
+        const patch = applyFechaGanadoOnStageChange({
+          previousStage: consulta?.pipeline_stage ?? consulta?.etapa,
           nextStage: formData.etapa,
-          currentFechaGanado: getFechaGanadoFromConsulta(consulta),
+          currentFechaGanado: existing,
           patch: {},
         });
-        fechaGanadoValue = autoFecha.fecha_ganado ?? getFechaGanadoFromConsulta(consulta) ?? null;
+        fechaGanadoValue = patch.fecha_ganado ?? existing ?? null;
       }
 
       const payload = {
@@ -634,19 +651,26 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
               </div>
               <div className="space-y-1">
                 <Label>Estado</Label>
-                <Select value={formData.etapa} onValueChange={v => set("etapa", v)}>
+                <Select value={formData.etapa} onValueChange={handleEtapaChange}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label>Fecha ganada</Label>
-                <Input
-                  type="date"
-                  value={formData.fechaGanado}
-                  onChange={(e) => set("fechaGanado", e.target.value)}
-                />
-              </div>
+              {isWonStage(formData.etapa) && (
+                <div className="space-y-1">
+                  <Label>Fecha ganada</Label>
+                  <Input
+                    type="date"
+                    value={formData.fechaGanado}
+                    readOnly
+                    aria-readonly="true"
+                    className="bg-slate-50"
+                  />
+                  <p className="text-xs text-slate-500">
+                    Se completa al marcar como GANADA o EJECUTADA
+                  </p>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label>Importe total ($)</Label>
                 <Input type="number" value={formData.importe} readOnly aria-readonly="true" className="bg-slate-50" />
@@ -721,7 +745,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   <div className="flex items-center justify-between rounded-md border bg-white px-3 py-2">
                     <span className="text-sm font-medium text-slate-600">Total ítems</span>
                     <span className="text-sm font-bold text-slate-900">
-                      {formData.importe ? `$${Number(formData.importe).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "$0,00"}
+                      {formData.items.length} {formData.items.length === 1 ? "ítem" : "ítems"}
                     </span>
                   </div>
                 </div>
