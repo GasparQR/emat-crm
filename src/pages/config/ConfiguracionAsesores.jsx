@@ -3,8 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Plus } from "lucide-react";
-import { entities, supabase } from "@/api/supabaseClient";
+import { entities, supabase, auth } from "@/api/supabaseClient";
 import { createPageUrl } from "@/utils";
+import {
+  DUPLICATE_ASESOR_EMAIL_ERROR,
+  isDuplicateAsesorEmail,
+  isDuplicateUsuarioEmail,
+  mapDuplicateEmailError,
+  normalizeEmail,
+} from "@/lib/emailValidation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,6 +50,11 @@ export default function ConfiguracionAsesores() {
     queryFn: () => entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000),
   });
 
+  const { data: usuarios = [] } = useQuery({
+    queryKey: ["admin-usuarios"],
+    queryFn: () => auth.listUsuarios(),
+  });
+
   const activeAsesores = useMemo(
     () => (asesores || []).filter((a) => a.active !== false && a.activo !== false),
     [asesores]
@@ -79,13 +91,25 @@ export default function ConfiguracionAsesores() {
       return;
     }
 
+    const email = normalizeEmail(form.email);
+    if (email) {
+      if (isDuplicateAsesorEmail(email, asesores, { excludeId: editing ? form.id : null })) {
+        toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
+        return;
+      }
+      if (isDuplicateUsuarioEmail(email, usuarios)) {
+        toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const payload = {
         workspace_id: workspaceId,
         codigo: form.codigo.trim().toUpperCase(),
         nombre: form.nombre.trim(),
-        email: form.email.trim() || null,
+        email: email || null,
         active: form.active,
         activo: form.active,
       };
@@ -102,7 +126,8 @@ export default function ConfiguracionAsesores() {
       setOpen(false);
       refresh();
     } catch (error) {
-      toast.error(error?.message || "No se pudo guardar");
+      const mapped = mapDuplicateEmailError(error?.message);
+      toast.error(mapped || error?.message || "No se pudo guardar");
     } finally {
       setSaving(false);
     }

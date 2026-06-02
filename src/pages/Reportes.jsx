@@ -18,6 +18,8 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
+import { useAuth } from "@/lib/SimpleAuthContext";
+import { canViewGlobalData, filterConsultasByVisibility } from "@/lib/permissions";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6",
@@ -70,9 +72,11 @@ export default function Reportes() {
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
   const { workspace } = useWorkspace();
+  const { user } = useAuth();
+  const canViewAll = canViewGlobalData(user);
 
   const { data: consultas = [], isLoading } = useQuery({
-    queryKey: ["consultas-reportes", workspace?.id],
+    queryKey: ["consultas-reportes", workspace?.id, user?.asesor_codigo, user?.role],
     queryFn: () =>
       workspace
         ? entities.Consulta.filter({ workspace_id: workspace.id }, "-nroppto", 2000)
@@ -80,19 +84,24 @@ export default function Reportes() {
     enabled: !!workspace,
   });
 
+  const visibleConsultas = useMemo(
+    () => filterConsultasByVisibility(consultas, user),
+    [consultas, user]
+  );
+
   const anos = useMemo(
-    () => [...new Set(consultas.map((c) => c.ano).filter(Boolean))].sort((a, b) => b - a),
-    [consultas]
+    () => [...new Set(visibleConsultas.map((c) => c.ano).filter(Boolean))].sort((a, b) => b - a),
+    [visibleConsultas]
   );
 
   const asesoresUnicos = useMemo(
-    () => [...new Set(consultas.map((c) => c.asesor).filter(Boolean))].sort(),
-    [consultas]
+    () => [...new Set(visibleConsultas.map((c) => c.asesor).filter(Boolean))].sort(),
+    [visibleConsultas]
   );
 
   const mesesAnosDisponibles = useMemo(() => {
     const unique = new Map();
-    consultas.forEach((c) => {
+    visibleConsultas.forEach((c) => {
       if (!c?.mes || !c?.ano) return;
       const mes = String(c.mes).trim().toUpperCase();
       const ano = String(c.ano).trim();
@@ -110,10 +119,10 @@ export default function Reportes() {
       if (idxB === -1) return -1;
       return idxB - idxA;
     });
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   const filtradas = useMemo(() => {
-    return consultas.filter((c) => {
+    return visibleConsultas.filter((c) => {
       if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
       if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
       if (filtroMesAno !== "todos") {
@@ -124,7 +133,7 @@ export default function Reportes() {
       }
       return true;
     });
-  }, [consultas, filtroAsesor, filtroAno, filtroMesAno]);
+  }, [visibleConsultas, filtroAsesor, filtroAno, filtroMesAno]);
 
   // TAB 1 - DASHBOARD EJECUTIVO
   const kpis = useMemo(() => {
@@ -366,7 +375,9 @@ export default function Reportes() {
                 Volver
               </Button>
             </Link>
-            <h1 className="text-2xl font-bold text-slate-900">Reportes & Analytics</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {canViewAll ? "Reportes & Analytics" : "Mis reportes"}
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
               {filtradas.length} presupuesto{filtradas.length !== 1 ? "s" : ""} en el período seleccionado
             </p>
@@ -387,6 +398,7 @@ export default function Reportes() {
               </SelectContent>
             </Select>
 
+            {canViewAll && (
             <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Asesor" />
@@ -398,6 +410,7 @@ export default function Reportes() {
                 ))}
               </SelectContent>
             </Select>
+            )}
 
             <Select value={filtroAno} onValueChange={setFiltroAno}>
               <SelectTrigger className="w-32">
@@ -415,9 +428,9 @@ export default function Reportes() {
 
         {/* Tabs */}
         <Tabs defaultValue="ejecutivo" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-5">
+          <TabsList className={`grid w-full ${canViewAll ? "grid-cols-3 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
             <TabsTrigger value="ejecutivo">Ejecutivo</TabsTrigger>
-            <TabsTrigger value="asesores">Asesores</TabsTrigger>
+            {canViewAll && <TabsTrigger value="asesores">Asesores</TabsTrigger>}
             <TabsTrigger value="comercial">Comercial</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="perdidas">Pérdidas</TabsTrigger>
@@ -553,7 +566,7 @@ export default function Reportes() {
             </div>
           </TabsContent>
 
-          {/* TAB 2: ASESORES */}
+          {canViewAll && (
           <TabsContent value="asesores" className="space-y-6">
             {mejorAsesor && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
@@ -621,6 +634,7 @@ export default function Reportes() {
               ))}
             </div>
           </TabsContent>
+          )}
 
           {/* TAB 3: ANÁLISIS COMERCIAL */}
           <TabsContent value="comercial" className="space-y-6">
@@ -956,6 +970,7 @@ export default function Reportes() {
                 </CardContent>
               </Card>
 
+              {canViewAll && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Pérdidas por asesor</CardTitle>
@@ -980,6 +995,7 @@ export default function Reportes() {
                   )}
                 </CardContent>
               </Card>
+              )}
             </div>
 
             {perdidasData.porTipo.length > 0 && (

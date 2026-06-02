@@ -6,6 +6,15 @@ import { ArrowLeft, Plus, UserCog } from "lucide-react";
 import { auth, entities } from "@/api/supabaseClient";
 import { adminUsersApi } from "@/api/adminUsers";
 import { createPageUrl } from "@/utils";
+import {
+  DUPLICATE_ASESOR_EMAIL_ERROR,
+  DUPLICATE_USUARIO_EMAIL_ERROR,
+  isDuplicateAsesorEmail,
+  isDuplicateUsuarioEmail,
+  mapDuplicateEmailError,
+  normalizeEmail,
+} from "@/lib/emailValidation";
+import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,8 +23,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useAsesores } from "@/components/hooks/useAsesores";
-import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 
 const EMPTY_FORM = {
   id: "",
@@ -30,8 +37,8 @@ const EMPTY_FORM = {
 
 export default function ConfiguracionUsuarios() {
   const queryClient = useQueryClient();
-  const { data: currentUser } = useCurrentUser();
-  const { asesorOptions } = useAsesores(currentUser);
+  const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id || "local";
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -42,6 +49,11 @@ export default function ConfiguracionUsuarios() {
     queryFn: () => auth.listUsuarios(),
   });
 
+  const { data: asesores = [] } = useQuery({
+    queryKey: ["asesores-admin", workspaceId],
+    queryFn: () => entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000),
+  });
+
   const sortedUsers = useMemo(
     () => [...usuarios].sort((a, b) => (a.created_date < b.created_date ? 1 : -1)),
     [usuarios]
@@ -50,6 +62,8 @@ export default function ConfiguracionUsuarios() {
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
     queryClient.invalidateQueries({ queryKey: ["current-user"] });
+    queryClient.invalidateQueries({ queryKey: ["asesores"] });
+    queryClient.invalidateQueries({ queryKey: ["asesores-admin"] });
   };
 
   const openCreate = () => {
@@ -82,8 +96,15 @@ export default function ConfiguracionUsuarios() {
       toast.error("La contraseña es obligatoria para crear usuarios");
       return;
     }
-    if (form.role === "ASESOR" && !form.asesor_codigo) {
-      toast.error("El asesor código es obligatorio para el rol ASESOR");
+    if (
+      !editing &&
+      isDuplicateUsuarioEmail(form.email, sortedUsers)
+    ) {
+      toast.error(DUPLICATE_USUARIO_EMAIL_ERROR);
+      return;
+    }
+    if (!editing && isDuplicateAsesorEmail(form.email, asesores)) {
+      toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
       return;
     }
 
@@ -96,25 +117,24 @@ export default function ConfiguracionUsuarios() {
           role: form.role,
           active: form.active,
           can_view_other_advisors: form.can_view_other_advisors,
-          asesor_codigo: form.role === "ASESOR" ? form.asesor_codigo : null,
         });
         toast.success("Usuario actualizado");
       } else {
         await adminUsersApi.createUser({
           full_name: form.full_name.trim(),
-          email: form.email.trim(),
+          email: normalizeEmail(form.email),
           password: form.password,
           role: form.role,
           active: form.active,
           can_view_other_advisors: form.can_view_other_advisors,
-          asesor_codigo: form.role === "ASESOR" ? form.asesor_codigo : null,
         });
         toast.success("Usuario creado");
       }
       setOpen(false);
       refresh();
     } catch (error) {
-      toast.error(error?.message || "No se pudo guardar el usuario");
+      const mapped = mapDuplicateEmailError(error?.message);
+      toast.error(mapped || error?.message || "No se pudo guardar el usuario");
     } finally {
       setSaving(false);
     }
@@ -165,7 +185,7 @@ export default function ConfiguracionUsuarios() {
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Asesor código</TableHead>
+                  <TableHead>Cartera</TableHead>
                   <TableHead>Creado</TableHead>
                   <TableHead>Último acceso</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -221,7 +241,7 @@ export default function ConfiguracionUsuarios() {
             )}
             <div className="space-y-2">
               <Label>Rol</Label>
-              <Select value={form.role} onValueChange={(value) => setForm((p) => ({ ...p, role: value, asesor_codigo: value === "ASESOR" ? p.asesor_codigo : "" }))}>
+              <Select value={form.role} onValueChange={(value) => setForm((p) => ({ ...p, role: value }))}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar rol" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ADMIN">ADMIN</SelectItem>
@@ -232,17 +252,16 @@ export default function ConfiguracionUsuarios() {
             </div>
             {form.role === "ASESOR" && (
               <>
-                <div className="space-y-2">
-                  <Label>Asesor código</Label>
-                  <Select value={form.asesor_codigo} onValueChange={(value) => setForm((p) => ({ ...p, asesor_codigo: value }))}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar asesor" /></SelectTrigger>
-                    <SelectContent>
-                      {asesorOptions.map((a) => (
-                        <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {editing && form.asesor_codigo ? (
+                  <div className="space-y-1">
+                    <Label>Cartera comercial</Label>
+                    <p className="text-sm text-slate-600 bg-slate-50 border rounded-md px-3 py-2">{form.asesor_codigo}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Se asignará automáticamente una cartera comercial al guardar.
+                  </p>
+                )}
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={form.can_view_other_advisors}

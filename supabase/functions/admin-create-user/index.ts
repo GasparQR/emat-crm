@@ -1,5 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
+import {
+  ensureAsesorCatalog,
+  generateUniqueAsesorCodigo,
+} from '../_shared/asesorCode.ts';
+import { assertEmailAvailableForNewUser, DUPLICATE_USUARIO_EMAIL_ERROR } from '../_shared/emailValidation.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -57,7 +62,6 @@ Deno.serve(async (req) => {
     const role = String(body?.role ?? 'ASESOR').toUpperCase();
     const active = body?.active !== false;
     const can_view_other_advisors = body?.can_view_other_advisors === true;
-    const asesor_codigo = body?.asesor_codigo ? String(body.asesor_codigo).toUpperCase() : null;
 
     if (!full_name || !email || !password) {
       return jsonResponse({ error: 'full_name, email and password are required' }, 400);
@@ -65,25 +69,29 @@ Deno.serve(async (req) => {
     if (!['ADMIN', 'ASESOR', 'LOGISTICA'].includes(role)) {
       return jsonResponse({ error: 'Invalid role' }, 400);
     }
-    if (role === 'ASESOR' && !asesor_codigo) {
-      return jsonResponse({ error: 'asesor_codigo is required for ASESOR' }, 400);
+
+    const emailCheck = await assertEmailAvailableForNewUser(adminClient, email);
+    if (emailCheck.error) {
+      return jsonResponse({ error: emailCheck.error }, 400);
     }
 
-    if (role === 'ASESOR') {
-      const { data: asesorRow, error: asesorErr } = await adminClient
-        .from('asesor')
-        .select('codigo')
-        .eq('codigo', asesor_codigo)
-        .maybeSingle();
+    let asesor_codigo: string | null = null;
 
-      if (asesorErr) {
-        return jsonResponse({ error: asesorErr.message }, 400);
+    if (role === 'ASESOR') {
+      const generated = await generateUniqueAsesorCodigo(adminClient, full_name, email);
+      if ('error' in generated) {
+        return jsonResponse({ error: generated.error }, 400);
       }
-      if (!asesorRow) {
-        return jsonResponse(
-          { error: `El código de asesor "${asesor_codigo}" no existe en el catálogo` },
-          400,
-        );
+      asesor_codigo = generated.codigo;
+
+      const catalog = await ensureAsesorCatalog(
+        adminClient,
+        asesor_codigo,
+        full_name,
+        email,
+      );
+      if (catalog.error) {
+        return jsonResponse({ error: catalog.error }, 400);
       }
     }
 
@@ -100,6 +108,9 @@ Deno.serve(async (req) => {
 
     if (createErr || !createdAuth.user) {
       const msg = createErr?.message ?? 'Could not create auth user';
+      if (/already registered|already been registered|duplicate/i.test(msg)) {
+        return jsonResponse({ error: DUPLICATE_USUARIO_EMAIL_ERROR }, 400);
+      }
       const hint =
         /database error/i.test(msg)
           ? ' Ejecutá la migración 20260603120000_fix_auth_user_trigger.sql en Supabase (trigger insertaba usuario antes que asesor).'

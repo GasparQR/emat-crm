@@ -28,7 +28,7 @@ export function canManageUsers(user) {
 }
 
 export function canViewReportes(user) {
-  return isAdmin(user);
+  return isAdmin(user) || isAsesor(user);
 }
 
 export function canViewGlobalData(user) {
@@ -96,6 +96,7 @@ export function getNavItemsForRole(user) {
     { name: 'Hoy', icon: 'Calendar', page: 'Hoy' },
     { name: 'Presupuestos', icon: 'List', page: 'Consultas' },
     { name: 'Contactos', icon: 'Users', page: 'Contactos' },
+    { name: 'Reportes', icon: 'BarChart3', page: 'Reportes' },
     { name: 'Ajustes', icon: 'Settings', page: 'Ajustes' },
   ];
 }
@@ -108,7 +109,7 @@ export function canAccessRoute(user, pathName) {
     return isAdmin(user);
   }
   if (path === '/Reportes' || path === '/reportes') {
-    return isAdmin(user);
+    return isAdmin(user) || isAsesor(user);
   }
   return true;
 }

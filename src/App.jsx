@@ -96,7 +96,7 @@ const AuthenticatedApp = () => {
               key={path}
               path={`/${path}`}
               element={
-                <RequireRole roles={path === 'Reportes' ? ['ADMIN'] : ['ADMIN', 'ASESOR', 'LOGISTICA']} denyMode="redirect">
+                <RequireRole roles={path === 'Reportes' ? ['ADMIN', 'ASESOR'] : ['ADMIN', 'ASESOR', 'LOGISTICA']} denyMode="redirect">
                   <LayoutWrapper currentPageName={path}>
                     <Page />
                   </LayoutWrapper>
@@ -107,7 +107,7 @@ const AuthenticatedApp = () => {
           <Route
             path="/reportes"
             element={
-              <RequireRole roles={['ADMIN']} denyMode="redirect">
+              <RequireRole roles={['ADMIN', 'ASESOR']} denyMode="redirect">
                 <Navigate to="/Reportes" replace />
               </RequireRole>
             }
