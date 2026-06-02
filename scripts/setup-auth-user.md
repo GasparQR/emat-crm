@@ -34,6 +34,7 @@ Ejecutar en SQL Editor las migraciones:
 - [`20260601120000_auth_usuario_on_signup.sql`](../supabase/migrations/20260601120000_auth_usuario_on_signup.sql)
 - [`20260602110000_roles_permissions_schema.sql`](../supabase/migrations/20260602110000_roles_permissions_schema.sql)
 - [`20260602111000_rls_and_reassign.sql`](../supabase/migrations/20260602111000_rls_and_reassign.sql)
+- [`20260603120000_fix_auth_user_trigger.sql`](../supabase/migrations/20260603120000_fix_auth_user_trigger.sql) — **obligatoria** si al crear usuarios ves *Database error creating new user*
 
 El trigger crea el perfil CRM cuando se **agrega** un usuario en Auth (panel o API admin), no por auto-registro.
 

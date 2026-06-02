@@ -99,7 +99,12 @@ Deno.serve(async (req) => {
     });
 
     if (createErr || !createdAuth.user) {
-      return jsonResponse({ error: createErr?.message ?? 'Could not create auth user' }, 400);
+      const msg = createErr?.message ?? 'Could not create auth user';
+      const hint =
+        /database error/i.test(msg)
+          ? ' Ejecutá la migración 20260603120000_fix_auth_user_trigger.sql en Supabase (trigger insertaba usuario antes que asesor).'
+          : '';
+      return jsonResponse({ error: msg + hint }, 400);
     }
 
     const now = new Date().toISOString();
