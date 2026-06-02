@@ -162,14 +162,17 @@ const createEntityProxy = (tableName) => {
 
 // ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
-function normalizeRole(role) {
+function normalizeRole(role, email) {
+  // Si es admin@emat.com, siempre es ADMIN
+  if (email === 'admin@emat.com') return 'ADMIN';
+  
+  // Si no, normaliza el role que viene de metadata
   const value = String(role ?? '').toUpperCase();
-  if (value === 'ADMIN' || value === 'ASESOR' || value === 'LOGISTICA') return value;
-  if (value === 'LOGISTICA') return 'LOGISTICA';
   if (value === 'ADMIN') return 'ADMIN';
-  if (value === 'asesor') return 'ASESOR';
-  if (value === 'logistica') return 'LOGISTICA';
-  if (value === 'admin') return 'ADMIN';
+  if (value === 'ASESOR') return 'ASESOR';
+  if (value === 'LOGISTICA') return 'LOGISTICA';
+  
+  // Default
   return 'ASESOR';
 }
 
@@ -191,7 +194,7 @@ const DEFAULT_PROFILE = {
 function profileFromAuthUser(authUser) {
   
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
-  const normalizedRole = normalizeRole(metaRole);
+  const normalizedRole = normalizeRole(metaRole, authUser.email);
   const defaultAsesorCode = normalizedRole === 'ASESOR'
     ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
     : null;
