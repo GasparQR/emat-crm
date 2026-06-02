@@ -23,7 +23,7 @@ import {
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
 
 export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
-export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
+export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
@@ -671,14 +671,6 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   </p>
                 </div>
               )}
-              <div className="space-y-1">
-                <Label>Fecha ganada</Label>
-                <Input
-                  type="date"
-                  value={formData.fechaGanado}
-                  onChange={(e) => set("fechaGanado", e.target.value)}
-                />
-              </div>
               <div className="space-y-1">
                 <Label>Importe total ($)</Label>
                 <Input type="number" value={formData.importe} readOnly aria-readonly="true" className="bg-slate-50" />
