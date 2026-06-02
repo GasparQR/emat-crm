@@ -51,6 +51,12 @@ export default function Login() {
     }
   };
 
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7743/ingest/2e0cd9a6-b014-4771-8137-8d54277ffe6b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'89faaa'},body:JSON.stringify({sessionId:'89faaa',location:'Login.jsx:state',message:'Login render state',data:{isLoadingAuth,isAuthenticated,loading},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
+  }, [isLoadingAuth, isAuthenticated, loading]);
+
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">

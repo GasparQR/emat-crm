@@ -8,6 +8,9 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!SUPABASE_ANON_KEY) {
   console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env');
 }
+// #region agent log
+fetch('http://127.0.0.1:7743/ingest/2e0cd9a6-b014-4771-8137-8d54277ffe6b',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'89faaa'},body:JSON.stringify({sessionId:'89faaa',location:'supabaseClient.js:boot',message:'supabase client init',data:{hasAnonKey:!!SUPABASE_ANON_KEY,urlSet:!!SUPABASE_URL},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+// #endregion
 
 // Cliente Supabase (sesión persistente en localStorage)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

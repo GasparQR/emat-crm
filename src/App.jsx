@@ -34,6 +34,22 @@ const AuthenticatedApp = () => {
     } else if (authError.type === 'auth_required') {
       navigateToLogin();
       return null;
+    } else if (authError.type === 'auth_error') {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center p-6">
+          <div className="max-w-md text-center space-y-3">
+            <p className="text-lg font-semibold text-slate-900">Error de autenticación</p>
+            <p className="text-sm text-slate-600">{authError.message}</p>
+            <button
+              type="button"
+              className="text-sm text-blue-600 underline"
+              onClick={() => navigateToLogin()}
+            >
+              Ir al login
+            </button>
+          </div>
+        </div>
+      );
     }
   }
 
