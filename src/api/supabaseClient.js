@@ -286,53 +286,6 @@ async function upsertUsuarioFromAuth(authUser) {
   return mergeUsuarioRow(data, base);
 }
 
-async function upsertUsuarioFromAuth(authUser) {
-  // 1. Construir perfil base desde auth metadata
-  const base = profileFromAuthUser(authUser);
-  
-  // 2. Leer el asesor_codigo existente de la tabla usuario
-  let existingAsesorCode = null;
-  if (base.role === 'ASESOR') {
-    const { data: existing } = await supabase
-      .from('usuario')
-      .select('asesor_codigo')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    
-    if (existing?.asesor_codigo) {
-      existingAsesorCode = existing.asesor_codigo;
-    }
-  }
-  
-  // 3. Construir payload con el asesor_codigo de la BD si existe
-  const payload = {
-    id: authUser.id,
-    workspace_id: 'local',
-    full_name: base.full_name,
-    email: base.email,
-    role: base.role,
-    active: true,
-    can_view_other_advisors: base.can_view_other_advisors ?? false,
-    asesor_codigo: existingAsesorCode ?? (base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null),
-    consulta_follow_up_days: base.consulta_follow_up_days,
-    consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
-    consulta_default_observaciones: base.consulta_default_observaciones,
-    consulta_firmas_asesor: base.consulta_firmas_asesor,
-    updated_date: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('usuario')
-    .upsert([payload], { onConflict: 'id' })
-    .select()
-    .single();
-
-  if (error) {
-    console.warn('usuario upsert:', error.message);
-    return base;
-  }
-  return mergeUsuarioRow(data, base);
-}
 // ─── Autenticación (Supabase Auth) ─────────────────────────────────────────────
 // Solo login (signInWithPassword). No exportamos signUp: usuarios solo desde el panel Supabase.
 // Desactivar "Enable Sign Up" en Authentication → Providers → Email (ver scripts/setup-auth-user.md).
@@ -483,4 +436,3 @@ export const entities = {
   VariablePlantilla: createEntityProxy('variableplantilla'),
   Usuario: createEntityProxy('usuario'),
 };
-
