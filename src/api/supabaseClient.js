@@ -257,30 +257,30 @@ async function upsertUsuarioFromAuth(authUser) {
   // 1. Construir perfil base desde auth metadata
   const base = profileFromAuthUser(authUser);
   
-  // 2. Leer el asesor_codigo existente de la tabla usuario
-  let existingAsesorCode = null;
-  if (base.role === 'ASESOR') {
-    const { data: existing } = await supabase
-      .from('usuario')
-      .select('asesor_codigo')
-      .eq('id', authUser.id)
-      .maybeSingle();
-    
-    if (existing?.asesor_codigo) {
-      existingAsesorCode = existing.asesor_codigo;
-    }
-  }
-  
-  // 3. Construir payload con el asesor_codigo de la BD si existe
+  // 2. Leer el perfil existente para preservar los campos gestionados por el
+  //    admin (active, role, permisos, asesor_codigo). Estos NO deben re-derivarse
+  //    desde los metadatos de Auth en cada login: si lo hicieran, una cuenta
+  //    desactivada desde el panel se reactivaría al iniciar sesión y se perderían
+  //    el rol y los permisos asignados por el admin.
+  const { data: existing } = await supabase
+    .from('usuario')
+    .select('role, active, can_view_other_advisors, asesor_codigo')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  // 3. Construir payload preservando el estado de BD cuando el perfil ya existe.
   const payload = {
     id: authUser.id,
     workspace_id: 'local',
     full_name: base.full_name,
     email: base.email,
-    role: base.role,
-    active: true,
-    can_view_other_advisors: base.can_view_other_advisors ?? false,
-    asesor_codigo: existingAsesorCode ?? (base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null),
+    role: existing?.role ?? base.role,
+    active: existing?.active ?? true,
+    can_view_other_advisors:
+      existing?.can_view_other_advisors ?? base.can_view_other_advisors ?? false,
+    asesor_codigo:
+      existing?.asesor_codigo ??
+      (base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null),
     consulta_follow_up_days: base.consulta_follow_up_days,
     consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
     consulta_default_observaciones: base.consulta_default_observaciones,
