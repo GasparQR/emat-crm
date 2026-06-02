@@ -41,10 +41,17 @@ Si el usuario existía antes del trigger, el primer login hace upsert desde la a
 Para alta y edición desde UI ADMIN, desplegar Edge Functions:
 
 ```bash
+supabase link --project-ref ywbgeqjqjfnhldqqqklj
 supabase functions deploy admin-create-user
 supabase functions deploy admin-update-user
 supabase functions deploy admin-deactivate-user
 ```
+
+Si al crear usuario ves *"Edge Function returned a non-2xx"* o *"Access denied"*:
+
+1. Confirmá que las tres funciones aparecen en **Edge Functions** del dashboard.
+2. Tu usuario en `public.usuario` debe tener `role = 'ADMIN'` y `active = true` (o `app_metadata.role = ADMIN` en Auth).
+3. Para ASESOR, el **código de asesor** debe existir en la tabla `asesor` (catálogo en Configuración → Asesores).
 
 ## 4. Usuarios creados por error vía signup
 

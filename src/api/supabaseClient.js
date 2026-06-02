@@ -224,18 +224,33 @@ function mergeUsuarioRow(row, base) {
   };
 }
 
+function applyAuthRoleOverrides(profile, authUser) {
+  return {
+    ...profile,
+    role: normalizeRole(profile?.role, authUser?.email),
+    active: profile?.active !== false,
+  };
+}
+
 async function fetchUsuarioByAuthUser(authUser) {
   const base = profileFromAuthUser(authUser);
 
   const byId = await supabase.from('usuario').select('*').eq('id', authUser.id).maybeSingle();
-  if (byId.data) return mergeUsuarioRow(byId.data, base);
+  if (byId.data) {
+    return applyAuthRoleOverrides(mergeUsuarioRow(byId.data, base), authUser);
+  }
 
   if (authUser.email) {
     const byEmail = await supabase.from('usuario').select('*').eq('email', authUser.email).maybeSingle();
-    if (byEmail.data) return mergeUsuarioRow(byEmail.data, { ...base, id: byEmail.data.id ?? authUser.id });
+    if (byEmail.data) {
+      return applyAuthRoleOverrides(
+        mergeUsuarioRow(byEmail.data, { ...base, id: byEmail.data.id ?? authUser.id }),
+        authUser,
+      );
+    }
   }
 
-  return base;
+  return applyAuthRoleOverrides(base, authUser);
 }
 
 async function upsertUsuarioFromAuth(authUser) {

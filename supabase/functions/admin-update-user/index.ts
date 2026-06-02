@@ -1,9 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -13,7 +9,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!authHeader) return jsonResponse({ error: 'Missing Authorization header' }, 401);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -21,11 +17,18 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: authData, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !authData.user) return new Response(JSON.stringify({ error: 'Invalid session' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (authErr || !authData.user) return jsonResponse({ error: 'Invalid session' }, 401);
 
-    const { data: callerProfile } = await adminClient.from('usuario').select('id,role,active').eq('id', authData.user.id).maybeSingle();
-    if (!callerProfile || callerProfile.role !== 'ADMIN' || callerProfile.active !== true) {
-      return new Response(JSON.stringify({ error: 'Access denied' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const { data: callerProfile, error: callerErr } = await adminClient
+      .from('usuario')
+      .select('id,role,active')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (callerErr) return jsonResponse({ error: callerErr.message }, 500);
+
+    if (!callerIsAdmin(authData.user, callerProfile)) {
+      return jsonResponse({ error: 'Access denied' }, 403);
     }
 
     const body = await req.json();
@@ -34,11 +37,30 @@ Deno.serve(async (req) => {
     const asesor_codigo = body?.asesor_codigo ? String(body.asesor_codigo).toUpperCase() : null;
     const full_name = body?.full_name?.trim();
     const active = typeof body?.active === 'boolean' ? body.active : undefined;
-    const can_view_other_advisors = typeof body?.can_view_other_advisors === 'boolean' ? body.can_view_other_advisors : undefined;
+    const can_view_other_advisors =
+      typeof body?.can_view_other_advisors === 'boolean' ? body.can_view_other_advisors : undefined;
 
-    if (!id) return new Response(JSON.stringify({ error: 'id is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (role && !['ADMIN', 'ASESOR', 'LOGISTICA'].includes(role)) return new Response(JSON.stringify({ error: 'Invalid role' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    if (role === 'ASESOR' && !asesor_codigo) return new Response(JSON.stringify({ error: 'asesor_codigo is required for ASESOR' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!id) return jsonResponse({ error: 'id is required' }, 400);
+    if (role && !['ADMIN', 'ASESOR', 'LOGISTICA'].includes(role)) {
+      return jsonResponse({ error: 'Invalid role' }, 400);
+    }
+    if (role === 'ASESOR' && !asesor_codigo) {
+      return jsonResponse({ error: 'asesor_codigo is required for ASESOR' }, 400);
+    }
+
+    if (role === 'ASESOR' && asesor_codigo) {
+      const { data: asesorRow } = await adminClient
+        .from('asesor')
+        .select('codigo')
+        .eq('codigo', asesor_codigo)
+        .maybeSingle();
+      if (!asesorRow) {
+        return jsonResponse(
+          { error: `El código de asesor "${asesor_codigo}" no existe en el catálogo` },
+          400,
+        );
+      }
+    }
 
     const patch: Record<string, unknown> = { updated_date: new Date().toISOString() };
     if (full_name !== undefined) patch.full_name = full_name;
@@ -54,7 +76,7 @@ Deno.serve(async (req) => {
       .select()
       .single();
 
-    if (profileErr) return new Response(JSON.stringify({ error: profileErr.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (profileErr) return jsonResponse({ error: profileErr.message }, 400);
 
     if (role !== undefined || full_name !== undefined) {
       await adminClient.auth.admin.updateUserById(id, {
@@ -63,14 +85,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, user: profile }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true, user: profile }, 200);
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: (error as Error).message }, 500);
   }
 });

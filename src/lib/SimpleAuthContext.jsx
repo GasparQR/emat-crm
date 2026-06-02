@@ -10,7 +10,9 @@ function mapAuthUserToContext(profile, authUser) {
     id: profile?.id ?? authUser?.id,
     name: profile?.full_name ?? authUser?.email?.split('@')[0] ?? 'Usuario',
     email: profile?.email ?? authUser?.email ?? '',
-    role: normalizeRole(profile?.role ?? authUser?.app_metadata?.role),
+    role: normalizeRole(
+      profile?.role ?? authUser?.app_metadata?.role ?? authUser?.user_metadata?.role,
+    ),
     active: profile?.active !== false,
     can_view_other_advisors: profile?.can_view_other_advisors === true,
     asesor_codigo: profile?.asesor_codigo ?? null,
