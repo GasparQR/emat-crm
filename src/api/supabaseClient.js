@@ -189,12 +189,14 @@ const DEFAULT_PROFILE = {
 };
 
 function profileFromAuthUser(authUser) {
+  
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
   const normalizedRole = normalizeRole(metaRole);
   const defaultAsesorCode = normalizedRole === 'ASESOR'
     ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
     : null;
   return {
+    ...DEFAULT_PROFILE,
     id: authUser.id,
     full_name:
       authUser.user_metadata?.full_name ??
@@ -204,7 +206,7 @@ function profileFromAuthUser(authUser) {
     email: authUser.email ?? '',
     role: normalizedRole,
     asesor_codigo: defaultAsesorCode ? String(defaultAsesorCode).toUpperCase() : null,
-    ...DEFAULT_PROFILE,
+    
   };
 }
 
