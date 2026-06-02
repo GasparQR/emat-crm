@@ -45,37 +45,53 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     let mounted = true;
+    let subscription = null;
+
+    const applySessionUser = (authUser) => {
+      void (async () => {
+        if (!mounted || !authUser) return;
+        try {
+          const profile = await auth.ensureUsuarioProfile(authUser);
+          if (!mounted) return;
+          setUser(mapAuthUserToContext(profile, authUser));
+          setIsAuthenticated(true);
+          setAuthError(null);
+        } catch (error) {
+          if (!mounted) return;
+          setAuthError({ type: 'auth_error', message: error.message });
+        }
+      })();
+    };
 
     const init = async () => {
       setIsLoadingAuth(true);
       await loadSession();
-      if (mounted) setIsLoadingAuth(false);
+      if (!mounted) return;
+      setIsLoadingAuth(false);
+
+      // Registrar listener DESPUÉS de getSession para evitar deadlock del SDK (supabase-js #762 / #2344).
+      // No usar async/await dentro del callback: diferir llamadas al cliente con setTimeout(0).
+      const { data: { subscription: sub } } = auth.onAuthStateChange((event, session) => {
+        if (!mounted) return;
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          setUser(null);
+          setIsAuthenticated(false);
+          return;
+        }
+        if (event === 'INITIAL_SESSION') return;
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const authUser = session.user;
+          setTimeout(() => applySessionUser(authUser), 0);
+        }
+      });
+      subscription = sub;
     };
 
     init();
 
-    const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-      if (event === 'SIGNED_OUT' || !session?.user) {
-        setUser(null);
-        setIsAuthenticated(false);
-        return;
-      }
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-        try {
-          const profile = await auth.ensureUsuarioProfile(session.user);
-          setUser(mapAuthUserToContext(profile, session.user));
-          setIsAuthenticated(true);
-          setAuthError(null);
-        } catch (error) {
-          setAuthError({ type: 'auth_error', message: error.message });
-        }
-      }
-    });
-
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [loadSession]);
 
