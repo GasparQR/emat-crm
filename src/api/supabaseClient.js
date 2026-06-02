@@ -195,9 +195,15 @@ function profileFromAuthUser(authUser) {
   
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
   const normalizedRole = normalizeRole(metaRole, authUser.email);
-  const defaultAsesorCode = normalizedRole === 'ASESOR'
-    ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
-    : null;
+  let defaultAsesorCode = null;
+  if (normalizedRole === 'ASESOR') {
+  // Mapeo manual email -> asesor_codigo
+  if (authUser.email === 'maca@emat.com') {
+    defaultAsesorCode = 'MACARENA RIOS';
+  } else {
+    defaultAsesorCode = authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null;
+  }
+}
   return {
     ...DEFAULT_PROFILE,
     id: authUser.id,
