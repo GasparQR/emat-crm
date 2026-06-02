@@ -1,0 +1,8 @@
+# Configuración local Supabase CLI (referencia).
+# En proyecto hosted, replicar en Dashboard: Authentication → Providers → Email.
+
+[auth]
+enable_signup = false
+
+[auth.email]
+enable_signup = false

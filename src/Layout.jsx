@@ -12,8 +12,7 @@ import { WorkspaceProvider } from "@/components/context/WorkspaceContext";
 import { ActiveCallProvider } from "@/components/context/ActiveCallContext";
 import FloatingCallButton from "@/components/crm/FloatingCallButton";
 import { useAuth } from "@/lib/SimpleAuthContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { LogOut } from "lucide-react";
 
 const ALL_NAV_ITEMS = [
   { name: "Home", icon: LayoutDashboard, page: "Home" },
@@ -32,7 +31,7 @@ const LOGISTICA_NAV_ITEMS = [
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { user, switchRole } = useAuth();
+  const { user, logout } = useAuth();
 
   const isLogistica = user?.role === "logistica";
   const NAV_ITEMS = isLogistica ? LOGISTICA_NAV_ITEMS : ALL_NAV_ITEMS;
@@ -127,17 +126,22 @@ export default function Layout({ children, currentPageName }) {
         {/* Quick Stats */}
         {!sidebarCollapsed && (
           <div className="p-4 border-t border-slate-100 space-y-3">
-            <div>
-              <Label className="text-xs text-slate-400 mb-1 block">Usuario</Label>
-              <Select value={user?.role || "admin"} onValueChange={switchRole}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="logistica">Logística</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400">Sesión</p>
+              <p className="text-sm font-medium text-slate-900 truncate" title={user?.email}>
+                {user?.name || user?.email || "Usuario"}
+              </p>
+              <p className="text-xs text-slate-500 capitalize">{user?.role || "admin"}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-8 text-xs"
+                onClick={() => logout()}
+              >
+                <LogOut className="w-3 h-3 mr-1" />
+                Cerrar sesión
+              </Button>
             </div>
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-4 text-white">
               <p className="text-xs text-blue-200 mb-1">CRM Celulosa</p>

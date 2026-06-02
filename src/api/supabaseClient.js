@@ -9,8 +9,14 @@ if (!SUPABASE_ANON_KEY) {
   console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env');
 }
 
-// Cliente Supabase
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Cliente Supabase (sesión persistente en localStorage)
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 
 // ─── Wrapper de acceso a datos ─────────────────────────────────────────────────
 
@@ -154,96 +160,184 @@ const createEntityProxy = (tableName) => {
   };
 };
 
-// ─── Usuario local (reemplazar con Supabase Auth cuando corresponda) ──────────
+// ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
-const LOCAL_USER = {
-  id: 'admin',
-  full_name: 'EMAT Admin',
-  email: 'admin@ematcelulosa.com',
+const DEFAULT_PROFILE = {
+  workspace_id: 'local',
   role: 'admin',
   canEditContacts: true,
   canSendMessages: true,
   canViewReports: true,
   consulta_follow_up_days: 3,
-  consulta_default_condiciones_comerciales: "",
-  consulta_default_observaciones: "",
+  consulta_default_condiciones_comerciales: '',
+  consulta_default_observaciones: '',
   consulta_firmas_asesor: {},
 };
 
-// ─── Autenticación ─────────────────────────────────────────────────────────────
+function profileFromAuthUser(authUser) {
+  const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
+  return {
+    id: authUser.id,
+    full_name:
+      authUser.user_metadata?.full_name ??
+      authUser.user_metadata?.name ??
+      authUser.email?.split('@')[0] ??
+      'Usuario',
+    email: authUser.email ?? '',
+    role: metaRole === 'logistica' ? 'logistica' : 'admin',
+    ...DEFAULT_PROFILE,
+  };
+}
+
+function mergeUsuarioRow(row, base) {
+  return {
+    ...base,
+    ...row,
+    consulta_firmas_asesor:
+      row?.consulta_firmas_asesor && typeof row.consulta_firmas_asesor === 'object'
+        ? row.consulta_firmas_asesor
+        : {},
+  };
+}
+
+async function fetchUsuarioByAuthUser(authUser) {
+  const base = profileFromAuthUser(authUser);
+
+  const byId = await supabase.from('usuario').select('*').eq('id', authUser.id).maybeSingle();
+  if (byId.data) return mergeUsuarioRow(byId.data, base);
+
+  if (authUser.email) {
+    const byEmail = await supabase.from('usuario').select('*').eq('email', authUser.email).maybeSingle();
+    if (byEmail.data) return mergeUsuarioRow(byEmail.data, { ...base, id: byEmail.data.id ?? authUser.id });
+  }
+
+  return base;
+}
+
+async function upsertUsuarioFromAuth(authUser) {
+  const base = profileFromAuthUser(authUser);
+  const payload = {
+    id: authUser.id,
+    workspace_id: 'local',
+    full_name: base.full_name,
+    email: base.email,
+    role: base.role,
+    consulta_follow_up_days: base.consulta_follow_up_days,
+    consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
+    consulta_default_observaciones: base.consulta_default_observaciones,
+    consulta_firmas_asesor: base.consulta_firmas_asesor,
+    updated_date: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('usuario')
+    .upsert([payload], { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (error) {
+    console.warn('usuario upsert:', error.message);
+    return base;
+  }
+  return mergeUsuarioRow(data, base);
+}
+
+// ─── Autenticación (Supabase Auth) ─────────────────────────────────────────────
+// Solo login (signInWithPassword). No exportamos signUp: usuarios solo desde el panel Supabase.
+// Desactivar "Enable Sign Up" en Authentication → Providers → Email (ver scripts/setup-auth-user.md).
 
 export const auth = {
-  me: async () => {
-    try {
-      const { data, error } = await supabase
-        .from('usuario')
-        .select('*')
-        .eq('id', LOCAL_USER.id)
-        .single();
+  getSession: () => supabase.auth.getSession(),
 
-      if (error) {
-        // If row doesn't exist yet (or schema missing), fallback to in-memory user.
-        return LOCAL_USER;
-      }
-
-      const merged = {
-        ...LOCAL_USER,
-        ...data,
-        consulta_firmas_asesor:
-          data?.consulta_firmas_asesor && typeof data.consulta_firmas_asesor === 'object'
-            ? data.consulta_firmas_asesor
-            : {},
-      };
-      Object.assign(LOCAL_USER, merged);
-      return merged;
-    } catch {
-      return LOCAL_USER;
-    }
+  getAuthUser: async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return user;
   },
+
+  signInWithPassword: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
+  },
+
+  signOut: async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  },
+
+  onAuthStateChange: (callback) => supabase.auth.onAuthStateChange(callback),
+
+  ensureUsuarioProfile: async (authUser) => upsertUsuarioFromAuth(authUser),
+
+  me: async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      const err = new Error('Sesión requerida');
+      err.code = 'AUTH_REQUIRED';
+      throw err;
+    }
+
+    let profile = await fetchUsuarioByAuthUser(user);
+    const needsPersist =
+      !profile.email ||
+      profile.id !== user.id ||
+      (profile.full_name === 'Usuario' && user.email);
+
+    if (needsPersist) {
+      profile = await upsertUsuarioFromAuth(user);
+    }
+
+    return profile;
+  },
+
   updateMe: async (data) => {
+    const authUser = await auth.getAuthUser();
+    if (!authUser) throw new Error('Sesión requerida');
+
+    const current = await fetchUsuarioByAuthUser(authUser);
     const nextUser = {
-      ...LOCAL_USER,
+      ...current,
       ...data,
       consulta_firmas_asesor:
         data?.consulta_firmas_asesor && typeof data.consulta_firmas_asesor === 'object'
           ? data.consulta_firmas_asesor
-          : (LOCAL_USER.consulta_firmas_asesor || {}),
+          : current.consulta_firmas_asesor || {},
     };
-    Object.assign(LOCAL_USER, nextUser);
 
+    const payload = {
+      id: authUser.id,
+      workspace_id: 'local',
+      full_name: nextUser.full_name,
+      email: nextUser.email ?? authUser.email,
+      role: nextUser.role,
+      consulta_follow_up_days: nextUser.consulta_follow_up_days,
+      consulta_default_condiciones_comerciales: nextUser.consulta_default_condiciones_comerciales,
+      consulta_default_observaciones: nextUser.consulta_default_observaciones,
+      consulta_firmas_asesor: nextUser.consulta_firmas_asesor,
+      updated_date: new Date().toISOString(),
+    };
+
+    const { data: upserted, error } = await supabase
+      .from('usuario')
+      .upsert([payload], { onConflict: 'id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mergeUsuarioRow(upserted, profileFromAuthUser(authUser));
+  },
+
+  logout: async () => {
     try {
-      const payload = {
-        id: LOCAL_USER.id,
-        workspace_id: 'local',
-        full_name: nextUser.full_name,
-        email: nextUser.email,
-        role: nextUser.role,
-        consulta_follow_up_days: nextUser.consulta_follow_up_days,
-        consulta_default_condiciones_comerciales: nextUser.consulta_default_condiciones_comerciales,
-        consulta_default_observaciones: nextUser.consulta_default_observaciones,
-        consulta_firmas_asesor: nextUser.consulta_firmas_asesor,
-        updated_date: new Date().toISOString(),
-      };
-
-      const { data: upserted, error } = await supabase
-        .from('usuario')
-        .upsert([payload], { onConflict: 'id' })
-        .select()
-        .single();
-
-      if (!error && upserted) {
-        Object.assign(LOCAL_USER, upserted);
-      }
+      await supabase.auth.signOut();
     } catch {
-      // Keep local fallback to avoid blocking UI if schema is not ready yet.
+      // ignore
     }
+    localStorage.removeItem('emat_user');
+    window.location.href = '/login';
+  },
 
-    return LOCAL_USER;
-  },
-  logout: () => {
-    localStorage.clear();
-    window.location.href = '/';
-  },
   redirectToLogin: () => {
     window.location.href = '/login';
   },
@@ -279,4 +373,3 @@ export const entities = {
   Usuario: createEntityProxy('usuario'),
 };
 
-export default supabase;
