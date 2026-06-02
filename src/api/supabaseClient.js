@@ -162,9 +162,23 @@ const createEntityProxy = (tableName) => {
 
 // ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
+function normalizeRole(role) {
+  const value = String(role ?? '').toUpperCase();
+  if (value === 'ADMIN' || value === 'ASESOR' || value === 'LOGISTICA') return value;
+  if (value === 'LOGISTICA') return 'LOGISTICA';
+  if (value === 'ADMIN') return 'ADMIN';
+  if (value === 'asesor') return 'ASESOR';
+  if (value === 'logistica') return 'LOGISTICA';
+  if (value === 'admin') return 'ADMIN';
+  return 'ASESOR';
+}
+
 const DEFAULT_PROFILE = {
   workspace_id: 'local',
-  role: 'admin',
+  role: 'ASESOR',
+  active: true,
+  can_view_other_advisors: false,
+  asesor_codigo: null,
   canEditContacts: true,
   canSendMessages: true,
   canViewReports: true,
@@ -176,6 +190,10 @@ const DEFAULT_PROFILE = {
 
 function profileFromAuthUser(authUser) {
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
+  const normalizedRole = normalizeRole(metaRole);
+  const defaultAsesorCode = normalizedRole === 'ASESOR'
+    ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
+    : null;
   return {
     id: authUser.id,
     full_name:
@@ -184,7 +202,8 @@ function profileFromAuthUser(authUser) {
       authUser.email?.split('@')[0] ??
       'Usuario',
     email: authUser.email ?? '',
-    role: metaRole === 'logistica' ? 'logistica' : 'admin',
+    role: normalizedRole,
+    asesor_codigo: defaultAsesorCode ? String(defaultAsesorCode).toUpperCase() : null,
     ...DEFAULT_PROFILE,
   };
 }
@@ -222,6 +241,9 @@ async function upsertUsuarioFromAuth(authUser) {
     full_name: base.full_name,
     email: base.email,
     role: base.role,
+    active: true,
+    can_view_other_advisors: base.can_view_other_advisors ?? false,
+    asesor_codigo: base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null,
     consulta_follow_up_days: base.consulta_follow_up_days,
     consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
     consulta_default_observaciones: base.consulta_default_observaciones,
@@ -311,6 +333,9 @@ export const auth = {
       full_name: nextUser.full_name,
       email: nextUser.email ?? authUser.email,
       role: nextUser.role,
+      active: nextUser.active ?? true,
+      can_view_other_advisors: nextUser.can_view_other_advisors ?? false,
+      asesor_codigo: nextUser.role === 'ASESOR' ? (nextUser.asesor_codigo ?? null) : null,
       consulta_follow_up_days: nextUser.consulta_follow_up_days,
       consulta_default_condiciones_comerciales: nextUser.consulta_default_condiciones_comerciales,
       consulta_default_observaciones: nextUser.consulta_default_observaciones,
@@ -341,14 +366,31 @@ export const auth = {
   redirectToLogin: () => {
     window.location.href = '/login';
   },
+
+  listUsuarios: async () => {
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('*')
+      .order('created_date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  setLastSignIn: async () => {
+    const authUser = await auth.getAuthUser();
+    if (!authUser) return;
+    await supabase
+      .from('usuario')
+      .update({ last_sign_in_at: new Date().toISOString(), updated_date: new Date().toISOString() })
+      .eq('id', authUser.id);
+  },
 };
 
 // ─── Gestión de usuarios ───────────────────────────────────────────────────────
 
 export const users = {
-  inviteUser: async (email, role) => {
-    console.warn('inviteUser: funcionalidad no disponible sin Supabase Auth configurado', { email, role });
-    return Promise.resolve();
+  inviteUser: async () => {
+    throw new Error('inviteUser reemplazado por adminUsersApi.createUser');
   },
 };
 

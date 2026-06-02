@@ -13,6 +13,7 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
+import { isAdmin } from "@/lib/permissions";
 
 export default function ListasWhatsApp() {
   const { data: currentUser } = useCurrentUser();
@@ -72,7 +73,7 @@ export default function ListasWhatsApp() {
             <h1 className="text-3xl font-bold text-slate-900">Listas WhatsApp</h1>
             <p className="text-slate-500 mt-1">Gestiona tus listas predefinidas para enviar</p>
           </div>
-          {currentUser?.role === "admin" && (
+          {isAdmin(currentUser) && (
             <Link to={createPageUrl("EditorListaWhatsApp?new=true")}>
               <Button className="gap-2 bg-slate-900 hover:bg-slate-800">
                 <Plus className="w-5 h-5" />
@@ -163,7 +164,7 @@ export default function ListasWhatsApp() {
                             <Pencil className="w-4 h-4" />
                           </Button>
                         </Link>
-                        {currentUser?.role === "admin" && (
+                        {isAdmin(currentUser) && (
                           <Button
                             variant="ghost"
                             size="icon"

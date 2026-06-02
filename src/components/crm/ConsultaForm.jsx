@@ -21,8 +21,9 @@ import {
   todayDateString,
 } from "@/lib/pipelineStage";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
+import { useAsesores } from "@/components/hooks/useAsesores";
+import { getDefaultAsesorForUser, isAsesor } from "@/lib/permissions";
 
-export const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
@@ -133,6 +134,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { asesorCodes } = useAsesores(currentUser);
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -227,11 +229,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           return Math.max(max, nro);
         }, 0);
         const defaults = emptyForm();
+        const defaultAsesor = getDefaultAsesorForUser(currentUser);
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: maxNro + 1,
+            asesor: isAsesor(currentUser) ? defaultAsesor : defaults.asesor,
             proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
@@ -239,11 +243,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         }
       } catch {
         const defaults = emptyForm();
+        const defaultAsesor = getDefaultAsesorForUser(currentUser);
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: 1,
+            asesor: isAsesor(currentUser) ? defaultAsesor : defaults.asesor,
             proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
@@ -646,7 +652,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Asesor</Label>
                 <Select value={formData.asesor} onValueChange={v => set("asesor", v)}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                  <SelectContent>{asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -864,7 +870,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             <Label>Asesor *</Label>
             <Select value={newLeadData.asesor} onValueChange={v => setNewLeadData(prev => ({ ...prev, asesor: v }))}>
               <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-              <SelectContent>{ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+              <SelectContent>{asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="space-y-1">

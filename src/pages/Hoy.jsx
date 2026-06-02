@@ -19,8 +19,8 @@ import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
-
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { useAsesores } from "@/components/hooks/useAsesores";
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -35,7 +35,8 @@ export default function Hoy() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
-  const isLogistica = user?.role === "logistica";
+  const isLogistica = roleIsLogistica(user);
+  const { asesorCodes } = useAsesores(user);
   const { data: currentUser } = useCurrentUser();
   const { setCallTarget } = useActiveCall();
 
@@ -93,7 +94,9 @@ export default function Hoy() {
     return true;
   };
 
-  const hoy = consultas.filter(c => {
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+
+  const hoy = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -101,7 +104,7 @@ export default function Hoy() {
     return moment(fecha).isSame(today, 'day');
   });
 
-  const vencidos = consultas.filter(c => {
+  const vencidos = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -109,7 +112,7 @@ export default function Hoy() {
     return moment(fecha).isBefore(today, 'day');
   });
 
-  const proximos3d = consultas.filter(c => {
+  const proximos3d = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -262,7 +265,7 @@ export default function Hoy() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los asesores</SelectItem>
-                {ASESORES.map((a) => (
+                {asesorCodes.map((a) => (
                   <SelectItem key={a} value={a}>{a}</SelectItem>
                 ))}
               </SelectContent>

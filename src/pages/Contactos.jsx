@@ -27,8 +27,8 @@ import {
   buildPipelineStagePatch,
   buildPipelineStagePatchAsync,
 } from "@/lib/pipelineStage";
-
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
+import { filterConsultasByVisibility, filterContactosByVisibility } from "@/lib/permissions";
+import { useAsesores } from "@/components/hooks/useAsesores";
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -56,6 +56,7 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { asesorCodes } = useAsesores(currentUser);
   const isMobile = useIsMobile();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
@@ -85,11 +86,14 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, currentUser), [consultas, currentUser]);
+  const visibleContactos = useMemo(() => filterContactosByVisibility(contactos, currentUser), [contactos, currentUser]);
+
   const consultaMap = useMemo(() => {
     const map = {};
-    consultas.forEach(c => { map[c.contactonombre] = c; });
+    visibleConsultas.forEach(c => { map[c.contactonombre] = c; });
     return map;
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   const stageColorMap = useMemo(() => {
     const map = {};
@@ -99,7 +103,7 @@ export default function Contactos() {
 
   const { provincias, segmentos } = useMemo(() => {
     const pMap = {}, sMap = {};
-    contactos.forEach(c => {
+    visibleContactos.forEach(c => {
      if (c.provincia) pMap[c.provincia] = (pMap[c.provincia] || 0) + 1;
      if (c.segmento) sMap[c.segmento] = (sMap[c.segmento] || 0) + 1;
     });
@@ -107,7 +111,7 @@ export default function Contactos() {
       provincias: Object.entries(pMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
       segmentos: Object.entries(sMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
     };
-  }, [contactos]);
+  }, [visibleContactos]);
 
   const createMutation = useMutation({
     mutationFn: (data) => entities.Contacto.create({ ...data, workspace_id: workspace?.id || "local" }),
@@ -351,7 +355,7 @@ export default function Contactos() {
     }
   };
 
-  const contactosFiltrados = contactos.filter(c => {
+  const contactosFiltrados = visibleContactos.filter(c => {
     if (search) {
       const s = search.toLowerCase();
       if (
@@ -406,7 +410,7 @@ export default function Contactos() {
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">Contactos</h1>
             <p className="text-slate-500">
-              {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${contactos.length} contactos`}
+              {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${visibleContactos.length} contactos`}
             </p>
           </div>
           <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
@@ -655,7 +659,7 @@ export default function Contactos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sin_asignar">Sin asignar</SelectItem>
-                  {ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

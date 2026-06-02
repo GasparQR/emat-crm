@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { normalizeRole } from "@/lib/permissions";
 
 const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
 
@@ -175,7 +176,7 @@ export default function Configuracion() {
       return;
     }
 
-    if (inviteRole === "admin" && currentUser?.role !== "admin") {
+    if (inviteRole === "admin" && normalizeRole(currentUser?.role) !== "ADMIN") {
       toast.error("Solo los administradores pueden invitar otros administradores");
       return;
     }

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { auth } from '@/api/supabaseClient';
+import { normalizeRole } from '@/lib/permissions';
 
 const AuthContext = createContext();
 
@@ -9,7 +10,10 @@ function mapAuthUserToContext(profile, authUser) {
     id: profile?.id ?? authUser?.id,
     name: profile?.full_name ?? authUser?.email?.split('@')[0] ?? 'Usuario',
     email: profile?.email ?? authUser?.email ?? '',
-    role: profile?.role === 'logistica' ? 'logistica' : 'admin',
+    role: normalizeRole(profile?.role ?? authUser?.app_metadata?.role),
+    active: profile?.active !== false,
+    can_view_other_advisors: profile?.can_view_other_advisors === true,
+    asesor_codigo: profile?.asesor_codigo ?? null,
     profile,
   };
 }
@@ -32,6 +36,13 @@ export const AuthProvider = ({ children }) => {
       }
 
       const profile = await auth.ensureUsuarioProfile(session.user);
+      if (profile?.active === false) {
+        await auth.signOut();
+        setUser(null);
+        setIsAuthenticated(false);
+        setAuthError({ type: 'auth_error', message: 'Tu cuenta está desactivada. Contactá al administrador.' });
+        return;
+      }
       setUser(mapAuthUserToContext(profile, session.user));
       setIsAuthenticated(true);
       setAuthError(null);
@@ -52,6 +63,13 @@ export const AuthProvider = ({ children }) => {
         if (!mounted || !authUser) return;
         try {
           const profile = await auth.ensureUsuarioProfile(authUser);
+          if (profile?.active === false) {
+            await auth.signOut();
+            setUser(null);
+            setIsAuthenticated(false);
+            setAuthError({ type: 'auth_error', message: 'Tu cuenta está desactivada. Contactá al administrador.' });
+            return;
+          }
           if (!mounted) return;
           setUser(mapAuthUserToContext(profile, authUser));
           setIsAuthenticated(true);
@@ -109,10 +127,17 @@ export const AuthProvider = ({ children }) => {
     if (!authUser) return { ok: false, message: 'No se pudo iniciar sesión' };
 
     const profile = await auth.ensureUsuarioProfile(authUser);
+    if (profile?.active === false) {
+      await auth.signOut();
+      setUser(null);
+      setIsAuthenticated(false);
+      return { ok: false, message: 'Tu cuenta está desactivada.' };
+    }
     const ctxUser = mapAuthUserToContext(profile, authUser);
     setUser(ctxUser);
     setIsAuthenticated(true);
     setAuthError(null);
+    await auth.setLastSignIn();
     return { ok: true };
   };
 

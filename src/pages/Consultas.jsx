@@ -22,8 +22,8 @@ import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
-
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { useAsesores } from "@/components/hooks/useAsesores";
 
 const ASESOR_COLORS = {
   ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
@@ -45,7 +45,8 @@ export default function Consultas() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
-  const isLogistica = user?.role === "logistica";
+  const isLogistica = roleIsLogistica(user);
+  const { asesorCodes } = useAsesores(user);
   const isMobile = useIsMobile();
   const { setCallTarget } = useActiveCall();
 
@@ -150,13 +151,11 @@ export default function Consultas() {
     }
   };
 
-  const anos = [...new Set(consultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const anos = [...new Set(visibleConsultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
 
   // ✅ LÓGICA DE FILTRADO CORREGIDA
-  const filtradas = consultas.filter(c => {
-    if (isLogistica && c.pipeline_stage !== "GANADA" && c.pipeline_stage !== "EJECUTADA") {
-      return false;
-    }
+  const filtradas = visibleConsultas.filter(c => {
     // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
@@ -224,7 +223,7 @@ export default function Consultas() {
               </Link>
               <h1 className="text-2xl font-bold text-slate-900">Presupuestos</h1>
               <p className="text-slate-500">
-                {isLoading ? "Cargando..." : `${filtradas.length} de ${consultas.length} presupuestos`}
+                {isLoading ? "Cargando..." : `${filtradas.length} de ${visibleConsultas.length} presupuestos`}
               </p>
             </div>
             {!isLogistica && (
@@ -256,7 +255,7 @@ export default function Consultas() {
               <SelectTrigger className="w-36"><SelectValue placeholder="Asesor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                {ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                {asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filtroAno} onValueChange={setFiltroAno}>

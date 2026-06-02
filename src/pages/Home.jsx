@@ -16,6 +16,7 @@ import ConsultaForm, { CANALES } from "@/components/crm/ConsultaForm";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { canViewReportes } from "@/lib/permissions";
 
 const ASESOR_COLORS = {
   ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
@@ -408,12 +409,14 @@ export default function Home() {
               icon: Users,
               color: "bg-purple-50 text-purple-700 border-purple-200",
             },
-            {
-              label: "Reportes",
-              page: "Reportes",
-              icon: List,
-              color: "bg-green-50 text-green-700 border-green-200",
-            },
+            ...(canViewReportes(currentUser)
+              ? [{
+                  label: "Reportes",
+                  page: "Reportes",
+                  icon: List,
+                  color: "bg-green-50 text-green-700 border-green-200",
+                }]
+              : []),
           ].map((item) => {
             const Icon = item.icon;
             return (

@@ -22,17 +22,29 @@ Opcional: en **Authentication → Settings**, revisar que no haya flujos de invi
 | Email | `comercial@emat.com` |
 | Password | (definir en producción; no commitear) |
 | Auto Confirm User | Sí |
-| App Metadata | `{ "role": "admin" }` |
+| App Metadata | `{ "role": "ADMIN" }` |
 
-Roles admitidos en la app: `admin` (acceso completo) o `logistica` (Hoy + Presupuestos).
+Roles admitidos en la app: `ADMIN`, `ASESOR`, `LOGISTICA`.
+Si el rol es `ASESOR`, debe existir además `asesor_codigo` en `public.usuario`.
 
 ## 3. Perfil en `public.usuario`
 
-Ejecutar en SQL Editor la migración [`20260601120000_auth_usuario_on_signup.sql`](../supabase/migrations/20260601120000_auth_usuario_on_signup.sql).
+Ejecutar en SQL Editor las migraciones:
+
+- [`20260601120000_auth_usuario_on_signup.sql`](../supabase/migrations/20260601120000_auth_usuario_on_signup.sql)
+- [`20260602110000_roles_permissions_schema.sql`](../supabase/migrations/20260602110000_roles_permissions_schema.sql)
+- [`20260602111000_rls_and_reassign.sql`](../supabase/migrations/20260602111000_rls_and_reassign.sql)
 
 El trigger crea el perfil CRM cuando se **agrega** un usuario en Auth (panel o API admin), no por auto-registro.
 
 Si el usuario existía antes del trigger, el primer login hace upsert desde la app (`auth.ensureUsuarioProfile`).
+Para alta y edición desde UI ADMIN, desplegar Edge Functions:
+
+```bash
+supabase functions deploy admin-create-user
+supabase functions deploy admin-update-user
+supabase functions deploy admin-deactivate-user
+```
 
 ## 4. Usuarios creados por error vía signup
 
