@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -6,13 +6,15 @@ import { createPageUrl } from "@/utils";
 import { DragDropContext } from "@hello-pangea/dnd";
 import PipelineColumn from "@/components/crm/PipelineColumn";
 import ConsultaForm from "@/components/crm/ConsultaForm";
-import { ASESORES } from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Button } from "@/components/ui/button";
 import { Plus, Filter, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/SimpleAuthContext";
+import { filterConsultasByVisibility } from "@/lib/permissions";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -24,6 +26,8 @@ export default function Pipeline() {
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const { user } = useAuth();
+  const { asesorOptions } = useAsesores(user);
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
@@ -106,8 +110,13 @@ export default function Pipeline() {
   };
 
 
+  const visibleConsultas = filterConsultasByVisibility(consultas, user);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
   // Filtrar consultas
-  const consultasFiltradas = consultas.filter(c => {
+  const consultasFiltradas = visibleConsultas.filter(c => {
     const canal = c.canalOrigen ?? c.canalorigen;
     if (filtroCanal !== "todos" && canal !== filtroCanal) return false;
     if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
@@ -166,8 +175,8 @@ export default function Pipeline() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Asesor</SelectItem>
-                {ASESORES.map(a => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

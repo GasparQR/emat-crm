@@ -27,14 +27,10 @@ import {
   buildPipelineStagePatch,
   buildPipelineStagePatchAsync,
 } from "@/lib/pipelineStage";
+import { filterConsultasByVisibility, filterContactosByVisibility } from "@/lib/permissions";
+import { useAsesores } from "@/components/hooks/useAsesores";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -56,6 +52,12 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { asesorOptions, defaultAsesorCodigo, getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
+
+  useEffect(() => {
+    if (!showForm || selectedContacto || !defaultAsesorCodigo) return;
+    setFormData((prev) => (prev.asesor ? prev : { ...prev, asesor: defaultAsesorCodigo }));
+  }, [showForm, selectedContacto, defaultAsesorCodigo]);
   const isMobile = useIsMobile();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
@@ -85,11 +87,14 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, currentUser), [consultas, currentUser]);
+  const visibleContactos = useMemo(() => filterContactosByVisibility(contactos, currentUser), [contactos, currentUser]);
+
   const consultaMap = useMemo(() => {
     const map = {};
-    consultas.forEach(c => { map[c.contactonombre] = c; });
+    visibleConsultas.forEach(c => { map[c.contactonombre] = c; });
     return map;
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   const stageColorMap = useMemo(() => {
     const map = {};
@@ -99,7 +104,7 @@ export default function Contactos() {
 
   const { provincias, segmentos } = useMemo(() => {
     const pMap = {}, sMap = {};
-    contactos.forEach(c => {
+    visibleContactos.forEach(c => {
      if (c.provincia) pMap[c.provincia] = (pMap[c.provincia] || 0) + 1;
      if (c.segmento) sMap[c.segmento] = (sMap[c.segmento] || 0) + 1;
     });
@@ -107,7 +112,7 @@ export default function Contactos() {
       provincias: Object.entries(pMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
       segmentos: Object.entries(sMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k, count: v })),
     };
-  }, [contactos]);
+  }, [visibleContactos]);
 
   const createMutation = useMutation({
     mutationFn: (data) => entities.Contacto.create({ ...data, workspace_id: workspace?.id || "local" }),
@@ -250,11 +255,13 @@ export default function Contactos() {
     });
   };
 
-  const resetForm = () => {
+  const resetForm = ({ forNew = false } = {}) => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", localidad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: "", asesor: "", pipeline_stage: ""
+      canalOrigen: "", notas: "",
+      asesor: forNew ? (defaultAsesorCodigo || "") : "",
+      pipeline_stage: "",
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -351,7 +358,7 @@ export default function Contactos() {
     }
   };
 
-  const contactosFiltrados = contactos.filter(c => {
+  const contactosFiltrados = visibleContactos.filter(c => {
     if (search) {
       const s = search.toLowerCase();
       if (
@@ -406,10 +413,10 @@ export default function Contactos() {
             </Link>
             <h1 className="text-2xl font-bold text-slate-900">Contactos</h1>
             <p className="text-slate-500">
-              {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${contactos.length} contactos`}
+              {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${visibleContactos.length} contactos`}
             </p>
           </div>
-          <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
+          <Button onClick={() => { resetForm({ forNew: true }); setShowForm(true); }} className="gap-2">
             <Plus className="w-4 h-4" />Nuevo contacto
           </Button>
         </div>
@@ -557,10 +564,10 @@ export default function Contactos() {
                   <TableCell className="py-2">
                     {contacto.asesor ? (
                       <div
-                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", ASESOR_COLORS[contacto.asesor] || "bg-slate-400")}
-                        title={contacto.asesor}
+                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", getAsesorBgClass(contacto.asesor))}
+                        title={getAsesorNombre(contacto.asesor) || contacto.asesor}
                       >
-                        {contacto.asesor?.[0]}
+                        {getAsesorInitials(contacto.asesor)}
                       </div>
                     ) : (
                       <span className="text-slate-300 text-xs">-</span>
@@ -655,7 +662,9 @@ export default function Contactos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sin_asignar">Sin asignar</SelectItem>
-                  {ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {asesorOptions.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

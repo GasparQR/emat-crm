@@ -162,9 +162,26 @@ const createEntityProxy = (tableName) => {
 
 // ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
+function normalizeRole(role, email) {
+  // Si es admin@emat.com, siempre es ADMIN
+  if (email === 'admin@emat.com') return 'ADMIN';
+  
+  // Si no, normaliza el role que viene de metadata
+  const value = String(role ?? '').toUpperCase();
+  if (value === 'ADMIN') return 'ADMIN';
+  if (value === 'ASESOR') return 'ASESOR';
+  if (value === 'LOGISTICA') return 'LOGISTICA';
+  
+  // Default
+  return 'ASESOR';
+}
+
 const DEFAULT_PROFILE = {
   workspace_id: 'local',
-  role: 'admin',
+  role: 'ASESOR',
+  active: true,
+  can_view_other_advisors: false,
+  asesor_codigo: null,
   canEditContacts: true,
   canSendMessages: true,
   canViewReports: true,
@@ -175,8 +192,14 @@ const DEFAULT_PROFILE = {
 };
 
 function profileFromAuthUser(authUser) {
+  
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
+  const normalizedRole = normalizeRole(metaRole, authUser.email);
+  const defaultAsesorCode = normalizedRole === 'ASESOR'
+    ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
+    : null;
   return {
+    ...DEFAULT_PROFILE,
     id: authUser.id,
     full_name:
       authUser.user_metadata?.full_name ??
@@ -184,8 +207,9 @@ function profileFromAuthUser(authUser) {
       authUser.email?.split('@')[0] ??
       'Usuario',
     email: authUser.email ?? '',
-    role: metaRole === 'logistica' ? 'logistica' : 'admin',
-    ...DEFAULT_PROFILE,
+    role: normalizedRole,
+    asesor_codigo: defaultAsesorCode ? String(defaultAsesorCode).toUpperCase() : null,
+    
   };
 }
 
@@ -200,28 +224,63 @@ function mergeUsuarioRow(row, base) {
   };
 }
 
+function applyAuthRoleOverrides(profile, authUser) {
+  return {
+    ...profile,
+    role: normalizeRole(profile?.role, authUser?.email),
+    active: profile?.active !== false,
+  };
+}
+
 async function fetchUsuarioByAuthUser(authUser) {
   const base = profileFromAuthUser(authUser);
 
   const byId = await supabase.from('usuario').select('*').eq('id', authUser.id).maybeSingle();
-  if (byId.data) return mergeUsuarioRow(byId.data, base);
+  if (byId.data) {
+    return applyAuthRoleOverrides(mergeUsuarioRow(byId.data, base), authUser);
+  }
 
   if (authUser.email) {
     const byEmail = await supabase.from('usuario').select('*').eq('email', authUser.email).maybeSingle();
-    if (byEmail.data) return mergeUsuarioRow(byEmail.data, { ...base, id: byEmail.data.id ?? authUser.id });
+    if (byEmail.data) {
+      return applyAuthRoleOverrides(
+        mergeUsuarioRow(byEmail.data, { ...base, id: byEmail.data.id ?? authUser.id }),
+        authUser,
+      );
+    }
   }
 
-  return base;
+  return applyAuthRoleOverrides(base, authUser);
 }
 
 async function upsertUsuarioFromAuth(authUser) {
+  // 1. Construir perfil base desde auth metadata
   const base = profileFromAuthUser(authUser);
+  
+  // 2. Leer el perfil existente para preservar los campos gestionados por el
+  //    admin (active, role, permisos, asesor_codigo). Estos NO deben re-derivarse
+  //    desde los metadatos de Auth en cada login: si lo hicieran, una cuenta
+  //    desactivada desde el panel se reactivaría al iniciar sesión y se perderían
+  //    el rol y los permisos asignados por el admin.
+  const { data: existing } = await supabase
+    .from('usuario')
+    .select('role, active, can_view_other_advisors, asesor_codigo')
+    .eq('id', authUser.id)
+    .maybeSingle();
+
+  // 3. Construir payload preservando el estado de BD cuando el perfil ya existe.
   const payload = {
     id: authUser.id,
     workspace_id: 'local',
     full_name: base.full_name,
     email: base.email,
-    role: base.role,
+    role: existing?.role ?? base.role,
+    active: existing?.active ?? true,
+    can_view_other_advisors:
+      existing?.can_view_other_advisors ?? base.can_view_other_advisors ?? false,
+    asesor_codigo:
+      existing?.asesor_codigo ??
+      (base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null),
     consulta_follow_up_days: base.consulta_follow_up_days,
     consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
     consulta_default_observaciones: base.consulta_default_observaciones,
@@ -311,6 +370,9 @@ export const auth = {
       full_name: nextUser.full_name,
       email: nextUser.email ?? authUser.email,
       role: nextUser.role,
+      active: nextUser.active ?? true,
+      can_view_other_advisors: nextUser.can_view_other_advisors ?? false,
+      asesor_codigo: nextUser.role === 'ASESOR' ? (nextUser.asesor_codigo ?? null) : null,
       consulta_follow_up_days: nextUser.consulta_follow_up_days,
       consulta_default_condiciones_comerciales: nextUser.consulta_default_condiciones_comerciales,
       consulta_default_observaciones: nextUser.consulta_default_observaciones,
@@ -341,14 +403,31 @@ export const auth = {
   redirectToLogin: () => {
     window.location.href = '/login';
   },
+
+  listUsuarios: async () => {
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('*')
+      .order('created_date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  setLastSignIn: async () => {
+    const authUser = await auth.getAuthUser();
+    if (!authUser) return;
+    await supabase
+      .from('usuario')
+      .update({ last_sign_in_at: new Date().toISOString(), updated_date: new Date().toISOString() })
+      .eq('id', authUser.id);
+  },
 };
 
 // ─── Gestión de usuarios ───────────────────────────────────────────────────────
 
 export const users = {
-  inviteUser: async (email, role) => {
-    console.warn('inviteUser: funcionalidad no disponible sin Supabase Auth configurado', { email, role });
-    return Promise.resolve();
+  inviteUser: async () => {
+    throw new Error('inviteUser reemplazado por adminUsersApi.createUser');
   },
 };
 
@@ -372,4 +451,3 @@ export const entities = {
   VariablePlantilla: createEntityProxy('variableplantilla'),
   Usuario: createEntityProxy('usuario'),
 };
-

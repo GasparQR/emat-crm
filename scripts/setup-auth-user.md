@@ -22,17 +22,37 @@ Opcional: en **Authentication → Settings**, revisar que no haya flujos de invi
 | Email | `comercial@emat.com` |
 | Password | (definir en producción; no commitear) |
 | Auto Confirm User | Sí |
-| App Metadata | `{ "role": "admin" }` |
+| App Metadata | `{ "role": "ADMIN" }` |
 
-Roles admitidos en la app: `admin` (acceso completo) o `logistica` (Hoy + Presupuestos).
+Roles admitidos en la app: `ADMIN`, `ASESOR`, `LOGISTICA`.
+Si el rol es `ASESOR`, debe existir además `asesor_codigo` en `public.usuario`.
 
 ## 3. Perfil en `public.usuario`
 
-Ejecutar en SQL Editor la migración [`20260601120000_auth_usuario_on_signup.sql`](../supabase/migrations/20260601120000_auth_usuario_on_signup.sql).
+Ejecutar en SQL Editor las migraciones:
+
+- [`20260601120000_auth_usuario_on_signup.sql`](../supabase/migrations/20260601120000_auth_usuario_on_signup.sql)
+- [`20260602110000_roles_permissions_schema.sql`](../supabase/migrations/20260602110000_roles_permissions_schema.sql)
+- [`20260602111000_rls_and_reassign.sql`](../supabase/migrations/20260602111000_rls_and_reassign.sql)
+- [`20260603120000_fix_auth_user_trigger.sql`](../supabase/migrations/20260603120000_fix_auth_user_trigger.sql) — **obligatoria** si al crear usuarios ves *Database error creating new user*
 
 El trigger crea el perfil CRM cuando se **agrega** un usuario en Auth (panel o API admin), no por auto-registro.
 
 Si el usuario existía antes del trigger, el primer login hace upsert desde la app (`auth.ensureUsuarioProfile`).
+Para alta y edición desde UI ADMIN, desplegar Edge Functions:
+
+```bash
+supabase link --project-ref ywbgeqjqjfnhldqqqklj
+supabase functions deploy admin-create-user
+supabase functions deploy admin-update-user
+supabase functions deploy admin-deactivate-user
+```
+
+Si al crear usuario ves *"Edge Function returned a non-2xx"* o *"Access denied"*:
+
+1. Confirmá que las tres funciones aparecen en **Edge Functions** del dashboard.
+2. Tu usuario en `public.usuario` debe tener `role = 'ADMIN'` y `active = true` (o `app_metadata.role = ADMIN` en Auth).
+3. Para ASESOR, el **código de asesor** debe existir en la tabla `asesor` (catálogo en Configuración → Asesores).
 
 ## 4. Usuarios creados por error vía signup
 

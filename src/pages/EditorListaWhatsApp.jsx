@@ -13,6 +13,7 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { ArrowLeft, Copy, Archive, Save } from "lucide-react";
 import { toast } from "sonner";
+import { isAdmin } from "@/lib/permissions";
 
 export default function EditorListaWhatsApp() {
   const navigate = useNavigate();
@@ -101,7 +102,7 @@ export default function EditorListaWhatsApp() {
   };
 
   const handleStateChange = async (newState) => {
-    if (currentUser?.role !== "admin") {
+    if (!isAdmin(currentUser)) {
       toast.error("Solo administradores pueden cambiar el estado");
       return;
     }
@@ -245,7 +246,7 @@ export default function EditorListaWhatsApp() {
                 </Button>
               )}
 
-              {currentUser?.role === "admin" && listaId && (
+              {isAdmin(currentUser) && listaId && (
                 <Button
                   onClick={() => handleStateChange(form.estado === "Publicada" ? "Archivada" : "Publicada")}
                   variant="outline"

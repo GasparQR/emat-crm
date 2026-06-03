@@ -8,6 +8,10 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/SimpleAuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Login from '@/pages/Login';
+import RequireRole from '@/components/auth/RequireRole';
+import ConfiguracionUsuarios from '@/pages/config/ConfiguracionUsuarios';
+import ConfiguracionAsesores from '@/pages/config/ConfiguracionAsesores';
+import { canAccessRoute } from '@/lib/permissions';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -18,7 +22,7 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, isAuthenticated, user } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -62,6 +66,26 @@ const AuthenticatedApp = () => {
         <Route path="*" element={<Navigate to="/login" replace />} />
       ) : (
         <>
+          <Route
+            path="/configuracion/usuarios"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <LayoutWrapper currentPageName="Ajustes">
+                  <ConfiguracionUsuarios />
+                </LayoutWrapper>
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/configuracion/asesores"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <LayoutWrapper currentPageName="Ajustes">
+                  <ConfiguracionAsesores />
+                </LayoutWrapper>
+              </RequireRole>
+            }
+          />
           <Route path="/" element={
             <LayoutWrapper currentPageName={mainPageKey}>
               <MainPage />
@@ -72,12 +96,26 @@ const AuthenticatedApp = () => {
               key={path}
               path={`/${path}`}
               element={
-                <LayoutWrapper currentPageName={path}>
-                  <Page />
-                </LayoutWrapper>
+                <RequireRole roles={path === 'Reportes' ? ['ADMIN', 'ASESOR'] : ['ADMIN', 'ASESOR', 'LOGISTICA']} denyMode="redirect">
+                  <LayoutWrapper currentPageName={path}>
+                    <Page />
+                  </LayoutWrapper>
+                </RequireRole>
               }
             />
           ))}
+          <Route
+            path="/reportes"
+            element={
+              <RequireRole roles={['ADMIN', 'ASESOR']} denyMode="redirect">
+                <Navigate to="/Reportes" replace />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/forbidden"
+            element={canAccessRoute(user, '/forbidden') ? <PageNotFound /> : <Navigate to="/" replace />}
+          />
           <Route path="*" element={<PageNotFound />} />
         </>
       )}

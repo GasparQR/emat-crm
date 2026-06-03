@@ -4,12 +4,9 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import QuickCallButton from "./QuickCallButton";
 import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { useAsesores } from "@/components/hooks/useAsesores";
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function MobileConsultaListItem({
   consulta,
@@ -21,7 +18,9 @@ export default function MobileConsultaListItem({
   const seguimientoVencido =
     consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
-  const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+  const { data: currentUser } = useCurrentUser();
+  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
+  const asesorColor = getAsesorBgClass(consulta.asesor);
   const fechaGanado = getFechaGanadoFromConsulta(consulta);
 
   const handleClick = () => {
@@ -47,12 +46,12 @@ export default function MobileConsultaListItem({
         {consulta.asesor && (
           <div
             className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0",
+              "w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight flex-shrink-0",
               asesorColor
             )}
-            title={consulta.asesor}
+            title={getAsesorNombre(consulta.asesor) || consulta.asesor}
           >
-            {consulta.asesor[0]}
+            {getAsesorInitials(consulta.asesor)}
           </div>
         )}
       </div>

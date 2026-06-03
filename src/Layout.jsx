@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { 
-  LayoutDashboard, Kanban, List, Users, Calendar,
+  LayoutDashboard, Kanban, List, Users, Calendar, Settings, BarChart3,
   Menu, X, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,28 +13,27 @@ import { ActiveCallProvider } from "@/components/context/ActiveCallContext";
 import FloatingCallButton from "@/components/crm/FloatingCallButton";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { LogOut } from "lucide-react";
+import { getNavItemsForRole } from "@/lib/permissions";
 
-const ALL_NAV_ITEMS = [
-  { name: "Home", icon: LayoutDashboard, page: "Home" },
-  { name: "Pipeline", icon: Kanban, page: "Pipeline" },
-  { name: "Hoy", icon: Calendar, page: "Hoy" },
-  { name: "Presupuestos", icon: List, page: "Consultas" },
-  { name: "Contactos", icon: Users, page: "Contactos" },
-  { name: "Ajustes", icon: Users, page: "Ajustes" },
-];
-
-const LOGISTICA_NAV_ITEMS = [
-  { name: "Hoy", icon: Calendar, page: "Hoy" },
-  { name: "Presupuestos", icon: List, page: "Consultas" },
-];
+const ICONS = {
+  LayoutDashboard,
+  Kanban,
+  List,
+  Users,
+  Calendar,
+  Settings,
+  BarChart3,
+};
 
 export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { user, logout } = useAuth();
 
-  const isLogistica = user?.role === "logistica";
-  const NAV_ITEMS = isLogistica ? LOGISTICA_NAV_ITEMS : ALL_NAV_ITEMS;
+  const NAV_ITEMS = getNavItemsForRole(user).map((item) => ({
+    ...item,
+    icon: ICONS[item.icon] ?? Users,
+  }));
 
   return (
     <WorkspaceProvider>
@@ -131,7 +130,7 @@ export default function Layout({ children, currentPageName }) {
               <p className="text-sm font-medium text-slate-900 truncate" title={user?.email}>
                 {user?.name || user?.email || "Usuario"}
               </p>
-              <p className="text-xs text-slate-500 capitalize">{user?.role || "admin"}</p>
+              <p className="text-xs text-slate-500">{user?.role || "ASESOR"}</p>
               <Button
                 type="button"
                 variant="outline"

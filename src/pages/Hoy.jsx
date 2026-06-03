@@ -19,14 +19,10 @@ import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -35,7 +31,8 @@ export default function Hoy() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
-  const isLogistica = user?.role === "logistica";
+  const isLogistica = roleIsLogistica(user);
+  const { asesorOptions, getAsesorInitials, getAsesorNombre } = useAsesores(user);
   const { data: currentUser } = useCurrentUser();
   const { setCallTarget } = useActiveCall();
 
@@ -93,7 +90,13 @@ export default function Hoy() {
     return true;
   };
 
-  const hoy = consultas.filter(c => {
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
+
+  const hoy = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -101,7 +104,7 @@ export default function Hoy() {
     return moment(fecha).isSame(today, 'day');
   });
 
-  const vencidos = consultas.filter(c => {
+  const vencidos = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -109,7 +112,7 @@ export default function Hoy() {
     return moment(fecha).isBefore(today, 'day');
   });
 
-  const proximos3d = consultas.filter(c => {
+  const proximos3d = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
     const fecha = c.proximoseguimiento;
     if (!fecha) return false;
@@ -145,7 +148,7 @@ export default function Hoy() {
 
   const ConsultaItem = ({ consulta, tipo }) => {
     const fechaMostrar = consulta.proximoseguimiento;
-    const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+    const asesorColor = getAsesorBgClass(consulta.asesor);
     const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
     const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
     return (
@@ -182,12 +185,14 @@ export default function Hoy() {
               {consulta.asesor && (
                 <div className="flex items-center gap-1">
                   <div
-                    className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}
-                    title={consulta.asesor}
+                    className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold tracking-tight", asesorColor)}
+                    title={getAsesorNombre(consulta.asesor) || consulta.asesor}
                   >
-                    {consulta.asesor[0]}
+                    {getAsesorInitials(consulta.asesor)}
                   </div>
-                  <span className="text-xs font-medium text-slate-600">{consulta.asesor}</span>
+                  <span className="text-xs font-medium text-slate-600">
+                    {getAsesorNombre(consulta.asesor) || consulta.asesor}
+                  </span>
                 </div>
               )}
             </div>
@@ -262,8 +267,8 @@ export default function Hoy() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los asesores</SelectItem>
-                {ASESORES.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -70,7 +70,7 @@
 | Reportes | Gráficos, tasas de conversión, pérdidas |
 | WhatsApp | Plantillas, variables, listas, historial |
 | Configuración | Días hábiles, textos PDF, backup ZIP |
-| Roles | `admin` y `logistica` (vistas filtradas) |
+| Roles | `ADMIN`, `ASESOR`, `LOGISTICA` (vistas y rutas filtradas) |
 | Llamada rápida | Enlaces `tel:` en móvil |
 | Ajustes | Preferencias y acceso a configuración avanzada |
 
@@ -287,13 +287,13 @@ emat-crm/
 | Aspecto | Estado actual | Recomendación producción |
 |---------|---------------|---------------------------|
 | Autenticación | **Supabase Auth** (solo login; sin registro público) | Desactivar sign up en Providers → Email; ver `scripts/setup-auth-user.md` |
-| Autorización | Roles `admin` / `logistica` en UI | **RLS** en todas las tablas `public` |
+| Autorización | Roles `ADMIN` / `ASESOR` / `LOGISTICA` + guards de ruta | **RLS** aplicado en `usuario`, `asesor`, `consulta`, `contacto` |
 | API keys | Solo `anon` en frontend | Nunca exponer `service_role` |
 | Datos por tenant | `workspace_id` en entidades | Políticas RLS por `workspace_id` |
 | Validación | Zod + reglas en formularios | Validar también en DB (constraints) |
 | HTTPS | Vercel / Supabase por defecto | Obligatorio en producción |
 | Backups | Export manual ZIP en Configuración | Backups automáticos Supabase + retención |
-| Alta de usuarios | Panel Supabase → Users → Add user | Sin `signUp` en la app; signup deshabilitado en Auth |
+| Alta de usuarios | Panel Supabase o Edge Functions `admin-*` | Sin `signUp` en la app; signup deshabilitado en Auth |
 
 Buenas prácticas ya consideradas en el código:
 
@@ -345,8 +345,8 @@ Buenas prácticas ya consideradas en el código:
 
 ## Roadmap
 
-- [ ] Supabase Auth + invitaciones reales
-- [ ] RLS completo por workspace y rol
+- [x] Supabase Auth + administración de usuarios por Edge Functions
+- [x] RLS por rol (`ADMIN`/`ASESOR`/`LOGISTICA`) en tablas críticas
 - [ ] API REST documentada (OpenAPI) para integraciones
 - [ ] Webhooks salientes (etapa ganada, nuevo lead)
 - [ ] App móvil nativa o PWA offline

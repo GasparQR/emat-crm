@@ -2,28 +2,48 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Settings, MessageSquare } from "lucide-react";
-
-const OPCIONES = [
-  {
-    title: "Configuración",
-    description: "Preferencia días hábiles de seguimiento",
-    icon: Settings,
-    page: "Configuracion",
-    color: "bg-slate-100 text-slate-700"
-  },
-  {
-    title: "Plantillas WhatsApp",
-    description: "Gestiona tus mensajes predefinidos y variables",
-    icon: MessageSquare,
-    page: "Plantillas",
-    color: "bg-emerald-100 text-emerald-700"
-  },
-  
-  
-];
+import { ArrowLeft, Settings, MessageSquare, Users, UserCog } from "lucide-react";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { isAdmin } from "@/lib/permissions";
 
 export default function Ajustes() {
+  const { data: currentUser } = useCurrentUser();
+  const admin = isAdmin(currentUser);
+  const opciones = [
+    {
+      title: "Configuración",
+      description: "Preferencias de seguimiento y textos de presupuesto",
+      icon: Settings,
+      to: createPageUrl("Configuracion"),
+      color: "bg-slate-100 text-slate-700",
+    },
+    {
+      title: "Plantillas WhatsApp",
+      description: "Gestiona tus mensajes predefinidos y variables",
+      icon: MessageSquare,
+      to: createPageUrl("Plantillas"),
+      color: "bg-emerald-100 text-emerald-700",
+    },
+    ...(admin
+      ? [
+          {
+            title: "Usuarios",
+            description: "Alta, edición, desactivación y permisos por rol",
+            icon: UserCog,
+            to: "/configuracion/usuarios",
+            color: "bg-blue-100 text-blue-700",
+          },
+          {
+            title: "Asesores",
+            description: "CRUD de asesores y reasignación de cartera",
+            icon: Users,
+            to: "/configuracion/asesores",
+            color: "bg-purple-100 text-purple-700",
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -39,8 +59,8 @@ export default function Ajustes() {
         </div>
 
         <div className="grid gap-4">
-          {OPCIONES.map((opcion) => (
-            <Link key={opcion.page} to={createPageUrl(opcion.page)}>
+          {opciones.map((opcion) => (
+            <Link key={opcion.title} to={opcion.to}>
               <Card className="hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">

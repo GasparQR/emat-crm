@@ -22,14 +22,9 @@ import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
-
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
@@ -45,7 +40,8 @@ export default function Consultas() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
-  const isLogistica = user?.role === "logistica";
+  const isLogistica = roleIsLogistica(user);
+  const { asesorOptions, getAsesorInitials, getAsesorNombre } = useAsesores(user);
   const isMobile = useIsMobile();
   const { setCallTarget } = useActiveCall();
 
@@ -150,13 +146,15 @@ export default function Consultas() {
     }
   };
 
-  const anos = [...new Set(consultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
+  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
+  const anos = [...new Set(visibleConsultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
 
   // ✅ LÓGICA DE FILTRADO CORREGIDA
-  const filtradas = consultas.filter(c => {
-    if (isLogistica && c.pipeline_stage !== "GANADA" && c.pipeline_stage !== "EJECUTADA") {
-      return false;
-    }
+  const filtradas = visibleConsultas.filter(c => {
     // Filtro de búsqueda (busca en nombre, nº ppto o ubicación con OR)
     if (search) {
       const s = search.toLowerCase();
@@ -224,7 +222,7 @@ export default function Consultas() {
               </Link>
               <h1 className="text-2xl font-bold text-slate-900">Presupuestos</h1>
               <p className="text-slate-500">
-                {isLoading ? "Cargando..." : `${filtradas.length} de ${consultas.length} presupuestos`}
+                {isLoading ? "Cargando..." : `${filtradas.length} de ${visibleConsultas.length} presupuestos`}
               </p>
             </div>
             {!isLogistica && (
@@ -256,7 +254,9 @@ export default function Consultas() {
               <SelectTrigger className="w-36"><SelectValue placeholder="Asesor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                {ASESORES.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filtroAno} onValueChange={setFiltroAno}>
@@ -336,7 +336,7 @@ export default function Consultas() {
                 <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
                 const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
-                const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
+                const asesorColor = getAsesorBgClass(c.asesor);
                 return (
                   <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
 
@@ -363,10 +363,10 @@ export default function Consultas() {
                     <TableCell className="py-2">
                       {c.asesor && (
                         <div
-                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}
-                          title={c.asesor}
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", asesorColor)}
+                          title={getAsesorNombre(c.asesor) || c.asesor}
                         >
-                          {c.asesor[0]}
+                          {getAsesorInitials(c.asesor)}
                         </div>
                       )}
                     </TableCell>
