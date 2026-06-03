@@ -21,7 +21,6 @@ import moment from "moment";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import { canViewGlobalData, filterConsultasByVisibility } from "@/lib/permissions";
-import { getAsesorHexColor } from "@/lib/asesorColors";
 
 const ESTADO_COLORS = {
   "A COTIZAR": "#94a3b8",
@@ -64,7 +63,7 @@ export default function Reportes() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const canViewAll = canViewGlobalData(user);
-  const { asesorOptions } = useAsesores(user);
+  const { asesorOptions, getAsesorHexColor } = useAsesores(user);
 
   const { data: consultas = [], isLoading } = useQuery({
     queryKey: ["consultas-reportes", workspace?.id, user?.asesor_codigo, user?.role],

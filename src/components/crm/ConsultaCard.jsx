@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useAsesores } from "@/components/hooks/useAsesores";
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 import moment from "moment";
 
 const MOTIVOS_PERDIDA = [
@@ -26,9 +26,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
     moment(consulta.proximoseguimiento).isSame(moment(), "day");
 
   const { data: currentUser } = useCurrentUser();
-  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
-  const asesorColor = getAsesorBgClass(consulta.asesor);
-  const asesorInitial = getAsesorInitials(consulta.asesor);
+  const { getAsesorNombre } = useAsesores(currentUser);
   const asesorTitle = getAsesorNombre(consulta.asesor) || consulta.asesor;
 
   return (
@@ -40,12 +38,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
       {/* Header: asesor avatar + nombre + menú */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div
-            className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight flex-shrink-0", asesorColor)}
-            title={asesorTitle}
-          >
-            {asesorInitial}
-          </div>
+          <AsesorAvatar codigo={consulta.asesor} size="sm" title={asesorTitle} />
           <div>
             <p className="font-semibold text-slate-900 text-sm leading-tight line-clamp-1">
               {consulta.contactonombre || "Sin nombre"}

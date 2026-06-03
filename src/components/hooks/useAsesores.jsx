@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { entities } from "@/api/supabaseClient";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { getAsesorBgClass, getAsesorHexColor } from "@/lib/asesorColors";
+import {
+  buildAsesorColorByCodigo,
+  getAsesorAvatarStyle as resolveAsesorAvatarStyle,
+  getAsesorHexColor as resolveAsesorHexColor,
+} from "@/lib/asesorColors";
 import {
   buildAsesorNameByCodigo,
   buildFirmasYAsesoresMap,
@@ -73,6 +77,11 @@ export function useAsesores(user) {
     [query.data]
   );
 
+  const colorByCodigo = useMemo(
+    () => buildAsesorColorByCodigo(query.data),
+    [query.data]
+  );
+
   return {
     ...query,
     asesorOptions,
@@ -80,9 +89,10 @@ export function useAsesores(user) {
     defaultAsesorCodigo,
     nameByCodigo,
     firmasYAsesoresMap,
+    colorByCodigo,
     resolveAsesorForSave: (input) => resolveAsesorFromMap(input, firmasYAsesoresMap),
-    getAsesorHexColor: (codigo) => getAsesorHexColor(codigo),
-    getAsesorBgClass: (codigo) => getAsesorBgClass(codigo),
+    getAsesorHexColor: (codigo) => resolveAsesorHexColor(codigo, colorByCodigo),
+    getAsesorAvatarStyle: (codigo) => resolveAsesorAvatarStyle(codigo, colorByCodigo),
     getAsesorNombre: (codigo) => resolveAsesorNombre(codigo, nameByCodigo),
     getAsesorInitials: (codigo) => resolveAsesorInitials(codigo, nameByCodigo),
   };
