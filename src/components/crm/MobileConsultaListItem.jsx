@@ -4,12 +4,7 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import QuickCallButton from "./QuickCallButton";
 import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function MobileConsultaListItem({
   consulta,
@@ -21,7 +16,7 @@ export default function MobileConsultaListItem({
   const seguimientoVencido =
     consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
-  const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+  const asesorColor = getAsesorBgClass(consulta.asesor);
   const fechaGanado = getFechaGanadoFromConsulta(consulta);
 
   const handleClick = () => {

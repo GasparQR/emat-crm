@@ -9,12 +9,7 @@ import {
 import { MapPin, MoreHorizontal, Edit, MessageCircle, Mail, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import QuickCallButton from "./QuickCallButton";
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function MobileContactoListItem({
   contacto,
@@ -71,7 +66,7 @@ export default function MobileContactoListItem({
             <div
               className={cn(
                 "w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold",
-                ASESOR_COLORS[contacto.asesor] || "bg-slate-400"
+                getAsesorBgClass(contacto.asesor)
               )}
               title={contacto.asesor}
             >

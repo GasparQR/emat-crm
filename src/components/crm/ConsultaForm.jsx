@@ -134,7 +134,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorCodes } = useAsesores(currentUser);
+  const { asesorOptions } = useAsesores(currentUser);
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -652,7 +652,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Label>Asesor</Label>
                 <Select value={formData.asesor} onValueChange={v => set("asesor", v)}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {asesorOptions.map((a) => (
+                      <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
@@ -870,7 +874,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             <Label>Asesor *</Label>
             <Select value={newLeadData.asesor} onValueChange={v => setNewLeadData(prev => ({ ...prev, asesor: v }))}>
               <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-              <SelectContent>{asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+              <SelectContent>
+                {asesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">

@@ -19,19 +19,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import { useAuth } from "@/lib/SimpleAuthContext";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import { canViewGlobalData, filterConsultasByVisibility } from "@/lib/permissions";
-
-const ASESOR_COLORS = {
-  ANDRES: "#3b82f6",
-  TRISTAN: "#a855f7",
-  VALENTINA: "#ec4899",
-  ROCIO: "#f43f5e",
-  JULIAN: "#6366f1",
-  PABLO: "#f97316",
-  ESTEBAN: "#06b6d4",
-  MACA: "#d946ef",
-  "MIRTA LOPEZ": "#14b8a6",
-};
+import { getAsesorHexColor } from "@/lib/asesorColors";
 
 const ESTADO_COLORS = {
   "A COTIZAR": "#94a3b8",
@@ -74,6 +64,7 @@ export default function Reportes() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const canViewAll = canViewGlobalData(user);
+  const { asesorOptions } = useAsesores(user);
 
   const { data: consultas = [], isLoading } = useQuery({
     queryKey: ["consultas-reportes", workspace?.id, user?.asesor_codigo, user?.role],
@@ -94,9 +85,9 @@ export default function Reportes() {
     [visibleConsultas]
   );
 
-  const asesoresUnicos = useMemo(
-    () => [...new Set(visibleConsultas.map((c) => c.asesor).filter(Boolean))].sort(),
-    [visibleConsultas]
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
   );
 
   const mesesAnosDisponibles = useMemo(() => {
@@ -405,8 +396,8 @@ export default function Reportes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los asesores</SelectItem>
-                {asesoresUnicos.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -603,7 +594,7 @@ export default function Reportes() {
                 <Card key={a.asesor} className="overflow-hidden">
                   <div
                     className="h-1.5"
-                    style={{ backgroundColor: ASESOR_COLORS[a.asesor] || "#94a3b8" }}
+                    style={{ backgroundColor: getAsesorHexColor(a.asesor) }}
                   />
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base font-bold">{a.asesor}</CardTitle>
@@ -987,7 +978,7 @@ export default function Reportes() {
                         <Tooltip />
                         <Bar dataKey="perdidas" name="Perdidos" fill="#ef4444" radius={[4,4,0,0]}>
                           {perdidasData.porAsesor.map((entry, i) => (
-                            <Cell key={i} fill={ASESOR_COLORS[entry.asesor] || "#ef4444"} />
+                            <Cell key={i} fill={getAsesorHexColor(entry.asesor)} />
                           ))}
                         </Bar>
                       </BarChart>

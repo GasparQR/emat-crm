@@ -23,13 +23,8 @@ import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
-import { useAsesores } from "@/components/hooks/useAsesores";
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
@@ -46,7 +41,7 @@ export default function Consultas() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
-  const { asesorCodes } = useAsesores(user);
+  const { asesorOptions } = useAsesores(user);
   const isMobile = useIsMobile();
   const { setCallTarget } = useActiveCall();
 
@@ -152,6 +147,10 @@ export default function Consultas() {
   };
 
   const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
   const anos = [...new Set(visibleConsultas.map(c => c.ano).filter(Boolean))].sort((a,b) => b-a);
 
   // ✅ LÓGICA DE FILTRADO CORREGIDA
@@ -255,7 +254,9 @@ export default function Consultas() {
               <SelectTrigger className="w-36"><SelectValue placeholder="Asesor" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos</SelectItem>
-                {asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filtroAno} onValueChange={setFiltroAno}>
@@ -335,7 +336,7 @@ export default function Consultas() {
                 <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
                 const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
-                const asesorColor = ASESOR_COLORS[c.asesor] || "bg-slate-400";
+                const asesorColor = getAsesorBgClass(c.asesor);
                 return (
                   <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
 

@@ -20,13 +20,9 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
-import { useAsesores } from "@/components/hooks/useAsesores";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -36,7 +32,7 @@ export default function Hoy() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
-  const { asesorCodes } = useAsesores(user);
+  const { asesorOptions } = useAsesores(user);
   const { data: currentUser } = useCurrentUser();
   const { setCallTarget } = useActiveCall();
 
@@ -95,6 +91,10 @@ export default function Hoy() {
   };
 
   const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
 
   const hoy = visibleConsultas.filter(c => {
     if (!baseFilter(c)) return false;
@@ -148,7 +148,7 @@ export default function Hoy() {
 
   const ConsultaItem = ({ consulta, tipo }) => {
     const fechaMostrar = consulta.proximoseguimiento;
-    const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+    const asesorColor = getAsesorBgClass(consulta.asesor);
     const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
     const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
     return (
@@ -265,8 +265,8 @@ export default function Hoy() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los asesores</SelectItem>
-                {asesorCodes.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

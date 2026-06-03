@@ -17,23 +17,12 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { canViewReportes } from "@/lib/permissions";
-
-const ASESOR_COLORS = {
-  ANDRES: "#3b82f6", TRISTAN: "#a855f7", VALENTINA: "#ec4899",
-  ROCIO: "#f43f5e", JULIAN: "#6366f1", PABLO: "#f97316",
-  ESTEBAN: "#06b6d4", MACA: "#d946ef", "MIRTA LOPEZ": "#14b8a6",
-};
+import { useAsesores } from "@/components/hooks/useAsesores";
 
 const ESTADO_PIE_COLORS = {
   "NUEVO LEAD": "#06b6d4", "A COTIZAR": "#94a3b8", "NEGOCIACION": "#f59e0b", "GANADA": "#10b981",
   "EJECUTADA": "#059669", "PAUSADA": "#6b7280", "PERDIDA": "#ef4444",
 };
-
-// Lista de asesores disponibles
-const ASESORES_LIST = Object.keys(ASESOR_COLORS).map(name => ({
-  value: name,
-  label: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
-}));
 
 export default function Home() {
   const [showForm, setShowForm] = useState(false);
@@ -47,6 +36,7 @@ export default function Home() {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
+  const { asesorOptions } = useAsesores(currentUser);
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
@@ -471,7 +461,7 @@ export default function Home() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900"
               >
                 <option value="">Seleccionar asesor...</option>
-                {ASESORES_LIST.map((asesor) => (
+                {asesorOptions.map((asesor) => (
                   <option key={asesor.value} value={asesor.value}>
                     {asesor.label}
                   </option>

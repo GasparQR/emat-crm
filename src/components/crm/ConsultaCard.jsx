@@ -4,13 +4,8 @@ import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, Send, FileText 
 import QuickCallButton from "./QuickCallButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { getAsesorBgClass } from "@/lib/asesorColors";
 import moment from "moment";
-
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
 
 const MOTIVOS_PERDIDA = [
   { value: "Sin respuesta", label: "Sin respuesta" },
@@ -28,7 +23,7 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
   const seguimientoHoy = consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isSame(moment(), "day");
 
-  const asesorColor = ASESOR_COLORS[consulta.asesor] || "bg-slate-400";
+  const asesorColor = getAsesorBgClass(consulta.asesor);
   const asesorInitial = consulta.asesor ? consulta.asesor[0] : "?";
 
   return (

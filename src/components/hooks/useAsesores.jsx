@@ -2,7 +2,23 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { entities } from "@/api/supabaseClient";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { getAsesorBgClass, getAsesorHexColor } from "@/lib/asesorColors";
 import { getDefaultAsesorForUser, isAdmin } from "@/lib/permissions";
+
+/** Opciones de filtro: catálogo + códigos que aparecen en datos (históricos). */
+export function buildAsesorFilterOptions(asesorOptions, items, field = "asesor") {
+  const byCode = new Map((asesorOptions || []).map((o) => [o.value, o]));
+  for (const item of items || []) {
+    const code = item?.[field];
+    if (!code) continue;
+    if (!byCode.has(code)) {
+      byCode.set(code, { value: code, label: code, raw: null });
+    }
+  }
+  return [...byCode.values()].sort((a, b) =>
+    String(a.label).localeCompare(String(b.label), "es")
+  );
+}
 
 export function useAsesores(user) {
   const { workspace } = useWorkspace();
@@ -33,9 +49,13 @@ export function useAsesores(user) {
     return items.filter((item) => item.value === ownCode);
   }, [query.data, user]);
 
+  const asesorCodes = useMemo(() => asesorOptions.map((o) => o.value), [asesorOptions]);
+
   return {
     ...query,
     asesorOptions,
-    asesorCodes: asesorOptions.map((o) => o.value),
+    asesorCodes,
+    getAsesorHexColor: (codigo) => getAsesorHexColor(codigo),
+    getAsesorBgClass: (codigo) => getAsesorBgClass(codigo),
   };
 }

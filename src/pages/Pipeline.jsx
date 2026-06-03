@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { filterConsultasByVisibility } from "@/lib/permissions";
-import { useAsesores } from "@/components/hooks/useAsesores";
+import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -27,7 +27,7 @@ export default function Pipeline() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
-  const { asesorCodes } = useAsesores(user);
+  const { asesorOptions } = useAsesores(user);
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
@@ -111,6 +111,10 @@ export default function Pipeline() {
 
 
   const visibleConsultas = filterConsultasByVisibility(consultas, user);
+  const filterAsesorOptions = useMemo(
+    () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
+    [asesorOptions, visibleConsultas]
+  );
   // Filtrar consultas
   const consultasFiltradas = visibleConsultas.filter(c => {
     const canal = c.canalOrigen ?? c.canalorigen;
@@ -171,8 +175,8 @@ export default function Pipeline() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Asesor</SelectItem>
-                {asesorCodes.map(a => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                {filterAsesorOptions.map((a) => (
+                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

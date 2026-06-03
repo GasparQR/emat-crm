@@ -20,8 +20,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { normalizeRole } from "@/lib/permissions";
 
-const ASESORES = ["ANDRES", "TRISTAN", "VALENTINA", "ROCIO", "JULIAN", "PABLO", "ESTEBAN", "MACA", "MIRTA LOPEZ"];
-
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
   const { workspace } = useWorkspace();
@@ -33,6 +31,7 @@ export default function Configuracion() {
   const [savingDays, setSavingDays] = useState(false);
   const [defaultCondiciones, setDefaultCondiciones] = useState("");
   const [defaultObservaciones, setDefaultObservaciones] = useState("");
+  const [asesoresCatalog, setAsesoresCatalog] = useState([]);
   const [firmasAsesor, setFirmasAsesor] = useState({});
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [backupSelection, setBackupSelection] = useState(getDefaultBackupSelection);
@@ -94,16 +93,22 @@ export default function Configuracion() {
     const loadFirmasAsesor = async () => {
       const workspaceId = workspace?.id || "local";
       try {
-        const rows = await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000);
-        const byNombre = Object.fromEntries((rows || []).map((row) => [row.nombre, row.firma]));
-        const normalizedFirmas = Object.fromEntries(
-          ASESORES.map((asesor) => [asesor, byNombre[asesor] ?? asesor])
+        const rows = (await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000)) || [];
+        const sorted = [...rows].sort((a, b) =>
+          String(a.nombre || a.codigo).localeCompare(String(b.nombre || b.codigo), "es")
         );
-        if (active) setFirmasAsesor(normalizedFirmas);
-      } catch {
-        // If schema/table is not ready, keep usable defaults in UI.
         if (active) {
-          setFirmasAsesor(Object.fromEntries(ASESORES.map((asesor) => [asesor, asesor])));
+          setAsesoresCatalog(sorted);
+          setFirmasAsesor(
+            Object.fromEntries(
+              sorted.map((row) => [row.codigo, row.firma ?? row.nombre ?? row.codigo])
+            )
+          );
+        }
+      } catch {
+        if (active) {
+          setAsesoresCatalog([]);
+          setFirmasAsesor({});
         }
       }
     };
@@ -136,33 +141,27 @@ export default function Configuracion() {
       });
 
       const workspaceId = workspace?.id || "local";
-      const existing = await entities.Asesor.filter({ workspace_id: workspaceId }, null, 2000);
-      const existingByNombre = new Map((existing || []).map((item) => [item.nombre, item]));
 
       await Promise.all(
-        ASESORES.map((asesor) => {
-          const firma = firmasAsesor[asesor] ?? "";
-          const current = existingByNombre.get(asesor);
-          if (current?.id) {
-            return entities.Asesor.update(current.id, {
-              workspace_id: workspaceId,
-              nombre: asesor,
-              firma,
-              activo: true,
-            });
-          }
-          return entities.Asesor.create({
-            id: `asesor_${workspaceId}_${asesor.toLowerCase()}`,
+        asesoresCatalog.map((row) => {
+          const codigo = row.codigo;
+          if (!codigo || !row.id) return Promise.resolve();
+          const firma = firmasAsesor[codigo] ?? "";
+          return entities.Asesor.update(row.id, {
             workspace_id: workspaceId,
-            nombre: asesor,
+            codigo,
+            nombre: row.nombre || codigo,
             firma,
-            activo: true,
+            active: row.active !== false,
+            activo: row.activo !== false,
           });
         })
       );
 
       queryClient.invalidateQueries({ queryKey: ['current-user'] });
       queryClient.invalidateQueries({ queryKey: ['asesor-firmas'] });
+      queryClient.invalidateQueries({ queryKey: ['asesores'] });
+      queryClient.invalidateQueries({ queryKey: ['asesores-admin'] });
       toast.success("Textos predeterminados guardados");
     } finally {
       setSavingDefaults(false);
@@ -272,21 +271,30 @@ export default function Configuracion() {
             <div className="space-y-2">
               <Label>Firma predeterminada por asesor</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ASESORES.map((asesor) => (
-                  <div key={asesor} className="space-y-1">
-                    <Label className="text-xs text-slate-500">{asesor}</Label>
-                    <Input
-                      value={firmasAsesor[asesor] ?? ""}
-                      onChange={(e) =>
-                        setFirmasAsesor((prev) => ({
-                          ...prev,
-                          [asesor]: e.target.value,
-                        }))
-                      }
-                      placeholder={`Firma para ${asesor}`}
-                    />
-                  </div>
-                ))}
+                {asesoresCatalog.length === 0 ? (
+                  <p className="text-sm text-slate-500 col-span-2">
+                    No hay asesores en el catálogo. Creálos en Ajustes → Asesores.
+                  </p>
+                ) : (
+                  asesoresCatalog.map((row) => (
+                    <div key={row.codigo} className="space-y-1">
+                      <Label className="text-xs text-slate-500">
+                        {row.nombre || row.codigo}
+                        {row.codigo !== row.nombre ? ` (${row.codigo})` : ""}
+                      </Label>
+                      <Input
+                        value={firmasAsesor[row.codigo] ?? ""}
+                        onChange={(e) =>
+                          setFirmasAsesor((prev) => ({
+                            ...prev,
+                            [row.codigo]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Firma para ${row.nombre || row.codigo}`}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 Este texto reemplaza el "Cotizó ..." al pie del PDF.

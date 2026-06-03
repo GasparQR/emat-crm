@@ -30,11 +30,7 @@ import {
 import { filterConsultasByVisibility, filterContactosByVisibility } from "@/lib/permissions";
 import { useAsesores } from "@/components/hooks/useAsesores";
 
-const ASESOR_COLORS = {
-  ANDRES: "bg-blue-500", TRISTAN: "bg-purple-500", VALENTINA: "bg-pink-500",
-  ROCIO: "bg-rose-500", JULIAN: "bg-indigo-500", PABLO: "bg-orange-500",
-  ESTEBAN: "bg-cyan-500", MACA: "bg-fuchsia-500", "MIRTA LOPEZ": "bg-teal-500",
-};
+import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -56,7 +52,7 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorCodes } = useAsesores(currentUser);
+  const { asesorOptions } = useAsesores(currentUser);
   const isMobile = useIsMobile();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
@@ -561,7 +557,7 @@ export default function Contactos() {
                   <TableCell className="py-2">
                     {contacto.asesor ? (
                       <div
-                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", ASESOR_COLORS[contacto.asesor] || "bg-slate-400")}
+                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", getAsesorBgClass(contacto.asesor))}
                         title={contacto.asesor}
                       >
                         {contacto.asesor?.[0]}
@@ -659,7 +655,9 @@ export default function Contactos() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sin_asignar">Sin asignar</SelectItem>
-                  {asesorCodes.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                  {asesorOptions.map((a) => (
+                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
