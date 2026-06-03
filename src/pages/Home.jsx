@@ -16,7 +16,7 @@ import ConsultaForm, { CANALES } from "@/components/crm/ConsultaForm";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { canViewReportes } from "@/lib/permissions";
+import { canViewGlobalData, canViewReportes, filterConsultasByVisibility } from "@/lib/permissions";
 import { useAsesores } from "@/components/hooks/useAsesores";
 import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
 
@@ -46,13 +46,20 @@ export default function Home() {
   }, [showNewLead, defaultAsesorCodigo]);
 
   const { data: consultas = [], refetch } = useQuery({
-    queryKey: ["consultas-home", workspace?.id],
+    queryKey: ["consultas-home", workspace?.id, currentUser?.id],
     queryFn: () =>
       workspace
         ? entities.Consulta.filter({ workspace_id: workspace.id }, null, 2000)
         : [],
-    enabled: !!workspace,
+    enabled: !!workspace && !!currentUser,
   });
+
+  const visibleConsultas = useMemo(
+    () => filterConsultasByVisibility(consultas, currentUser),
+    [consultas, currentUser]
+  );
+
+  const showGlobalHomeData = canViewGlobalData(currentUser);
 
   const handleCreateLead = async () => {
     if (!newLeadData.nombre.trim()) {
@@ -154,26 +161,26 @@ export default function Home() {
     .replace("Ó", "O");
 
   const kpis = useMemo(() => {
-    const recientes = consultas.filter((c) => (c.created_date || "") >= hace7dias);
-    const ganadas = consultas.filter(
+    const recientes = visibleConsultas.filter((c) => (c.created_date || "") >= hace7dias);
+    const ganadas = visibleConsultas.filter(
       (c) =>
         c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA"
     );
-    const totalConEstado = consultas.filter(
+    const totalConEstado = visibleConsultas.filter(
       (c) => c.pipeline_stage && c.pipeline_stage !== "A COTIZAR"
     );
     const tasa =
       totalConEstado.length > 0
-        ? Math.round((ganadas.length / consultas.length) * 100)
+        ? Math.round((ganadas.length / visibleConsultas.length) * 100)
         : 0;
-    const delMes = consultas.filter(
+    const delMes = visibleConsultas.filter(
       (c) => c.mes === mesActual && c.ano === hoy.getFullYear()
     );
     const m2Mes = delMes.reduce((s, c) => s + (c.superficiem2 || 0), 0);
     const importeMes = ganadas
       .filter((c) => c.mes === mesActual && c.ano === hoy.getFullYear())
       .reduce((s, c) => s + (c.importe || 0), 0);
-    const enSeguimiento = consultas.filter(
+    const enSeguimiento = visibleConsultas.filter(
       (c) =>
         c.proximoseguimiento &&
         ["NUEVO LEAD", "NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
@@ -186,12 +193,12 @@ export default function Home() {
       enSeguimiento: enSeguimiento.length,
       totalGanadas: ganadas.length,
     };
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   // Chart: presupuestos por asesor
   const asesoresData = useMemo(() => {
     const map = {};
-    consultas.forEach((c) => {
+    visibleConsultas.forEach((c) => {
       if (!c.asesor) return;
       if (!map[c.asesor])
         map[c.asesor] = { asesor: c.asesor, total: 0, ganados: 0 };
@@ -205,17 +212,17 @@ export default function Home() {
     return Object.values(map)
       .sort((a, b) => b.total - a.total)
       .slice(0, 6);
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   // Chart: distribución por estado
   const estadoData = useMemo(() => {
     const map = {};
-    consultas.forEach((c) => {
+    visibleConsultas.forEach((c) => {
       const e = c.pipeline_stage || "Sin estado";
       map[e] = (map[e] || 0) + 1;
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [consultas]);
+  }, [visibleConsultas]);
 
   const statsCards = [
     {
@@ -253,7 +260,7 @@ export default function Home() {
               EMAT Celulosa CRM
             </h1>
             <p className="text-slate-500 mt-1">
-              {consultas.length} presupuestos cargados
+              {visibleConsultas.length} presupuestos cargados
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -308,7 +315,9 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Presupuestos por asesor</CardTitle>
+              <CardTitle className="text-base">
+                {showGlobalHomeData ? "Presupuestos por asesor" : "Mis presupuestos"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={220}>
