@@ -22,9 +22,8 @@ import {
 } from "@/lib/pipelineStage";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
 import { useAsesores } from "@/components/hooks/useAsesores";
-import { getDefaultAsesorForUser, isAsesor } from "@/lib/permissions";
 
-export const CANALES = ["REFERIDO", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
+export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
@@ -134,7 +133,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions } = useAsesores(currentUser);
+  const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -152,7 +151,11 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     queryFn: async () => {
       const workspaceId = workspace?.id || "local";
       const rows = await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000);
-      return Object.fromEntries((rows || []).map((row) => [row.nombre, row.firma]));
+      return Object.fromEntries(
+        (rows || [])
+          .filter((row) => row.codigo)
+          .map((row) => [String(row.codigo).toUpperCase(), row.firma])
+      );
     },
     enabled: !!workspace,
   });
@@ -229,13 +232,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
           return Math.max(max, nro);
         }, 0);
         const defaults = emptyForm();
-        const defaultAsesor = getDefaultAsesorForUser(currentUser);
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: maxNro + 1,
-            asesor: isAsesor(currentUser) ? defaultAsesor : defaults.asesor,
+            asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
@@ -243,13 +245,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         }
       } catch {
         const defaults = emptyForm();
-        const defaultAsesor = getDefaultAsesorForUser(currentUser);
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
             nroPpto: 1,
-            asesor: isAsesor(currentUser) ? defaultAsesor : defaults.asesor,
+            asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
             condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
             observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
@@ -260,7 +261,28 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
     loadNextNroPpto();
     return () => { active = false; };
-  }, [consulta, open, workspace?.id, currentUser?.consulta_default_condiciones_comerciales, currentUser?.consulta_default_observaciones, currentUser?.consulta_follow_up_days]);
+  }, [
+    consulta,
+    open,
+    workspace?.id,
+    currentUser?.consulta_default_condiciones_comerciales,
+    currentUser?.consulta_default_observaciones,
+    currentUser?.consulta_follow_up_days,
+    currentUser?.asesor_codigo,
+    currentUser?.email,
+    currentUser?.role,
+    defaultAsesorCodigo,
+  ]);
+
+  useEffect(() => {
+    if (!open || consulta || !defaultAsesorCodigo) return;
+    setFormData((prev) => (prev.asesor ? prev : { ...prev, asesor: defaultAsesorCodigo }));
+  }, [open, consulta, defaultAsesorCodigo]);
+
+  useEffect(() => {
+    if (!showNewLead || !defaultAsesorCodigo) return;
+    setNewLeadData((prev) => (prev.asesor ? prev : { ...prev, asesor: defaultAsesorCodigo }));
+  }, [showNewLead, defaultAsesorCodigo]);
 
   useEffect(() => {
     if (!open) {
@@ -388,7 +410,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       set("asesor", newLeadData.asesor);
       set("contactoWhatsapp", newLeadData.whatsapp.trim());
       set("canalOrigen", newLeadData.canalOrigen);
-      setNewLeadData({ nombre: "", whatsapp: "", empresa: "", asesor: "", canalOrigen: "" });
+      setNewLeadData({
+        nombre: "",
+        whatsapp: "",
+        empresa: "",
+        asesor: defaultAsesorCodigo || "",
+        canalOrigen: "",
+      });
       setShowNewLead(false);
       toast.success("Lead creado y asignado");
     } catch (e) {

@@ -52,7 +52,12 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions } = useAsesores(currentUser);
+  const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+
+  useEffect(() => {
+    if (!showForm || selectedContacto || !defaultAsesorCodigo) return;
+    setFormData((prev) => (prev.asesor ? prev : { ...prev, asesor: defaultAsesorCodigo }));
+  }, [showForm, selectedContacto, defaultAsesorCodigo]);
   const isMobile = useIsMobile();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
@@ -250,11 +255,13 @@ export default function Contactos() {
     });
   };
 
-  const resetForm = () => {
+  const resetForm = ({ forNew = false } = {}) => {
     setFormData({
       nombre: "", empresa: "", whatsapp: "", telefonoDisplay: "",
       email: "", localidad: "", provincia: "", segmento: "",
-      canalOrigen: "", notas: "", asesor: "", pipeline_stage: ""
+      canalOrigen: "", notas: "",
+      asesor: forNew ? (defaultAsesorCodigo || "") : "",
+      pipeline_stage: "",
     });
     setSelectedContacto(null);
     setShowForm(false);
@@ -409,7 +416,7 @@ export default function Contactos() {
               {isLoading ? "Cargando..." : `${contactosFiltrados.length} de ${visibleContactos.length} contactos`}
             </p>
           </div>
-          <Button onClick={() => { resetForm(); setShowForm(true); }} className="gap-2">
+          <Button onClick={() => { resetForm({ forNew: true }); setShowForm(true); }} className="gap-2">
             <Plus className="w-4 h-4" />Nuevo contacto
           </Button>
         </div>

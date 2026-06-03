@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -36,7 +36,12 @@ export default function Home() {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions } = useAsesores(currentUser);
+  const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+
+  useEffect(() => {
+    if (!showNewLead || !defaultAsesorCodigo) return;
+    setNewLeadData((prev) => (prev.asesor ? prev : { ...prev, asesor: defaultAsesorCodigo }));
+  }, [showNewLead, defaultAsesorCodigo]);
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ["consultas-home", workspace?.id],
@@ -117,7 +122,7 @@ export default function Home() {
         nombre: "",
         whatsapp: "",
         empresa: "",
-        asesor: "",
+        asesor: defaultAsesorCodigo || "",
         canalOrigen: "",
       });
       setShowNewLead(false);

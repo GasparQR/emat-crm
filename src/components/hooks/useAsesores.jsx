@@ -44,17 +44,23 @@ export function useAsesores(user) {
       return items;
     }
 
-    const ownCode = getDefaultAsesorForUser(user);
+    const ownCode = getDefaultAsesorForUser(user, query.data);
     if (!ownCode) return items;
     return items.filter((item) => item.value === ownCode);
   }, [query.data, user]);
 
   const asesorCodes = useMemo(() => asesorOptions.map((o) => o.value), [asesorOptions]);
 
+  const defaultAsesorCodigo = useMemo(
+    () => getDefaultAsesorForUser(user, query.data),
+    [user, query.data]
+  );
+
   return {
     ...query,
     asesorOptions,
     asesorCodes,
+    defaultAsesorCodigo,
     getAsesorHexColor: (codigo) => getAsesorHexColor(codigo),
     getAsesorBgClass: (codigo) => getAsesorBgClass(codigo),
   };

@@ -1,3 +1,5 @@
+import { resolveDefaultAsesorCodigo } from "@/lib/asesorDefaults";
+
 const ROLE = {
   ADMIN: 'ADMIN',
   ASESOR: 'ASESOR',
@@ -45,8 +47,9 @@ export function canViewAsesorData(user, asesorCodigo) {
   return String(user?.asesor_codigo ?? '') === String(asesorCodigo);
 }
 
-export function getDefaultAsesorForUser(user) {
-  return isAsesor(user) ? (user?.asesor_codigo ?? '') : '';
+export function getDefaultAsesorForUser(user, catalogRows = []) {
+  if (!isAsesor(user)) return "";
+  return resolveDefaultAsesorCodigo(user, catalogRows);
 }
 
 export function filterConsultasByVisibility(consultas, user) {
