@@ -18,6 +18,7 @@ import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { canViewReportes } from "@/lib/permissions";
 import { useAsesores } from "@/components/hooks/useAsesores";
+import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
 
 const ESTADO_PIE_COLORS = {
   "NUEVO LEAD": "#06b6d4", "A COTIZAR": "#94a3b8", "NEGOCIACION": "#f59e0b", "GANADA": "#10b981",
@@ -37,6 +38,7 @@ export default function Home() {
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
   const { asesorOptions, defaultAsesorCodigo, resolveAsesorForSave } = useAsesores(currentUser);
+  const { resolved: presupuestoDefaults } = useConsultaDefaults();
 
   useEffect(() => {
     if (!showNewLead || !defaultAsesorCodigo) return;
@@ -95,10 +97,8 @@ export default function Home() {
       const now = new Date();
       const followDays = currentUser?.consulta_follow_up_days ?? 3;
       const proximoseguimiento = getNextFollowUpDate(followDays);
-      const condiciones =
-        currentUser?.consulta_default_condiciones_comerciales ?? "";
-      const observaciones =
-        currentUser?.consulta_default_observaciones ?? "";
+      const condiciones = presupuestoDefaults.condicionesComerciales;
+      const observaciones = presupuestoDefaults.observaciones;
 
       await entities.Contacto.create({
         workspace_id: wsId,

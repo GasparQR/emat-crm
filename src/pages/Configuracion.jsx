@@ -13,12 +13,12 @@ import {
 } from "@/lib/backupExport";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { auth, users, entities } from "@/api/supabaseClient";
+import { auth, users, entities, workspaceSettingsApi } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { normalizeRole } from "@/lib/permissions";
+import { isAdmin, normalizeRole } from "@/lib/permissions";
 
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
@@ -29,11 +29,32 @@ export default function Configuracion() {
   const [isLoading, setIsLoading] = useState(false);
   const [consultaDays, setConsultaDays] = useState(3);
   const [savingDays, setSavingDays] = useState(false);
-  const [defaultCondiciones, setDefaultCondiciones] = useState("");
-  const [defaultObservaciones, setDefaultObservaciones] = useState("");
+  const [globalCondiciones, setGlobalCondiciones] = useState("");
+  const [globalObservaciones, setGlobalObservaciones] = useState("");
+  const [personalCondiciones, setPersonalCondiciones] = useState("");
+  const [personalObservaciones, setPersonalObservaciones] = useState("");
   const [asesoresCatalog, setAsesoresCatalog] = useState([]);
   const [firmasAsesor, setFirmasAsesor] = useState({});
-  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [miFirma, setMiFirma] = useState("");
+  const [savingGlobalTexts, setSavingGlobalTexts] = useState(false);
+  const [savingPersonalTexts, setSavingPersonalTexts] = useState(false);
+  const [savingFirmas, setSavingFirmas] = useState(false);
+  const [savingMiFirma, setSavingMiFirma] = useState(false);
+
+  const workspaceId = workspace?.id || "local";
+  const userIsAdmin = isAdmin(currentUser);
+  const asesorCodigo = currentUser?.asesor_codigo
+    ? String(currentUser.asesor_codigo).toUpperCase()
+    : null;
+  const miAsesorRow = asesorCodigo
+    ? asesoresCatalog.find((r) => String(r.codigo).toUpperCase() === asesorCodigo)
+    : null;
+
+  const { data: workspaceSettings } = useQuery({
+    queryKey: ["workspace-settings", workspaceId],
+    queryFn: () => workspaceSettingsApi.get(workspaceId),
+    enabled: !!workspaceId,
+  });
   const [backupSelection, setBackupSelection] = useState(getDefaultBackupSelection);
   const [exporting, setExporting] = useState(false);
 
@@ -83,9 +104,23 @@ export default function Configuracion() {
   useEffect(() => {
     if (!currentUser) return;
     setConsultaDays(currentUser.consulta_follow_up_days ?? 3);
-    setDefaultCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
-    setDefaultObservaciones(currentUser.consulta_default_observaciones ?? "");
+    setPersonalCondiciones(currentUser.consulta_default_condiciones_comerciales ?? "");
+    setPersonalObservaciones(currentUser.consulta_default_observaciones ?? "");
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!workspaceSettings) return;
+    setGlobalCondiciones(workspaceSettings.consulta_default_condiciones_comerciales ?? "");
+    setGlobalObservaciones(workspaceSettings.consulta_default_observaciones ?? "");
+  }, [workspaceSettings]);
+
+  useEffect(() => {
+    if (!miAsesorRow) {
+      setMiFirma("");
+      return;
+    }
+    setMiFirma(firmasAsesor[miAsesorRow.codigo] ?? miAsesorRow.firma ?? "");
+  }, [miAsesorRow, firmasAsesor]);
 
   useEffect(() => {
     let active = true;
@@ -132,16 +167,51 @@ export default function Configuracion() {
     }
   };
 
-  const handleSaveDefaults = async () => {
-    setSavingDefaults(true);
+  const invalidatePresupuestoCaches = () => {
+    queryClient.invalidateQueries({ queryKey: ["current-user"] });
+    queryClient.invalidateQueries({ queryKey: ["workspace-settings"] });
+    queryClient.invalidateQueries({ queryKey: ["asesor-firmas"] });
+    queryClient.invalidateQueries({ queryKey: ["asesores"] });
+    queryClient.invalidateQueries({ queryKey: ["asesores-admin"] });
+  };
+
+  const handleSaveGlobalTexts = async () => {
+    if (!userIsAdmin) return;
+    setSavingGlobalTexts(true);
+    try {
+      await workspaceSettingsApi.upsert(workspaceId, {
+        consulta_default_condiciones_comerciales: globalCondiciones,
+        consulta_default_observaciones: globalObservaciones,
+      });
+      invalidatePresupuestoCaches();
+      toast.success("Textos predeterminados globales guardados");
+    } catch {
+      toast.error("Error al guardar textos globales");
+    } finally {
+      setSavingGlobalTexts(false);
+    }
+  };
+
+  const handleSavePersonalTexts = async () => {
+    setSavingPersonalTexts(true);
     try {
       await auth.updateMe({
-        consulta_default_condiciones_comerciales: defaultCondiciones,
-        consulta_default_observaciones: defaultObservaciones,
+        consulta_default_condiciones_comerciales: personalCondiciones,
+        consulta_default_observaciones: personalObservaciones,
       });
+      invalidatePresupuestoCaches();
+      toast.success("Mis textos personalizados guardados");
+    } catch {
+      toast.error("Error al guardar tus textos");
+    } finally {
+      setSavingPersonalTexts(false);
+    }
+  };
 
-      const workspaceId = workspace?.id || "local";
-
+  const handleSaveFirmasAdmin = async () => {
+    if (!userIsAdmin) return;
+    setSavingFirmas(true);
+    try {
       await Promise.all(
         asesoresCatalog.map((row) => {
           const codigo = row.codigo;
@@ -157,14 +227,38 @@ export default function Configuracion() {
           });
         })
       );
-
-      queryClient.invalidateQueries({ queryKey: ['current-user'] });
-      queryClient.invalidateQueries({ queryKey: ['asesor-firmas'] });
-      queryClient.invalidateQueries({ queryKey: ['asesores'] });
-      queryClient.invalidateQueries({ queryKey: ['asesores-admin'] });
-      toast.success("Textos predeterminados guardados");
+      invalidatePresupuestoCaches();
+      toast.success("Firmas de asesores guardadas");
+    } catch {
+      toast.error("Error al guardar firmas");
     } finally {
-      setSavingDefaults(false);
+      setSavingFirmas(false);
+    }
+  };
+
+  const handleSaveMiFirma = async () => {
+    if (!miAsesorRow?.id) {
+      toast.error("Tu usuario no tiene cartera vinculada; contactá al administrador.");
+      return;
+    }
+    setSavingMiFirma(true);
+    try {
+      const codigo = miAsesorRow.codigo;
+      await entities.Asesor.update(miAsesorRow.id, {
+        workspace_id: workspaceId,
+        codigo,
+        nombre: miAsesorRow.nombre || codigo,
+        firma: miFirma,
+        active: miAsesorRow.active !== false,
+        activo: miAsesorRow.activo !== false,
+      });
+      setFirmasAsesor((prev) => ({ ...prev, [codigo]: miFirma }));
+      invalidatePresupuestoCaches();
+      toast.success("Tu firma fue guardada");
+    } catch {
+      toast.error("Error al guardar tu firma");
+    } finally {
+      setSavingMiFirma(false);
     }
   };
 
@@ -242,34 +336,85 @@ export default function Configuracion() {
           </CardContent>
         </Card>
 
+        {userIsAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Textos predeterminados para todos los asesores</CardTitle>
+              <CardDescription>
+                Base al crear presupuestos nuevos. Los asesores pueden definir textos propios que los reemplazan.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Condiciones comerciales (global)</Label>
+                <Textarea
+                  value={globalCondiciones}
+                  onChange={(e) => setGlobalCondiciones(e.target.value)}
+                  placeholder="Ej: Forma de pago, plazos, alcance del servicio..."
+                  rows={4}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Observaciones (global)</Label>
+                <Textarea
+                  value={globalObservaciones}
+                  onChange={(e) => setGlobalObservaciones(e.target.value)}
+                  placeholder="Ej: Consideraciones técnicas estándar..."
+                  rows={4}
+                />
+              </div>
+              <Button onClick={handleSaveGlobalTexts} disabled={savingGlobalTexts} className="gap-2">
+                {savingGlobalTexts && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar textos globales
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
-            <CardTitle>Textos predeterminados de presupuesto</CardTitle>
+            <CardTitle>Mis textos personalizados (opcional)</CardTitle>
             <CardDescription>
-              Estos valores se completan automáticamente al crear un presupuesto nuevo
+              {userIsAdmin
+                ? "Opcional para tu usuario. Si dejás vacío, se usan los textos globales del workspace."
+                : "Si dejás vacío, se usan los textos configurados por el administrador."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Condiciones comerciales predeterminadas</Label>
+              <Label>Condiciones comerciales</Label>
               <Textarea
-                value={defaultCondiciones}
-                onChange={(e) => setDefaultCondiciones(e.target.value)}
-                placeholder="Ej: Forma de pago, plazos, alcance del servicio..."
+                value={personalCondiciones}
+                onChange={(e) => setPersonalCondiciones(e.target.value)}
+                placeholder="Dejar vacío para usar el texto global..."
                 rows={4}
               />
             </div>
             <div className="space-y-2">
-              <Label>Observaciones predeterminadas</Label>
+              <Label>Observaciones</Label>
               <Textarea
-                value={defaultObservaciones}
-                onChange={(e) => setDefaultObservaciones(e.target.value)}
-                placeholder="Ej: Consideraciones técnicas estándar para todos los presupuestos..."
+                value={personalObservaciones}
+                onChange={(e) => setPersonalObservaciones(e.target.value)}
+                placeholder="Dejar vacío para usar el texto global..."
                 rows={4}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Firma predeterminada por asesor</Label>
+            <Button onClick={handleSavePersonalTexts} disabled={savingPersonalTexts} className="gap-2">
+              {savingPersonalTexts && <Loader2 className="w-4 h-4 animate-spin" />}
+              Guardar mis textos
+            </Button>
+          </CardContent>
+        </Card>
+
+        {userIsAdmin ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Firma predeterminada por asesor</CardTitle>
+              <CardDescription>
+                Configurá la firma de cada asesor. Aparece al pie del PDF del presupuesto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {asesoresCatalog.length === 0 ? (
                   <p className="text-sm text-slate-500 col-span-2">
@@ -296,16 +441,51 @@ export default function Configuracion() {
                   ))
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                Este texto reemplaza el "Cotizó ..." al pie del PDF.
-              </p>
-            </div>
-            <Button onClick={handleSaveDefaults} disabled={savingDefaults} className="gap-2">
-              {savingDefaults && <Loader2 className="w-4 h-4 animate-spin" />}
-              Guardar textos predeterminados
-            </Button>
-          </CardContent>
-        </Card>
+              <Button onClick={handleSaveFirmasAdmin} disabled={savingFirmas} className="gap-2">
+                {savingFirmas && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar firmas
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Mi firma en presupuestos</CardTitle>
+              <CardDescription>
+                Este texto reemplaza el &quot;Cotizó ...&quot; al pie del PDF de tus presupuestos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!asesorCodigo ? (
+                <p className="text-sm text-slate-500">
+                  Tu usuario no tiene cartera vinculada; contactá al administrador.
+                </p>
+              ) : !miAsesorRow ? (
+                <p className="text-sm text-slate-500">
+                  No se encontró tu asesor en el catálogo ({asesorCodigo}). Contactá al administrador.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-slate-500">
+                      {miAsesorRow.nombre || miAsesorRow.codigo} ({miAsesorRow.codigo})
+                    </Label>
+                    <Textarea
+                      value={miFirma}
+                      onChange={(e) => setMiFirma(e.target.value)}
+                      placeholder="Tu nombre y cargo para el PDF..."
+                      rows={3}
+                    />
+                  </div>
+                  <Button onClick={handleSaveMiFirma} disabled={savingMiFirma} className="gap-2">
+                    {savingMiFirma && <Loader2 className="w-4 h-4 animate-spin" />}
+                    Guardar mi firma
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Datos */}
         <Card>

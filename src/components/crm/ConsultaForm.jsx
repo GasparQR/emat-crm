@@ -21,7 +21,9 @@ import {
   todayDateString,
 } from "@/lib/pipelineStage";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
+import { calcularTotalesConsulta } from "@/utils/consultaItems";
 import { useAsesores } from "@/components/hooks/useAsesores";
+import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
 import {
   buildFirmasYAsesoresMap,
   resolveAsesorFromMap,
@@ -125,6 +127,11 @@ function buildFallbackPayload(payload, err) {
   if (/asesor_id/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
     delete next.asesor_id;
   }
+  if (/subtotal|iva_value|total_importe/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.subtotal;
+    delete next.iva_value;
+    delete next.total_importe;
+  }
   return next;
 }
 
@@ -141,6 +148,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
   const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+  const { resolved: presupuestoDefaults } = useConsultaDefaults();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -242,8 +250,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             nroPpto: maxNro + 1,
             asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
-            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
-            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+            condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
+            observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
           });
         }
       } catch {
@@ -255,8 +263,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             nroPpto: 1,
             asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
-            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
-            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+            condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
+            observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
           });
         }
       }
@@ -268,13 +276,35 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     consulta,
     open,
     workspace?.id,
-    currentUser?.consulta_default_condiciones_comerciales,
-    currentUser?.consulta_default_observaciones,
+    presupuestoDefaults.condicionesComerciales,
+    presupuestoDefaults.observaciones,
     currentUser?.consulta_follow_up_days,
     currentUser?.asesor_codigo,
     currentUser?.email,
     currentUser?.role,
     defaultAsesorCodigo,
+  ]);
+
+  useEffect(() => {
+    if (!open || consulta?.id) return;
+    setFormData((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      if (!prev.condicionesComerciales?.trim() && presupuestoDefaults.condicionesComerciales) {
+        next.condicionesComerciales = presupuestoDefaults.condicionesComerciales;
+        changed = true;
+      }
+      if (!prev.observaciones?.trim() && presupuestoDefaults.observaciones) {
+        next.observaciones = presupuestoDefaults.observaciones;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [
+    open,
+    consulta?.id,
+    presupuestoDefaults.condicionesComerciales,
+    presupuestoDefaults.observaciones,
   ]);
 
   useEffect(() => {
@@ -482,6 +512,15 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         fechaGanadoValue = patch.fecha_ganado ?? existing ?? null;
       }
 
+      const itemsForDb = formData.items.map((item) => ({
+        descripcionServicio: item.descripcionServicio,
+        precioUnitario: item.precioUnitario,
+        cantidad: item.cantidad,
+        importe: item.importe,
+      }));
+      const ivaPercent = formData.iva !== "" ? parseFloat(formData.iva) : 21;
+      const totales = calcularTotalesConsulta(itemsForDb, ivaPercent);
+
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
         contactonombre: formData.contactoNombre,
@@ -498,7 +537,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         fibrakg: formData.fibraKg !== "" ? parseFloat(formData.fibraKg) : null,
         adhlts: formData.adhLts !== "" ? parseFloat(formData.adhLts) : null,
         kmobra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
-        importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
+        importe: totales.total_importe || (formData.importe !== "" ? parseFloat(formData.importe) : null),
+        subtotal: totales.subtotal,
+        iva_value: totales.iva_value,
+        total_importe: totales.total_importe,
         tipocliente: formData.tipoCliente,
         canalorigen: formData.canalOrigen,
         descripcionservicio: formData.items?.[0]?.descripcionServicio || formData.descripcionServicio,
@@ -516,12 +558,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         fecha_ganado: fechaGanadoValue,
         razonperdida: formData.razonPerdida || null,
         firmaasesor: asesorResolved.firma,
-        items: formData.items.map((item) => ({
-          descripcionServicio: item.descripcionServicio,
-          precioUnitario: item.precioUnitario,
-          cantidad: item.cantidad,
-          importe: item.importe,
-        })),
+        items: itemsForDb,
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {

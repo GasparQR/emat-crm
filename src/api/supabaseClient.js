@@ -431,6 +431,43 @@ export const users = {
   },
 };
 
+// ─── Workspace settings (PK = workspace_id) ───────────────────────────────────
+
+export const workspaceSettingsApi = {
+  async get(workspaceId = 'local') {
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .maybeSingle();
+    if (error) {
+      console.error('Error fetching workspace_settings:', error);
+      return null;
+    }
+    return data;
+  },
+
+  async upsert(workspaceId, fields) {
+    const row = {
+      workspace_id: workspaceId,
+      consulta_default_condiciones_comerciales:
+        fields.consulta_default_condiciones_comerciales ?? '',
+      consulta_default_observaciones: fields.consulta_default_observaciones ?? '',
+      updated_date: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .upsert(row, { onConflict: 'workspace_id' })
+      .select()
+      .single();
+    if (error) {
+      console.error('Error upserting workspace_settings:', error);
+      throw error;
+    }
+    return data;
+  },
+};
+
 // ─── Entidades ─────────────────────────────────────────────────────────────────
 
 export const entities = {
