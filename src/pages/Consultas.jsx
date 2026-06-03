@@ -41,7 +41,7 @@ export default function Consultas() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
-  const { asesorOptions } = useAsesores(user);
+  const { asesorOptions, getAsesorInitials, getAsesorNombre } = useAsesores(user);
   const isMobile = useIsMobile();
   const { setCallTarget } = useActiveCall();
 
@@ -363,10 +363,10 @@ export default function Consultas() {
                     <TableCell className="py-2">
                       {c.asesor && (
                         <div
-                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", asesorColor)}
-                          title={c.asesor}
+                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", asesorColor)}
+                          title={getAsesorNombre(c.asesor) || c.asesor}
                         >
-                          {c.asesor[0]}
+                          {getAsesorInitials(c.asesor)}
                         </div>
                       )}
                     </TableCell>

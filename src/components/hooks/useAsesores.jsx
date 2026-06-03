@@ -3,6 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { entities } from "@/api/supabaseClient";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { getAsesorBgClass, getAsesorHexColor } from "@/lib/asesorColors";
+import {
+  buildAsesorNameByCodigo,
+  getAsesorInitials as resolveAsesorInitials,
+  getAsesorNombre as resolveAsesorNombre,
+} from "@/lib/asesorDisplay";
 import { getDefaultAsesorForUser, isAdmin } from "@/lib/permissions";
 
 /** Opciones de filtro: catálogo + códigos que aparecen en datos (históricos). */
@@ -56,12 +61,20 @@ export function useAsesores(user) {
     [user, query.data]
   );
 
+  const nameByCodigo = useMemo(
+    () => buildAsesorNameByCodigo(query.data),
+    [query.data]
+  );
+
   return {
     ...query,
     asesorOptions,
     asesorCodes,
     defaultAsesorCodigo,
+    nameByCodigo,
     getAsesorHexColor: (codigo) => getAsesorHexColor(codigo),
     getAsesorBgClass: (codigo) => getAsesorBgClass(codigo),
+    getAsesorNombre: (codigo) => resolveAsesorNombre(codigo, nameByCodigo),
+    getAsesorInitials: (codigo) => resolveAsesorInitials(codigo, nameByCodigo),
   };
 }

@@ -4,6 +4,8 @@ import { cn } from "@/lib/utils";
 import moment from "moment";
 import QuickCallButton from "./QuickCallButton";
 import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { useAsesores } from "@/components/hooks/useAsesores";
 import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function MobileConsultaListItem({
@@ -16,6 +18,8 @@ export default function MobileConsultaListItem({
   const seguimientoVencido =
     consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
+  const { data: currentUser } = useCurrentUser();
+  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
   const asesorColor = getAsesorBgClass(consulta.asesor);
   const fechaGanado = getFechaGanadoFromConsulta(consulta);
 
@@ -42,12 +46,12 @@ export default function MobileConsultaListItem({
         {consulta.asesor && (
           <div
             className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0",
+              "w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight flex-shrink-0",
               asesorColor
             )}
-            title={consulta.asesor}
+            title={getAsesorNombre(consulta.asesor) || consulta.asesor}
           >
-            {consulta.asesor[0]}
+            {getAsesorInitials(consulta.asesor)}
           </div>
         )}
       </div>

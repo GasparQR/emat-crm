@@ -9,6 +9,8 @@ import {
 import { MapPin, MoreHorizontal, Edit, MessageCircle, Mail, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import QuickCallButton from "./QuickCallButton";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { useAsesores } from "@/components/hooks/useAsesores";
 import { getAsesorBgClass } from "@/lib/asesorColors";
 
 export default function MobileContactoListItem({
@@ -22,6 +24,8 @@ export default function MobileContactoListItem({
   onDelete,
   onEtapaClick,
 }) {
+  const { data: currentUser } = useCurrentUser();
+  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
   const phone = contacto.whatsapp;
 
   const handleSelect = () => {
@@ -65,12 +69,12 @@ export default function MobileContactoListItem({
           {contacto.asesor && (
             <div
               className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold",
+                "w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight",
                 getAsesorBgClass(contacto.asesor)
               )}
-              title={contacto.asesor}
+              title={getAsesorNombre(contacto.asesor) || contacto.asesor}
             >
-              {contacto.asesor?.[0]}
+              {getAsesorInitials(contacto.asesor)}
             </div>
           )}
           <DropdownMenu>

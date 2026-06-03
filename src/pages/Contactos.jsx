@@ -52,7 +52,7 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+  const { asesorOptions, defaultAsesorCodigo, getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
 
   useEffect(() => {
     if (!showForm || selectedContacto || !defaultAsesorCodigo) return;
@@ -564,10 +564,10 @@ export default function Contactos() {
                   <TableCell className="py-2">
                     {contacto.asesor ? (
                       <div
-                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold", getAsesorBgClass(contacto.asesor))}
-                        title={contacto.asesor}
+                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", getAsesorBgClass(contacto.asesor))}
+                        title={getAsesorNombre(contacto.asesor) || contacto.asesor}
                       >
-                        {contacto.asesor?.[0]}
+                        {getAsesorInitials(contacto.asesor)}
                       </div>
                     ) : (
                       <span className="text-slate-300 text-xs">-</span>

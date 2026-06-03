@@ -4,6 +4,8 @@ import { MessageCircle, Calendar, MoreHorizontal, MapPin, Ruler, Send, FileText 
 import QuickCallButton from "./QuickCallButton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
+import { useAsesores } from "@/components/hooks/useAsesores";
 import { getAsesorBgClass } from "@/lib/asesorColors";
 import moment from "moment";
 
@@ -23,8 +25,11 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
   const seguimientoHoy = consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isSame(moment(), "day");
 
+  const { data: currentUser } = useCurrentUser();
+  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
   const asesorColor = getAsesorBgClass(consulta.asesor);
-  const asesorInitial = consulta.asesor ? consulta.asesor[0] : "?";
+  const asesorInitial = getAsesorInitials(consulta.asesor);
+  const asesorTitle = getAsesorNombre(consulta.asesor) || consulta.asesor;
 
   return (
     <div className={cn(
@@ -35,7 +40,10 @@ export default function ConsultaCard({ consulta, onWhatsApp, onEdit, onMarcarPer
       {/* Header: asesor avatar + nombre + menú */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0", asesorColor)}>
+          <div
+            className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight flex-shrink-0", asesorColor)}
+            title={asesorTitle}
+          >
             {asesorInitial}
           </div>
           <div>
