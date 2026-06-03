@@ -21,7 +21,13 @@ import {
   todayDateString,
 } from "@/lib/pipelineStage";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
+import { calcularTotalesConsulta } from "@/utils/consultaItems";
 import { useAsesores } from "@/components/hooks/useAsesores";
+import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
+import {
+  buildFirmasYAsesoresMap,
+  resolveAsesorFromMap,
+} from "@/lib/asesorDisplay";
 
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -118,6 +124,14 @@ function buildFallbackPayload(payload, err) {
   if (/fecha_ganado/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
     delete next.fecha_ganado;
   }
+  if (/asesor_id/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.asesor_id;
+  }
+  if (/subtotal|iva_value|total_importe/i.test(msg) && (/column|does not exist|42703/i.test(msg))) {
+    delete next.subtotal;
+    delete next.iva_value;
+    delete next.total_importe;
+  }
   return next;
 }
 
@@ -134,6 +148,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
   const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+  const { resolved: presupuestoDefaults } = useConsultaDefaults();
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -146,16 +161,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     enabled: !!workspace,
   });
 
-  const { data: firmasAsesor = {} } = useQuery({
+  const { data: firmasYAsesoresMap = {} } = useQuery({
     queryKey: ['asesor-firmas', workspace?.id],
     queryFn: async () => {
       const workspaceId = workspace?.id || "local";
       const rows = await entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000);
-      return Object.fromEntries(
-        (rows || [])
-          .filter((row) => row.codigo)
-          .map((row) => [String(row.codigo).toUpperCase(), row.firma])
-      );
+      return buildFirmasYAsesoresMap(rows);
     },
     enabled: !!workspace,
   });
@@ -239,8 +250,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             nroPpto: maxNro + 1,
             asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
-            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
-            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+            condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
+            observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
           });
         }
       } catch {
@@ -252,8 +263,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             nroPpto: 1,
             asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
-            condicionesComerciales: currentUser?.consulta_default_condiciones_comerciales ?? defaults.condicionesComerciales,
-            observaciones: currentUser?.consulta_default_observaciones ?? defaults.observaciones,
+            condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
+            observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
           });
         }
       }
@@ -265,13 +276,35 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     consulta,
     open,
     workspace?.id,
-    currentUser?.consulta_default_condiciones_comerciales,
-    currentUser?.consulta_default_observaciones,
+    presupuestoDefaults.condicionesComerciales,
+    presupuestoDefaults.observaciones,
     currentUser?.consulta_follow_up_days,
     currentUser?.asesor_codigo,
     currentUser?.email,
     currentUser?.role,
     defaultAsesorCodigo,
+  ]);
+
+  useEffect(() => {
+    if (!open || consulta?.id) return;
+    setFormData((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      if (!prev.condicionesComerciales?.trim() && presupuestoDefaults.condicionesComerciales) {
+        next.condicionesComerciales = presupuestoDefaults.condicionesComerciales;
+        changed = true;
+      }
+      if (!prev.observaciones?.trim() && presupuestoDefaults.observaciones) {
+        next.observaciones = presupuestoDefaults.observaciones;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [
+    open,
+    consulta?.id,
+    presupuestoDefaults.condicionesComerciales,
+    presupuestoDefaults.observaciones,
   ]);
 
   useEffect(() => {
@@ -397,17 +430,23 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       toast.error("Seleccioná el canal de origen");
       return;
     }
+    const leadAsesor = resolveAsesorFromMap(newLeadData.asesor, firmasYAsesoresMap);
+    if (!leadAsesor) {
+      toast.error("Asesor no válido o sin catálogo");
+      return;
+    }
     try {
       await entities.Contacto.create({
         workspace_id: workspace?.id || "local",
         nombre: newLeadData.nombre.trim(),
         whatsapp: newLeadData.whatsapp.trim(),
         empresa: newLeadData.empresa?.trim() || "",
-        asesor: newLeadData.asesor,
+        asesor: leadAsesor.codigo,
+        asesor_id: leadAsesor.asesor_id,
         canalOrigen: newLeadData.canalOrigen,
       });
       set("contactoNombre", newLeadData.nombre.trim());
-      set("asesor", newLeadData.asesor);
+      set("asesor", leadAsesor.codigo);
       set("contactoWhatsapp", newLeadData.whatsapp.trim());
       set("canalOrigen", newLeadData.canalOrigen);
       setNewLeadData({
@@ -454,7 +493,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         nroPptoValue = await getNextNroPpto();
         set("nroPpto", nroPptoValue);
       }
-      const firmaAsesor = firmasAsesor[formData.asesor] || formData.asesor || "Asesor";
+      const asesorResolved = resolveAsesorFromMap(formData.asesor, firmasYAsesoresMap);
+      if (!asesorResolved) {
+        toast.error("Asesor no válido o sin catálogo");
+        setLoading(false);
+        return;
+      }
 
       let fechaGanadoValue = null;
       if (isWonStage(formData.etapa)) {
@@ -468,11 +512,21 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         fechaGanadoValue = patch.fecha_ganado ?? existing ?? null;
       }
 
+      const itemsForDb = formData.items.map((item) => ({
+        descripcionServicio: item.descripcionServicio,
+        precioUnitario: item.precioUnitario,
+        cantidad: item.cantidad,
+        importe: item.importe,
+      }));
+      const ivaPercent = formData.iva !== "" ? parseFloat(formData.iva) : 21;
+      const totales = calcularTotalesConsulta(itemsForDb, ivaPercent);
+
       const payload = {
         // Usar nombres de columna en minúsculas para compatibilidad con PostgreSQL
         contactonombre: formData.contactoNombre,
         contactowhatsapp: formData.contactoWhatsapp,
-        asesor: formData.asesor,
+        asesor: asesorResolved.codigo,
+        asesor_id: asesorResolved.asesor_id,
         pipeline_stage: formData.etapa,
         mes: formData.mes,
         ano: formData.ano,
@@ -483,7 +537,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         fibrakg: formData.fibraKg !== "" ? parseFloat(formData.fibraKg) : null,
         adhlts: formData.adhLts !== "" ? parseFloat(formData.adhLts) : null,
         kmobra: formData.kmObra !== "" ? parseFloat(formData.kmObra) : null,
-        importe: formData.importe !== "" ? parseFloat(formData.importe) : null,
+        importe: totales.total_importe || (formData.importe !== "" ? parseFloat(formData.importe) : null),
+        subtotal: totales.subtotal,
+        iva_value: totales.iva_value,
+        total_importe: totales.total_importe,
         tipocliente: formData.tipoCliente,
         canalorigen: formData.canalOrigen,
         descripcionservicio: formData.items?.[0]?.descripcionServicio || formData.descripcionServicio,
@@ -500,13 +557,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         proximoseguimiento: formData.proximoSeguimiento || null,
         fecha_ganado: fechaGanadoValue,
         razonperdida: formData.razonPerdida || null,
-        firmaasesor: firmaAsesor,
-        items: formData.items.map((item) => ({
-          descripcionServicio: item.descripcionServicio,
-          precioUnitario: item.precioUnitario,
-          cantidad: item.cantidad,
-          importe: item.importe,
-        })),
+        firmaasesor: asesorResolved.firma,
+        items: itemsForDb,
         workspace_id: workspace?.id || "local",
       };
       if (consulta?.id) {
@@ -544,10 +596,16 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   };
 
   const openPdfPreview = () => {
+    const asesorResolved = resolveAsesorFromMap(formData.asesor, firmasYAsesoresMap);
+    if (!asesorResolved) {
+      toast.error("Asesor no válido o sin catálogo");
+      return;
+    }
     const payload = {
       ...formData,
       nroppto: formData.nroPpto,
-      firmaasesor: firmasAsesor[formData.asesor] || formData.asesor || "Asesor",
+      asesor: asesorResolved.codigo,
+      firmaasesor: asesorResolved.firma,
     };
     const doc = buildConsultaPdf(payload);
     const blob = doc.output("blob");

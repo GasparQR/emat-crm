@@ -8,6 +8,37 @@
 import { entities } from "@/api/supabaseClient";
 import { applyFechaGanadoOnStageChange, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 
+function itemImporteNum(item) {
+  const direct = Number(item?.importe);
+  if (Number.isFinite(direct)) return direct;
+  const precio = Number(item?.preciounitario ?? item?.precioUnitario);
+  const cantidad = Number(item?.cantidad);
+  if (Number.isFinite(precio) && Number.isFinite(cantidad)) {
+    return precio * cantidad;
+  }
+  return 0;
+}
+
+/**
+ * Totales desnormalizados para columnas consulta (subtotal, iva_value, total_importe).
+ *
+ * @param {Array} items
+ * @param {number} ivaPercent - Porcentaje de IVA (ej. 21)
+ * @returns {{ subtotal: number, iva_value: number, total_importe: number }}
+ */
+export function calcularTotalesConsulta(items = [], ivaPercent = 21) {
+  const subtotal = items.reduce((sum, item) => sum + itemImporteNum(item), 0);
+  const iva = Number(ivaPercent) || 21;
+  const iva_value = (subtotal * iva) / 100;
+  const total_importe = subtotal + iva_value;
+  const round2 = (n) => Math.round(n * 100) / 100;
+  return {
+    subtotal: round2(subtotal),
+    iva_value: round2(iva_value),
+    total_importe: round2(total_importe),
+  };
+}
+
 /**
  * Guardar una consulta con múltiples items
  * Calcula automáticamente subtotal, IVA y total
@@ -24,14 +55,9 @@ export const guardarConsultaConItems = async (consulta, items, workspace_id) => 
       throw new Error("Se requiere al menos un item");
     }
 
-    // 1. Calcular totales
-    const subtotal = items.reduce((sum, item) => {
-      return sum + (Number(item.importe) || 0);
-    }, 0);
-
     const iva = Number(consulta.iva) || 21;
-    const ivaValue = (subtotal * iva) / 100;
-    const totalImporte = subtotal + ivaValue;
+    const { subtotal, iva_value: ivaValue, total_importe: totalImporte } =
+      calcularTotalesConsulta(items, iva);
 
     // 2. Preparar datos para guardar
     const dataToSave = {
@@ -194,17 +220,11 @@ export const filtrarConsultasConItems = async (workspace_id, filters = {}) => {
  * @returns {Object} - {subtotal, ivaValue, total}
  */
 export const calcularTotalesItems = (items = [], iva = 21) => {
-  const subtotal = items.reduce((sum, item) => {
-    return sum + (Number(item.importe) || 0);
-  }, 0);
-
-  const ivaValue = (subtotal * iva) / 100;
-  const total = subtotal + ivaValue;
-
+  const { subtotal, iva_value, total_importe } = calcularTotalesConsulta(items, iva);
   return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    ivaValue: Math.round(ivaValue * 100) / 100,
-    total: Math.round(total * 100) / 100,
+    subtotal,
+    ivaValue: iva_value,
+    total: total_importe,
   };
 };
 

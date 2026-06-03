@@ -5,8 +5,10 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { getAsesorBgClass, getAsesorHexColor } from "@/lib/asesorColors";
 import {
   buildAsesorNameByCodigo,
+  buildFirmasYAsesoresMap,
   getAsesorInitials as resolveAsesorInitials,
   getAsesorNombre as resolveAsesorNombre,
+  resolveAsesorFromMap,
 } from "@/lib/asesorDisplay";
 import { getDefaultAsesorForUser, isAdmin } from "@/lib/permissions";
 
@@ -66,12 +68,19 @@ export function useAsesores(user) {
     [query.data]
   );
 
+  const firmasYAsesoresMap = useMemo(
+    () => buildFirmasYAsesoresMap(query.data),
+    [query.data]
+  );
+
   return {
     ...query,
     asesorOptions,
     asesorCodes,
     defaultAsesorCodigo,
     nameByCodigo,
+    firmasYAsesoresMap,
+    resolveAsesorForSave: (input) => resolveAsesorFromMap(input, firmasYAsesoresMap),
     getAsesorHexColor: (codigo) => getAsesorHexColor(codigo),
     getAsesorBgClass: (codigo) => getAsesorBgClass(codigo),
     getAsesorNombre: (codigo) => resolveAsesorNombre(codigo, nameByCodigo),

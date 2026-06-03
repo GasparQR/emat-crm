@@ -52,7 +52,13 @@ export default function Contactos() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions, defaultAsesorCodigo, getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
+  const {
+    asesorOptions,
+    defaultAsesorCodigo,
+    getAsesorInitials,
+    getAsesorNombre,
+    resolveAsesorForSave,
+  } = useAsesores(currentUser);
 
   useEffect(() => {
     if (!showForm || selectedContacto || !defaultAsesorCodigo) return;
@@ -298,6 +304,17 @@ export default function Contactos() {
     }
     const { pipeline_stage, ...contactData } = formData;
 
+    let asesorResolved = null;
+    if (formData.asesor) {
+      asesorResolved = resolveAsesorForSave(formData.asesor);
+      if (!asesorResolved) {
+        toast.error("Asesor no válido o sin catálogo");
+        return;
+      }
+      contactData.asesor = asesorResolved.codigo;
+      contactData.asesor_id = asesorResolved.asesor_id;
+    }
+
     try {
       if (selectedContacto) {
         await updateMutation.mutateAsync({ id: selectedContacto.id, data: contactData });
@@ -307,7 +324,8 @@ export default function Contactos() {
 
       // Sincronizar etapa y asesor en la fila `Consulta` (pipeline / consultas filtran por consulta.asesor)
       const stage = pipeline_stage && pipeline_stage !== "sin_asignar" ? pipeline_stage : null;
-      const asesorNuevo = formData.asesor || "";
+      const asesorNuevo = asesorResolved?.codigo || "";
+      const asesorIdNuevo = asesorResolved?.asesor_id || null;
       const consultaExistente = consultas.find(q => q.contactonombre === formData.nombre);
 
       if (consultaExistente) {
@@ -321,8 +339,10 @@ export default function Contactos() {
           }
         }
         const asesorActual = consultaExistente.asesor ?? "";
-        if (asesorNuevo !== asesorActual) {
+        if (asesorNuevo && asesorNuevo !== asesorActual) {
           patch.asesor = asesorNuevo;
+          if (asesorIdNuevo) patch.asesor_id = asesorIdNuevo;
+          if (asesorResolved?.firma) patch.firmaasesor = asesorResolved.firma;
         }
         if (Object.keys(patch).length > 0) {
           await entities.Consulta.update(consultaExistente.id, patch);
@@ -346,6 +366,8 @@ export default function Contactos() {
           canalorigen: formData.canalOrigen || "",
           pipeline_stage: stage,
           asesor: asesorNuevo,
+          asesor_id: asesorIdNuevo,
+          firmaasesor: asesorResolved?.firma || null,
           mes: MESES[now.getMonth()],
           ano: now.getFullYear(),
           nroppto: nroPptoValue,
