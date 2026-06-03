@@ -28,6 +28,30 @@ export function isDuplicateUsuarioEmail(email, usuarios, { excludeId = null } = 
   );
 }
 
+/**
+ * Email de asesor vs usuarios: permite el mismo email si el usuario
+ * está vinculado a ese asesor (asesor_codigo coincide).
+ */
+export function isDuplicateUsuarioEmailForAsesor(
+  email,
+  usuarios,
+  { asesorCodigo = null } = {}
+) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return false;
+  const codigoUpper = String(asesorCodigo ?? "").trim().toUpperCase();
+  return (usuarios || []).some((u) => {
+    if (normalizeEmail(u.email) !== normalized) return false;
+    if (
+      codigoUpper &&
+      String(u.asesor_codigo ?? "").trim().toUpperCase() === codigoUpper
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export function mapDuplicateEmailError(message) {
   const msg = String(message ?? "");
   if (/already registered|already been registered|duplicate|unique|usuario_email_unique|asesor_email_unique/i.test(msg)) {

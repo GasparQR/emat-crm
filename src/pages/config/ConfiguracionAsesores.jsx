@@ -7,8 +7,9 @@ import { entities, supabase, auth } from "@/api/supabaseClient";
 import { createPageUrl } from "@/utils";
 import {
   DUPLICATE_ASESOR_EMAIL_ERROR,
+  DUPLICATE_USUARIO_EMAIL_ERROR,
   isDuplicateAsesorEmail,
-  isDuplicateUsuarioEmail,
+  isDuplicateUsuarioEmailForAsesor,
   mapDuplicateEmailError,
   normalizeEmail,
 } from "@/lib/emailValidation";
@@ -108,13 +109,14 @@ export default function ConfiguracionAsesores() {
     }
 
     const email = normalizeEmail(form.email);
+    const asesorCodigo = form.codigo.trim().toUpperCase();
     if (email) {
       if (isDuplicateAsesorEmail(email, asesores, { excludeId: editing ? form.id : null })) {
         toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
         return;
       }
-      if (isDuplicateUsuarioEmail(email, usuarios)) {
-        toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
+      if (isDuplicateUsuarioEmailForAsesor(email, usuarios, { asesorCodigo })) {
+        toast.error(DUPLICATE_USUARIO_EMAIL_ERROR);
         return;
       }
     }
