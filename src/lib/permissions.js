@@ -44,7 +44,17 @@ export function canViewAsesorData(user, asesorCodigo) {
   if (isLogistica(user)) return true;
   if (!isAsesor(user)) return false;
   if (user?.can_view_other_advisors) return true;
-  return String(user?.asesor_codigo ?? '') === String(asesorCodigo);
+  return (
+    String(user?.asesor_codigo ?? "").trim().toUpperCase() ===
+    String(asesorCodigo).trim().toUpperCase()
+  );
+}
+
+function matchesUserAsesorCodigo(recordAsesor, userAsesorCodigo) {
+  return (
+    String(recordAsesor ?? "").trim().toUpperCase() ===
+    String(userAsesorCodigo ?? "").trim().toUpperCase()
+  );
 }
 
 export function getDefaultAsesorForUser(user, catalogRows = []) {
@@ -59,7 +69,9 @@ export function filterConsultasByVisibility(consultas, user) {
     return consultas.filter((c) => c.pipeline_stage === 'GANADA' || c.pipeline_stage === 'EJECUTADA');
   }
   if (isAsesor(user) && !user?.can_view_other_advisors) {
-    return consultas.filter((c) => String(c?.asesor ?? '') === String(user?.asesor_codigo ?? ''));
+    return consultas.filter((c) =>
+      matchesUserAsesorCodigo(c?.asesor, user?.asesor_codigo)
+    );
   }
   return consultas;
 }
@@ -68,7 +80,9 @@ export function filterContactosByVisibility(contactos, user) {
   if (!Array.isArray(contactos)) return [];
   if (isAdmin(user) || isLogistica(user)) return contactos;
   if (isAsesor(user) && !user?.can_view_other_advisors) {
-    return contactos.filter((c) => String(c?.asesor ?? '') === String(user?.asesor_codigo ?? ''));
+    return contactos.filter((c) =>
+      matchesUserAsesorCodigo(c?.asesor, user?.asesor_codigo)
+    );
   }
   return contactos;
 }
