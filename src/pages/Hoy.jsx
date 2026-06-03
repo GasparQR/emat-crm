@@ -22,7 +22,7 @@ import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -32,7 +32,7 @@ export default function Hoy() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
-  const { asesorOptions, getAsesorInitials, getAsesorNombre } = useAsesores(user);
+  const { asesorOptions, getAsesorNombre } = useAsesores(user);
   const { data: currentUser } = useCurrentUser();
   const { setCallTarget } = useActiveCall();
 
@@ -148,7 +148,6 @@ export default function Hoy() {
 
   const ConsultaItem = ({ consulta, tipo }) => {
     const fechaMostrar = consulta.proximoseguimiento;
-    const asesorColor = getAsesorBgClass(consulta.asesor);
     const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
     const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
     return (
@@ -184,12 +183,11 @@ export default function Hoy() {
               </div>
               {consulta.asesor && (
                 <div className="flex items-center gap-1">
-                  <div
-                    className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold tracking-tight", asesorColor)}
+                  <AsesorAvatar
+                    codigo={consulta.asesor}
+                    size="xs"
                     title={getAsesorNombre(consulta.asesor) || consulta.asesor}
-                  >
-                    {getAsesorInitials(consulta.asesor)}
-                  </div>
+                  />
                   <span className="text-xs font-medium text-slate-600">
                     {getAsesorNombre(consulta.asesor) || consulta.asesor}
                   </span>

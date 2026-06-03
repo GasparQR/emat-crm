@@ -24,7 +24,7 @@ import { openConsultaPdf } from "@/lib/consultaPdf";
 import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
@@ -41,7 +41,7 @@ export default function Consultas() {
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
-  const { asesorOptions, getAsesorInitials, getAsesorNombre } = useAsesores(user);
+  const { asesorOptions, getAsesorNombre } = useAsesores(user);
   const isMobile = useIsMobile();
   const { setCallTarget } = useActiveCall();
 
@@ -336,7 +336,6 @@ export default function Consultas() {
                 <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
               ) : filtradas.map(c => {
                 const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
-                const asesorColor = getAsesorBgClass(c.asesor);
                 return (
                   <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
 
@@ -362,12 +361,11 @@ export default function Consultas() {
                     {/* Asesor — solo avatar */}
                     <TableCell className="py-2">
                       {c.asesor && (
-                        <div
-                          className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", asesorColor)}
+                        <AsesorAvatar
+                          codigo={c.asesor}
+                          size="sm"
                           title={getAsesorNombre(c.asesor) || c.asesor}
-                        >
-                          {getAsesorInitials(c.asesor)}
-                        </div>
+                        />
                       )}
                     </TableCell>
 

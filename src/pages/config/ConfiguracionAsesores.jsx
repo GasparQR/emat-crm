@@ -7,8 +7,9 @@ import { entities, supabase, auth } from "@/api/supabaseClient";
 import { createPageUrl } from "@/utils";
 import {
   DUPLICATE_ASESOR_EMAIL_ERROR,
+  DUPLICATE_USUARIO_EMAIL_ERROR,
   isDuplicateAsesorEmail,
-  isDuplicateUsuarioEmail,
+  isDuplicateUsuarioEmailForAsesor,
   mapDuplicateEmailError,
   normalizeEmail,
 } from "@/lib/emailValidation";
@@ -21,14 +22,29 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
+import { cn } from "@/lib/utils";
+import {
+  ASESOR_PALETTE_HEX,
+  getAsesorHexColorFromHash,
+  isValidAsesorPaletteHex,
+} from "@/lib/asesorColors";
+import { nombreToInitials } from "@/lib/asesorDisplay";
 
 const EMPTY_FORM = {
   id: "",
   codigo: "",
   nombre: "",
   email: "",
+  color_hex: "",
   active: true,
 };
+
+function resolveFormColorHex(form) {
+  if (form.color_hex && isValidAsesorPaletteHex(form.color_hex)) {
+    return form.color_hex;
+  }
+  return getAsesorHexColorFromHash(form.codigo);
+}
 
 export default function ConfiguracionAsesores() {
   const queryClient = useQueryClient();
@@ -80,6 +96,7 @@ export default function ConfiguracionAsesores() {
       codigo: asesor.codigo || "",
       nombre: asesor.nombre || "",
       email: asesor.email || "",
+      color_hex: asesor.color_hex || getAsesorHexColorFromHash(asesor.codigo),
       active: asesor.active !== false && asesor.activo !== false,
     });
     setOpen(true);
@@ -92,24 +109,27 @@ export default function ConfiguracionAsesores() {
     }
 
     const email = normalizeEmail(form.email);
+    const asesorCodigo = form.codigo.trim().toUpperCase();
     if (email) {
       if (isDuplicateAsesorEmail(email, asesores, { excludeId: editing ? form.id : null })) {
         toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
         return;
       }
-      if (isDuplicateUsuarioEmail(email, usuarios)) {
-        toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
+      if (isDuplicateUsuarioEmailForAsesor(email, usuarios, { asesorCodigo })) {
+        toast.error(DUPLICATE_USUARIO_EMAIL_ERROR);
         return;
       }
     }
 
     setSaving(true);
     try {
+      const colorHex = resolveFormColorHex(form);
       const payload = {
         workspace_id: workspaceId,
         codigo: form.codigo.trim().toUpperCase(),
         nombre: form.nombre.trim(),
         email: email || null,
+        color_hex: colorHex,
         active: form.active,
         activo: form.active,
       };
@@ -222,20 +242,35 @@ export default function ConfiguracionAsesores() {
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Color</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>
                 ) : asesores.length === 0 ? (
-                  <TableRow><TableCell colSpan={5}>No hay asesores</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6}>No hay asesores</TableCell></TableRow>
                 ) : asesores.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell>{a.codigo || "-"}</TableCell>
                     <TableCell>{a.nombre}</TableCell>
                     <TableCell>{a.email || "-"}</TableCell>
+                    <TableCell>
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                        style={{
+                          backgroundColor:
+                            a.color_hex && isValidAsesorPaletteHex(a.color_hex)
+                              ? a.color_hex
+                              : getAsesorHexColorFromHash(a.codigo),
+                        }}
+                        title="Color en listados"
+                      >
+                        {nombreToInitials(a.nombre || a.codigo)}
+                      </div>
+                    </TableCell>
                     <TableCell>{a.active === false || a.activo === false ? "Inactivo" : "Activo"}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button variant="outline" size="sm" onClick={() => openEdit(a)}>Editar</Button>
@@ -266,6 +301,37 @@ export default function ConfiguracionAsesores() {
             <div className="space-y-2">
               <Label>Email</Label>
               <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Color en listados (avatares con iniciales)</Label>
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                  style={{ backgroundColor: resolveFormColorHex(form) }}
+                >
+                  {nombreToInitials(form.nombre || form.codigo || "?")}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {ASESOR_PALETTE_HEX.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                        resolveFormColorHex(form) === hex
+                          ? "border-slate-900 ring-2 ring-offset-1 ring-slate-400"
+                          : "border-transparent"
+                      )}
+                      style={{ backgroundColor: hex }}
+                      title={hex}
+                      onClick={() => setForm((p) => ({ ...p, color_hex: hex }))}
+                    />
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Este color se usa en Pipeline, Consultas, Contactos y Reportes.
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.active} onCheckedChange={(checked) => setForm((p) => ({ ...p, active: checked }))} />

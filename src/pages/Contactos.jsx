@@ -30,7 +30,7 @@ import {
 import { filterConsultasByVisibility, filterContactosByVisibility } from "@/lib/permissions";
 import { useAsesores } from "@/components/hooks/useAsesores";
 
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
 export default function Contactos() {
   const [showForm, setShowForm] = useState(false);
@@ -55,7 +55,6 @@ export default function Contactos() {
   const {
     asesorOptions,
     defaultAsesorCodigo,
-    getAsesorInitials,
     getAsesorNombre,
     resolveAsesorForSave,
   } = useAsesores(currentUser);
@@ -585,12 +584,11 @@ export default function Contactos() {
                   </TableCell>
                   <TableCell className="py-2">
                     {contacto.asesor ? (
-                      <div
-                        className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight", getAsesorBgClass(contacto.asesor))}
+                      <AsesorAvatar
+                        codigo={contacto.asesor}
+                        size="sm"
                         title={getAsesorNombre(contacto.asesor) || contacto.asesor}
-                      >
-                        {getAsesorInitials(contacto.asesor)}
-                      </div>
+                      />
                     ) : (
                       <span className="text-slate-300 text-xs">-</span>
                     )}

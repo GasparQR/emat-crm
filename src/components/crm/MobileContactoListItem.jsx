@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import QuickCallButton from "./QuickCallButton";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useAsesores } from "@/components/hooks/useAsesores";
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
 export default function MobileContactoListItem({
   contacto,
@@ -25,7 +25,7 @@ export default function MobileContactoListItem({
   onEtapaClick,
 }) {
   const { data: currentUser } = useCurrentUser();
-  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
+  const { getAsesorNombre } = useAsesores(currentUser);
   const phone = contacto.whatsapp;
 
   const handleSelect = () => {
@@ -67,15 +67,11 @@ export default function MobileContactoListItem({
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {contacto.asesor && (
-            <div
-              className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight",
-                getAsesorBgClass(contacto.asesor)
-              )}
+            <AsesorAvatar
+              codigo={contacto.asesor}
+              size="sm"
               title={getAsesorNombre(contacto.asesor) || contacto.asesor}
-            >
-              {getAsesorInitials(contacto.asesor)}
-            </div>
+            />
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

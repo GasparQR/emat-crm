@@ -6,7 +6,7 @@ import QuickCallButton from "./QuickCallButton";
 import { getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useAsesores } from "@/components/hooks/useAsesores";
-import { getAsesorBgClass } from "@/lib/asesorColors";
+import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
 export default function MobileConsultaListItem({
   consulta,
@@ -19,8 +19,7 @@ export default function MobileConsultaListItem({
     consulta.proximoseguimiento &&
     moment(consulta.proximoseguimiento).isBefore(moment(), "day");
   const { data: currentUser } = useCurrentUser();
-  const { getAsesorInitials, getAsesorNombre } = useAsesores(currentUser);
-  const asesorColor = getAsesorBgClass(consulta.asesor);
+  const { getAsesorNombre } = useAsesores(currentUser);
   const fechaGanado = getFechaGanadoFromConsulta(consulta);
 
   const handleClick = () => {
@@ -44,15 +43,11 @@ export default function MobileConsultaListItem({
           <QuickCallButton phone={phone} />
         </div>
         {consulta.asesor && (
-          <div
-            className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold tracking-tight flex-shrink-0",
-              asesorColor
-            )}
+          <AsesorAvatar
+            codigo={consulta.asesor}
+            size="sm"
             title={getAsesorNombre(consulta.asesor) || consulta.asesor}
-          >
-            {getAsesorInitials(consulta.asesor)}
-          </div>
+          />
         )}
       </div>
 
