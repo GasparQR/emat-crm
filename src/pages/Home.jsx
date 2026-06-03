@@ -36,7 +36,7 @@ export default function Home() {
   });
   const { workspace } = useWorkspace();
   const { data: currentUser } = useCurrentUser();
-  const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
+  const { asesorOptions, defaultAsesorCodigo, resolveAsesorForSave } = useAsesores(currentUser);
 
   useEffect(() => {
     if (!showNewLead || !defaultAsesorCodigo) return;
@@ -70,6 +70,12 @@ export default function Home() {
       return;
     }
 
+    const asesorResolved = resolveAsesorForSave(newLeadData.asesor);
+    if (!asesorResolved) {
+      toast.error("Asesor no válido o sin catálogo");
+      return;
+    }
+
     try {
       const wsId = workspace?.id || "local";
       const MESES = [
@@ -99,7 +105,8 @@ export default function Home() {
         nombre: newLeadData.nombre.trim(),
         whatsapp: newLeadData.whatsapp.trim(),
         empresa: newLeadData.empresa.trim(),
-        asesor: newLeadData.asesor,
+        asesor: asesorResolved.codigo,
+        asesor_id: asesorResolved.asesor_id,
         canalOrigen: newLeadData.canalOrigen,
       });
 
@@ -109,7 +116,9 @@ export default function Home() {
         contactowhatsapp: newLeadData.whatsapp.trim(),
         canalorigen: newLeadData.canalOrigen,
         pipeline_stage: "NUEVO LEAD",
-        asesor: newLeadData.asesor,
+        asesor: asesorResolved.codigo,
+        asesor_id: asesorResolved.asesor_id,
+        firmaasesor: asesorResolved.firma,
         mes: MESES[now.getMonth()],
         ano: now.getFullYear(),
         created_date: now.toISOString().split("T")[0],

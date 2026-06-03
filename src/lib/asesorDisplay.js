@@ -36,3 +36,43 @@ export function getAsesorInitials(codigo, nameByCodigo = {}) {
   if (nombre) return nombreToInitials(nombre);
   return nombreToInitials(key);
 }
+
+/** Mapa codigo UPPER → { firma, asesor_id, codigo, nombre } */
+export function buildFirmasYAsesoresMap(catalogRows = []) {
+  return Object.fromEntries(
+    (catalogRows || [])
+      .filter((row) => row?.codigo && row?.id)
+      .map((row) => [
+        String(row.codigo).trim().toUpperCase(),
+        {
+          firma: row.firma,
+          asesor_id: row.id,
+          codigo: row.codigo,
+          nombre: row.nombre,
+        },
+      ])
+  );
+}
+
+export function resolveAsesorFromMap(input, firmasYAsesoresMap = {}) {
+  const key = String(input ?? "").trim().toUpperCase();
+  if (!key) return null;
+
+  let data = firmasYAsesoresMap[key];
+  if (!data) {
+    data = Object.values(firmasYAsesoresMap).find(
+      (a) => String(a?.nombre ?? "").trim().toUpperCase() === key
+    );
+  }
+  if (!data?.asesor_id) return null;
+
+  const firma =
+    data.firma?.trim() || data.nombre?.trim() || data.codigo || "Asesor";
+
+  return {
+    asesor_id: data.asesor_id,
+    codigo: data.codigo,
+    nombre: data.nombre,
+    firma,
+  };
+}
