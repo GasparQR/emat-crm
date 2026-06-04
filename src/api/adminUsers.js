@@ -45,4 +45,6 @@ export const adminUsersApi = {
   createUser: async (payload) => invoke("admin-create-user", payload),
   updateUser: async (payload) => invoke("admin-update-user", payload),
   setUserActive: async ({ id, active }) => invoke("admin-deactivate-user", { id, active }),
+  deleteAsesor: async ({ asesor_id, workspace_id }) =>
+    invoke("admin-delete-asesor", { asesor_id, workspace_id }),
 };
