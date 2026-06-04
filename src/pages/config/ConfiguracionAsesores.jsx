@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Plus } from "lucide-react";
 import { entities, supabase, auth } from "@/api/supabaseClient";
+import { adminUsersApi } from "@/api/adminUsers";
 import { createPageUrl } from "@/utils";
 import {
   DUPLICATE_ASESOR_EMAIL_ERROR,
@@ -61,6 +62,12 @@ export default function ConfiguracionAsesores() {
   const [preview, setPreview] = useState(null);
   const [reassigning, setReassigning] = useState(false);
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePreview, setDeletePreview] = useState(null);
+  const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const { data: asesores = [], isLoading } = useQuery({
     queryKey: ["asesores-admin", workspaceId],
     queryFn: () => entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000),
@@ -81,7 +88,13 @@ export default function ConfiguracionAsesores() {
     queryClient.invalidateQueries({ queryKey: ["asesores", workspaceId] });
     queryClient.invalidateQueries({ queryKey: ["contactos", workspaceId] });
     queryClient.invalidateQueries({ queryKey: ["consultas-list", workspaceId] });
+    queryClient.invalidateQueries({ queryKey: ["admin-usuarios"] });
   };
+
+  const asesoresConCodigo = useMemo(
+    () => (asesores || []).filter((a) => a.codigo),
+    [asesores]
+  );
 
   const openCreate = () => {
     setEditing(false);
@@ -182,6 +195,61 @@ export default function ConfiguracionAsesores() {
     setPreview(data);
   };
 
+  const openDelete = async (asesor) => {
+    setDeleteTarget(asesor);
+    setDeletePreview(null);
+    setDeleteOpen(true);
+    setDeletePreviewLoading(true);
+    try {
+      const { data, error } = await supabase.rpc("preview_asesor_deletion", {
+        p_workspace_id: workspaceId,
+        p_asesor_id: asesor.id,
+      });
+      if (error) throw error;
+      setDeletePreview(data);
+    } catch (error) {
+      toast.error(error?.message || "No se pudo verificar el asesor");
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+    } finally {
+      setDeletePreviewLoading(false);
+    }
+  };
+
+  const openReassignFromDelete = () => {
+    const codigo = deletePreview?.codigo || deleteTarget?.codigo;
+    if (!codigo) return;
+    setDeleteOpen(false);
+    setFromCodigo(codigo);
+    setToCodigo("");
+    setPreview(null);
+    setReassignOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget?.id || !deletePreview?.can_delete) return;
+    setDeleting(true);
+    try {
+      const result = await adminUsersApi.deleteAsesor({
+        asesor_id: deleteTarget.id,
+        workspace_id: workspaceId,
+      });
+      const usuariosMsg =
+        result?.usuarios_deleted > 0
+          ? ` y ${result.usuarios_deleted} cuenta(s) de usuario`
+          : "";
+      toast.success(`Asesor eliminado${usuariosMsg}`);
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      setDeletePreview(null);
+      refresh();
+    } catch (error) {
+      toast.error(error?.message || "No se pudo eliminar el asesor");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const runReassign = async () => {
     if (!preview) {
       toast.error("Primero ejecutá la vista previa");
@@ -277,6 +345,14 @@ export default function ConfiguracionAsesores() {
                       <Button variant="outline" size="sm" onClick={() => toggleActive(a)}>
                         {a.active === false || a.activo === false ? "Reactivar" : "Desactivar"}
                       </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => openDelete(a)}
+                      >
+                        Eliminar
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -354,7 +430,9 @@ export default function ConfiguracionAsesores() {
               <Select value={fromCodigo} onValueChange={setFromCodigo}>
                 <SelectTrigger><SelectValue placeholder="Seleccionar origen" /></SelectTrigger>
                 <SelectContent>
-                  {activeAsesores.map((a) => <SelectItem key={a.id} value={a.codigo || a.nombre}>{a.nombre}</SelectItem>)}
+                  {asesoresConCodigo.map((a) => (
+                    <SelectItem key={a.id} value={a.codigo}>{a.nombre}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -379,6 +457,83 @@ export default function ConfiguracionAsesores() {
             <Button onClick={runReassign} disabled={reassigning || !preview}>
               {reassigning ? "Reasignando..." : "Confirmar reasignación"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(next) => {
+          setDeleteOpen(next);
+          if (!next) {
+            setDeleteTarget(null);
+            setDeletePreview(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Eliminar asesor</DialogTitle>
+          </DialogHeader>
+          {deletePreviewLoading ? (
+            <p className="text-sm text-slate-500">Verificando presupuestos y contactos...</p>
+          ) : deletePreview && deleteTarget ? (
+            <div className="space-y-3 text-sm">
+              {deletePreview.can_delete ? (
+                <>
+                  <p>
+                    ¿Eliminar a <strong>{deletePreview.nombre || deleteTarget.nombre}</strong> del sistema?
+                  </p>
+                  {deletePreview.usuarios > 0 && (
+                    <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-3">
+                      También se eliminará la cuenta de usuario vinculada ({deletePreview.usuarios}).
+                      Esta acción no se puede deshacer.
+                    </p>
+                  )}
+                  {deletePreview.usuarios === 0 && (
+                    <p className="text-slate-500">No hay presupuestos ni contactos asignados. Esta acción no se puede deshacer.</p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-red-700">
+                    No se puede eliminar a <strong>{deletePreview.nombre || deleteTarget.nombre}</strong>.
+                  </p>
+                  <ul className="list-disc list-inside text-slate-600 space-y-1">
+                    <li><strong>{deletePreview.consultas || 0}</strong> presupuesto(s) asignado(s)</li>
+                    <li><strong>{deletePreview.contactos || 0}</strong> contacto(s) asignado(s)</li>
+                  </ul>
+                  {deletePreview.usuarios > 0 && (
+                    <p className="text-slate-500">
+                      Hay {deletePreview.usuarios} usuario(s) vinculado(s); se podrán eliminar una vez vaciada la cartera.
+                    </p>
+                  )}
+                  <p className="text-slate-500">
+                    Reasigná presupuestos y contactos a otro asesor antes de eliminar.
+                  </p>
+                </>
+              )}
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteOpen(false);
+                setDeleteTarget(null);
+                setDeletePreview(null);
+              }}
+            >
+              Cancelar
+            </Button>
+            {deletePreview && !deletePreview.can_delete && (
+              <Button onClick={openReassignFromDelete}>Reasignar cartera</Button>
+            )}
+            {deletePreview?.can_delete && (
+              <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleting}>
+                {deleting ? "Eliminando..." : "Eliminar definitivamente"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
