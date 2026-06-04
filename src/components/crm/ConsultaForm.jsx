@@ -21,7 +21,8 @@ import {
   todayDateString,
 } from "@/lib/pipelineStage";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
-import { calcularTotalesConsulta } from "@/utils/consultaItems";
+import { calcularTotalesConsulta, computeItemsAndTotal } from "@/utils/consultaItems";
+import { IVA_RATES, formatIvaLabel, ivaSelectValue, parseIvaPercent } from "@/lib/consultaIva";
 import { useAsesores } from "@/components/hooks/useAsesores";
 import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
 import {
@@ -31,6 +32,13 @@ import {
 
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
+const TIPO_APLICACION_BOLSA = "Bolsa";
+
+function isFibraKgValidForBolsa(fibraKg) {
+  if (fibraKg === null || fibraKg === undefined || fibraKg === "") return false;
+  const n = Number.parseFloat(String(fibraKg).replace(",", "."));
+  return Number.isFinite(n) && n > 0;
+}
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const EMPRESAS = ["EMAT", "Aislaciones del Centro"];
@@ -56,29 +64,10 @@ const createItem = (overrides = {}) => ({
   ...overrides,
 });
 
-const toNumberOrNull = (value) => {
-  if (value === null || value === undefined || value === "") return null;
-  const normalized = String(value).replace(",", ".").trim();
-  const n = Number.parseFloat(normalized);
-  return Number.isFinite(n) ? n : null;
-};
-
-const computeItemsAndTotal = (items = []) => {
-  const nextItems = items.map((item) => {
-    const precio = toNumberOrNull(item.precioUnitario);
-    const cantidad = toNumberOrNull(item.cantidad);
-    const importeNum = precio !== null && cantidad !== null ? precio * cantidad : null;
-    return {
-      ...item,
-      importe: importeNum !== null ? importeNum.toFixed(2) : "",
-    };
-  });
-
-  const total = nextItems.reduce((acc, item) => acc + (toNumberOrNull(item.importe) || 0), 0);
-  return {
-    nextItems,
-    totalText: total > 0 ? total.toFixed(2) : "",
-  };
+const formatMoney = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "$0";
+  return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const emptyForm = () => ({
@@ -190,7 +179,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         cantidad: item.cantidad ?? "",
         importe: item.importe ?? "",
       }));
-      const { nextItems, totalText } = computeItemsAndTotal(mappedItems);
+      const ivaLoaded = parseIvaPercent(consulta.iva, presupuestoDefaults.defaultIva);
+      const { nextItems, totalText } = computeItemsAndTotal(mappedItems, ivaLoaded);
       const fechaGanadoStored = getFechaGanadoFromConsulta(consulta);
       setFormData({
         ...emptyForm(),
@@ -212,7 +202,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         cantidad: nextItems[0]?.cantidad ?? "",
         importe: totalText,
         items: nextItems,
-        iva: consulta.iva ?? 21,
+        iva: ivaLoaded,
         empresa: consulta.empresa ?? "EMAT",
         fechaPresupuesto: consulta.fechapresupuesto ?? consulta.fechaPresupuesto ?? new Date().toISOString().split("T")[0],
         diasValidez: consulta.diasvalidez ?? consulta.diasValidez ?? 30,
@@ -252,6 +242,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             proximoSeguimiento,
             condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
             observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
+            iva: presupuestoDefaults.defaultIva,
           });
         }
       } catch {
@@ -265,6 +256,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             proximoSeguimiento,
             condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
             observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
+            iva: presupuestoDefaults.defaultIva,
           });
         }
       }
@@ -278,6 +270,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     workspace?.id,
     presupuestoDefaults.condicionesComerciales,
     presupuestoDefaults.observaciones,
+    presupuestoDefaults.defaultIva,
     currentUser?.consulta_follow_up_days,
     currentUser?.asesor_codigo,
     currentUser?.email,
@@ -354,7 +347,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         if (i !== index) return item;
         return { ...item, [field]: value };
       });
-      const { nextItems, totalText } = computeItemsAndTotal(itemsEdited);
+      const { nextItems, totalText } = computeItemsAndTotal(itemsEdited, prev.iva);
       return {
         ...prev,
         items: nextItems,
@@ -366,12 +359,25 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     });
   };
 
+  const handleIvaChange = (newIva) => {
+    const ivaNum = parseFloat(newIva);
+    setFormData((prev) => {
+      const { nextItems, totalText } = computeItemsAndTotal(prev.items, ivaNum);
+      return {
+        ...prev,
+        iva: ivaNum,
+        items: nextItems,
+        importe: totalText,
+      };
+    });
+  };
+
   const addItem = () => {
     setFormData((prev) => {
       const { nextItems, totalText } = computeItemsAndTotal([
         ...prev.items,
         createItem({ descripcionServicio: "" }),
-      ]);
+      ], prev.iva);
       return {
         ...prev,
         items: nextItems,
@@ -387,7 +393,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     setFormData((prev) => {
       const filtered = prev.items.filter((_, i) => i !== index);
       const nextItems = filtered.length > 0 ? filtered : [createItem()];
-      const { nextItems: recalculatedItems, totalText } = computeItemsAndTotal(nextItems);
+      const { nextItems: recalculatedItems, totalText } = computeItemsAndTotal(nextItems, prev.iva);
       return {
         ...prev,
         items: recalculatedItems,
@@ -486,6 +492,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         return;
       }
     }
+    if (formData.tipoAplicacion === TIPO_APLICACION_BOLSA && !isFibraKgValidForBolsa(formData.fibraKg)) {
+      toast.error("Falta poner kg fibra, campo obligatorio");
+      return;
+    }
     setLoading(true);
     try {
       let nroPptoValue = formData.nroPpto;
@@ -518,7 +528,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         cantidad: item.cantidad,
         importe: item.importe,
       }));
-      const ivaPercent = formData.iva !== "" ? parseFloat(formData.iva) : 21;
+      const ivaPercent = parseIvaPercent(formData.iva, presupuestoDefaults.defaultIva);
       const totales = calcularTotalesConsulta(itemsForDb, ivaPercent);
 
       const payload = {
@@ -549,7 +559,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         observaciones: formData.observaciones,
         notas: formData.notas || null,
         nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
-        iva: formData.iva !== "" ? parseFloat(formData.iva) : 21,
+        iva: ivaPercent,
         empresa: formData.empresa || "EMAT",
         fechapresupuesto: formData.fechaPresupuesto || new Date().toISOString().split("T")[0],
         diasvalidez: formData.diasValidez !== "" ? parseInt(formData.diasValidez) : 30,
@@ -623,6 +633,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     const cliente = previewPayload.contactoNombre || "Cliente";
     doc.save(`Presupuesto nº ${nro} - ${cliente}.pdf`);
   };
+
+  const { subtotal, ivaValue, totalImporte } = computeItemsAndTotal(formData.items, formData.iva);
 
   return (
     <>
@@ -716,7 +728,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Input type="number" value={formData.superficieM2} onChange={e => set("superficieM2", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1">
-                <Label>Fibra (kg)</Label>
+                <Label>
+                  Fibra (kg){formData.tipoAplicacion === TIPO_APLICACION_BOLSA && " *"}
+                </Label>
                 <Input type="number" value={formData.fibraKg} onChange={e => set("fibraKg", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1">
@@ -768,12 +782,31 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 </div>
               )}
               <div className="space-y-1">
-                <Label>Importe total ($)</Label>
-                <Input type="number" value={formData.importe} readOnly aria-readonly="true" className="bg-slate-50" />
+                <Label>IVA</Label>
+                <Select value={ivaSelectValue(formData.iva)} onValueChange={handleIvaChange}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {IVA_RATES.map((rate) => (
+                      <SelectItem key={rate} value={String(rate)}>
+                        {formatIvaLabel(rate)}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <Label>IVA (%)</Label>
-                <Input type="number" value={formData.iva} onChange={e => set("iva", e.target.value)} placeholder="21" />
+              <div className="space-y-1 col-span-2 rounded-md border bg-slate-50 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Subtotal neto:</span>
+                  <span>{formatMoney(subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">IVA ({formatIvaLabel(formData.iva)}%):</span>
+                  <span>{formatMoney(ivaValue)}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-1 border-t border-slate-200 mt-1">
+                  <span>Total:</span>
+                  <span>{formatMoney(totalImporte)}</span>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label>Empresa</Label>

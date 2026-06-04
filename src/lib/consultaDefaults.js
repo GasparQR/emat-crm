@@ -1,3 +1,5 @@
+import { parseIvaPercent } from "@/lib/consultaIva";
+
 /**
  * Resuelve condiciones y observaciones para presupuestos nuevos:
  * override del usuario (asesor) si tiene texto; si no, global del workspace.
@@ -10,5 +12,6 @@ export function getConsultaPresupuestoDefaults(workspaceSettings, user) {
   return {
     condicionesComerciales: userCond.trim() || globalCond.trim() || "",
     observaciones: userObs.trim() || globalObs.trim() || "",
+    defaultIva: parseIvaPercent(workspaceSettings?.consulta_default_iva, 21),
   };
 }

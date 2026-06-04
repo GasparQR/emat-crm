@@ -453,6 +453,7 @@ export const workspaceSettingsApi = {
       consulta_default_condiciones_comerciales:
         fields.consulta_default_condiciones_comerciales ?? '',
       consulta_default_observaciones: fields.consulta_default_observaciones ?? '',
+      consulta_default_iva: fields.consulta_default_iva ?? 21,
       updated_date: new Date().toISOString(),
     };
     const { data, error } = await supabase
