@@ -32,6 +32,13 @@ import {
 
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
+const TIPO_APLICACION_BOLSA = "Bolsa";
+
+function isFibraKgValidForBolsa(fibraKg) {
+  if (fibraKg === null || fibraKg === undefined || fibraKg === "") return false;
+  const n = Number.parseFloat(String(fibraKg).replace(",", "."));
+  return Number.isFinite(n) && n > 0;
+}
 const TIPOS_CLIENTE = ["USUARIO FINAL", "APLICADOR", "ARQ", "CONSTRUCTORA", "DESARROLLISTA", "COMERCIAL", "MODULAR"];
 const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
 const EMPRESAS = ["EMAT", "Aislaciones del Centro"];
@@ -485,6 +492,10 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         return;
       }
     }
+    if (formData.tipoAplicacion === TIPO_APLICACION_BOLSA && !isFibraKgValidForBolsa(formData.fibraKg)) {
+      toast.error("Falta poner kg fibra, campo obligatorio");
+      return;
+    }
     setLoading(true);
     try {
       let nroPptoValue = formData.nroPpto;
@@ -717,7 +728,9 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                 <Input type="number" value={formData.superficieM2} onChange={e => set("superficieM2", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1">
-                <Label>Fibra (kg)</Label>
+                <Label>
+                  Fibra (kg){formData.tipoAplicacion === TIPO_APLICACION_BOLSA && " *"}
+                </Label>
                 <Input type="number" value={formData.fibraKg} onChange={e => set("fibraKg", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1">
