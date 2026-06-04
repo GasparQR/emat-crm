@@ -19,6 +19,8 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { isAdmin, normalizeRole } from "@/lib/permissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { IVA_RATES, formatIvaLabel, ivaSelectValue } from "@/lib/consultaIva";
 
 export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
@@ -31,6 +33,7 @@ export default function Configuracion() {
   const [savingDays, setSavingDays] = useState(false);
   const [globalCondiciones, setGlobalCondiciones] = useState("");
   const [globalObservaciones, setGlobalObservaciones] = useState("");
+  const [globalDefaultIva, setGlobalDefaultIva] = useState("21");
   const [personalCondiciones, setPersonalCondiciones] = useState("");
   const [personalObservaciones, setPersonalObservaciones] = useState("");
   const [asesoresCatalog, setAsesoresCatalog] = useState([]);
@@ -112,6 +115,7 @@ export default function Configuracion() {
     if (!workspaceSettings) return;
     setGlobalCondiciones(workspaceSettings.consulta_default_condiciones_comerciales ?? "");
     setGlobalObservaciones(workspaceSettings.consulta_default_observaciones ?? "");
+    setGlobalDefaultIva(ivaSelectValue(workspaceSettings.consulta_default_iva ?? 21));
   }, [workspaceSettings]);
 
   useEffect(() => {
@@ -182,6 +186,7 @@ export default function Configuracion() {
       await workspaceSettingsApi.upsert(workspaceId, {
         consulta_default_condiciones_comerciales: globalCondiciones,
         consulta_default_observaciones: globalObservaciones,
+        consulta_default_iva: parseFloat(globalDefaultIva),
       });
       invalidatePresupuestoCaches();
       toast.success("Textos predeterminados globales guardados");
@@ -345,6 +350,21 @@ export default function Configuracion() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>IVA predeterminado para presupuestos nuevos</Label>
+                <Select value={globalDefaultIva} onValueChange={setGlobalDefaultIva}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {IVA_RATES.map((rate) => (
+                      <SelectItem key={rate} value={String(rate)}>
+                        {formatIvaLabel(rate)}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>Condiciones comerciales (global)</Label>
                 <Textarea

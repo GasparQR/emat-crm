@@ -7,6 +7,14 @@
 
 import { entities } from "@/api/supabaseClient";
 import { applyFechaGanadoOnStageChange, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
+import { parseIvaPercent } from "@/lib/consultaIva";
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const normalized = String(value).replace(",", ".").trim();
+  const n = Number.parseFloat(normalized);
+  return Number.isFinite(n) ? n : null;
+}
 
 function itemImporteNum(item) {
   const direct = Number(item?.importe);
@@ -28,7 +36,7 @@ function itemImporteNum(item) {
  */
 export function calcularTotalesConsulta(items = [], ivaPercent = 21) {
   const subtotal = items.reduce((sum, item) => sum + itemImporteNum(item), 0);
-  const iva = Number(ivaPercent) || 21;
+  const iva = parseIvaPercent(ivaPercent, 21);
   const iva_value = (subtotal * iva) / 100;
   const total_importe = subtotal + iva_value;
   const round2 = (n) => Math.round(n * 100) / 100;
@@ -36,6 +44,32 @@ export function calcularTotalesConsulta(items = [], ivaPercent = 21) {
     subtotal: round2(subtotal),
     iva_value: round2(iva_value),
     total_importe: round2(total_importe),
+  };
+}
+
+/**
+ * Recalcula importes de líneas y totales con IVA.
+ *
+ * @returns {{ nextItems, subtotal, ivaValue, totalImporte, totalText }}
+ */
+export function computeItemsAndTotal(items = [], ivaPercent = 21) {
+  const nextItems = items.map((item) => {
+    const precio = toNumberOrNull(item.precioUnitario);
+    const cantidad = toNumberOrNull(item.cantidad);
+    const importeNum = precio !== null && cantidad !== null ? precio * cantidad : null;
+    return {
+      ...item,
+      importe: importeNum !== null ? importeNum.toFixed(2) : "",
+    };
+  });
+
+  const { subtotal, iva_value, total_importe } = calcularTotalesConsulta(nextItems, ivaPercent);
+  return {
+    nextItems,
+    subtotal,
+    ivaValue: iva_value,
+    totalImporte: total_importe,
+    totalText: total_importe > 0 ? total_importe.toFixed(2) : "",
   };
 }
 
@@ -55,7 +89,7 @@ export const guardarConsultaConItems = async (consulta, items, workspace_id) => 
       throw new Error("Se requiere al menos un item");
     }
 
-    const iva = Number(consulta.iva) || 21;
+    const iva = parseIvaPercent(consulta.iva, 21);
     const { subtotal, iva_value: ivaValue, total_importe: totalImporte } =
       calcularTotalesConsulta(items, iva);
 
