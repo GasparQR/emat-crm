@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
+import { callerIsAdmin, corsHeaders, jsonResponse } from './adminAuth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
