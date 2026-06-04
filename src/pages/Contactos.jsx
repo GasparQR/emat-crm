@@ -29,6 +29,11 @@ import {
 } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, filterContactosByVisibility } from "@/lib/permissions";
 import { useAsesores } from "@/components/hooks/useAsesores";
+import {
+  allocateConsultaNroPpto,
+  createConsultaWithNroppto,
+  isNropptoUniqueViolation,
+} from "@/lib/consultaNroppto";
 
 import AsesorAvatar from "@/components/crm/AsesorAvatar";
 
@@ -164,8 +169,16 @@ export default function Contactos() {
     onError: (e) => toast.error("Error al actualizar: " + e.message),
   });
 
+  const workspaceId = workspace?.id || "local";
+  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
+
   const createConsultaMutation = useMutation({
-    mutationFn: (data) => entities.Consulta.create({ ...data, workspace_id: workspace?.id || "local" }),
+    mutationFn: (data) =>
+      createConsultaWithNroppto(
+        (row) => entities.Consulta.create(row),
+        { ...data, workspace_id: workspaceId },
+        workspaceId,
+      ),
     onSuccess: (_, variables) => {
       invalidateConsultasQueries();
       toast.success(`Consulta creada en "${variables.pipeline_stage}" para ${variables.contactonombre}`);
@@ -173,7 +186,11 @@ export default function Contactos() {
       setEtapaSeleccionada("");
     },
     onError: (e) => {
-      toast.error("Error al crear consulta: " + e.message);
+      if (isNropptoUniqueViolation(e)) {
+        toast.error("No se pudo asignar número de presupuesto; intentá de nuevo.");
+      } else {
+        toast.error("Error al crear consulta: " + e.message);
+      }
     },
   });
 
@@ -197,20 +214,6 @@ export default function Contactos() {
     setPipelineDialog({ contacto: c, mensaje });
   };
 
-  const getNextNroPpto = async () => {
-    const rows = await entities.Consulta.filter(
-      { workspace_id: workspace?.id || "local" },
-      "-nroppto",
-      2000
-    );
-    const maxNro = (rows || []).reduce((max, item) => {
-      const nro = Number(item?.nroppto);
-      if (!Number.isFinite(nro)) return max;
-      return Math.max(max, nro);
-    }, 0);
-    return maxNro + 1;
-  };
-
   // Confirmar creación en pipeline con la etapa elegida
   const handleConfirmPipeline = async () => {
     if (!etapaSeleccionada || !pipelineDialog) return;
@@ -229,8 +232,6 @@ export default function Contactos() {
     const now = new Date();
     const proximoSeguimiento = getNextBusinessDay(now, followUpDays);
 
-    const nroPptoValue = await getNextNroPpto();
-
     createConsultaMutation.mutate({
       contactonombre: c.nombre,
       contactowhatsapp: c.whatsapp || "",
@@ -240,7 +241,6 @@ export default function Contactos() {
       mes: now.toLocaleString("es-AR", { month: "long" }).toUpperCase(),
       ano: now.getFullYear(),
       proximoseguimiento: proximoSeguimiento,
-      nroppto: nroPptoValue,
     });
   };
 
@@ -250,7 +250,7 @@ export default function Contactos() {
     const patch = await buildPipelineStagePatchAsync(
       consultaExistenteEnDialog,
       etapaSeleccionada,
-      { etapas: pipelineStages, getNextNroPpto }
+      { etapas: pipelineStages, allocateNroPpto }
     );
     if (!patch) return;
 
@@ -334,7 +334,7 @@ export default function Contactos() {
           if (stagePatch) Object.assign(patch, stagePatch);
           const selectedStage = pipelineStages.find(s => s.pipeline_stage === stage);
           if (selectedStage && selectedStage.orden !== 0 && !consultaExistente.nroppto) {
-            patch.nroppto = await getNextNroPpto();
+            patch.nroppto = await allocateNroPpto();
           }
         }
         const asesorActual = consultaExistente.asesor ?? "";
@@ -357,25 +357,31 @@ export default function Contactos() {
       } else if (stage) {
         const now = new Date();
         const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-        const nroPptoValue = await getNextNroPpto();
-        await entities.Consulta.create({
-          workspace_id: workspace?.id || "local",
-          contactonombre: formData.nombre,
-          contactowhatsapp: formData.whatsapp || "",
-          canalorigen: formData.canalOrigen || "",
-          pipeline_stage: stage,
-          asesor: asesorNuevo,
-          asesor_id: asesorIdNuevo,
-          firmaasesor: asesorResolved?.firma || null,
-          mes: MESES[now.getMonth()],
-          ano: now.getFullYear(),
-          nroppto: nroPptoValue,
-        });
+        await createConsultaWithNroppto(
+          (row) => entities.Consulta.create(row),
+          {
+            workspace_id: workspaceId,
+            contactonombre: formData.nombre,
+            contactowhatsapp: formData.whatsapp || "",
+            canalorigen: formData.canalOrigen || "",
+            pipeline_stage: stage,
+            asesor: asesorNuevo,
+            asesor_id: asesorIdNuevo,
+            firmaasesor: asesorResolved?.firma || null,
+            mes: MESES[now.getMonth()],
+            ano: now.getFullYear(),
+          },
+          workspaceId,
+        );
         invalidateConsultasQueries();
         toast.success(`Contacto asignado a "${stage}" en el pipeline`);
       }
     } catch (e) {
-      toast.error("Error: " + e.message);
+      if (isNropptoUniqueViolation(e)) {
+        toast.error("No se pudo asignar número de presupuesto; intentá de nuevo.");
+      } else {
+        toast.error("Error: " + e.message);
+      }
     }
   };
 

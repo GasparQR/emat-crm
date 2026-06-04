@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { filterConsultasByVisibility } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
+import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
@@ -52,19 +53,8 @@ export default function Pipeline() {
     }
   });
 
-  const getNextNroPpto = async () => {
-    const rows = await entities.Consulta.filter(
-      { workspace_id: workspace?.id || "local" },
-      "-nroppto",
-      2000
-    );
-    const maxNro = (rows || []).reduce((max, item) => {
-      const nro = Number(item?.nroppto);
-      if (!Number.isFinite(nro)) return max;
-      return Math.max(max, nro);
-    }, 0);
-    return maxNro + 1;
-  };
+  const workspaceId = workspace?.id || "local";
+  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
@@ -78,7 +68,7 @@ export default function Pipeline() {
     const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
     const consulta = consultas.find(c => c.id === draggableId);
     if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
-      patch.nroppto = await getNextNroPpto();
+      patch.nroppto = await allocateNroPpto();
     }
 
     updateMutation.mutate({

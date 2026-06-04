@@ -264,7 +264,9 @@ async function upsertUsuarioFromAuth(authUser) {
   //    el rol y los permisos asignados por el admin.
   const { data: existing } = await supabase
     .from('usuario')
-    .select('role, active, can_view_other_advisors, asesor_codigo')
+    .select(
+      'role, active, can_view_other_advisors, asesor_codigo, consulta_default_condiciones_comerciales, consulta_default_observaciones, consulta_follow_up_days, consulta_firmas_asesor',
+    )
     .eq('id', authUser.id)
     .maybeSingle();
 
@@ -281,10 +283,18 @@ async function upsertUsuarioFromAuth(authUser) {
     asesor_codigo:
       existing?.asesor_codigo ??
       (base.role === 'ASESOR' ? (base.asesor_codigo ?? null) : null),
-    consulta_follow_up_days: base.consulta_follow_up_days,
-    consulta_default_condiciones_comerciales: base.consulta_default_condiciones_comerciales,
-    consulta_default_observaciones: base.consulta_default_observaciones,
-    consulta_firmas_asesor: base.consulta_firmas_asesor,
+    consulta_follow_up_days:
+      existing?.consulta_follow_up_days ?? base.consulta_follow_up_days,
+    consulta_default_condiciones_comerciales:
+      existing?.consulta_default_condiciones_comerciales ??
+      base.consulta_default_condiciones_comerciales,
+    consulta_default_observaciones:
+      existing?.consulta_default_observaciones ?? base.consulta_default_observaciones,
+    consulta_firmas_asesor:
+      existing?.consulta_firmas_asesor &&
+      typeof existing.consulta_firmas_asesor === 'object'
+        ? existing.consulta_firmas_asesor
+        : base.consulta_firmas_asesor,
     updated_date: new Date().toISOString(),
   };
 
@@ -327,7 +337,26 @@ export const auth = {
 
   onAuthStateChange: (callback) => supabase.auth.onAuthStateChange(callback),
 
-  ensureUsuarioProfile: async (authUser) => upsertUsuarioFromAuth(authUser),
+  ensureUsuarioProfile: async (authUser) => {
+    const { data: row } = await supabase
+      .from('usuario')
+      .select('id, email, full_name')
+      .eq('id', authUser.id)
+      .maybeSingle();
+
+    if (!row) {
+      return upsertUsuarioFromAuth(authUser);
+    }
+
+    const needsPersist =
+      !row.email || (row.full_name === 'Usuario' && authUser.email);
+
+    if (needsPersist) {
+      return upsertUsuarioFromAuth(authUser);
+    }
+
+    return fetchUsuarioByAuthUser(authUser);
+  },
 
   me: async () => {
     const { data: { user }, error } = await supabase.auth.getUser();

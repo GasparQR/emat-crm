@@ -25,6 +25,7 @@ import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import AsesorAvatar from "@/components/crm/AsesorAvatar";
+import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
@@ -60,19 +61,8 @@ export default function Consultas() {
     [etapas]
   );
 
-  const getNextNroPpto = async () => {
-    const rows = await entities.Consulta.filter(
-      { workspace_id: workspace?.id || "local" },
-      "-nroppto",
-      2000
-    );
-    const maxNro = (rows || []).reduce((max, item) => {
-      const nro = Number(item?.nroppto);
-      if (!Number.isFinite(nro)) return max;
-      return Math.max(max, nro);
-    }, 0);
-    return maxNro + 1;
-  };
+  const workspaceId = workspace?.id || "local";
+  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const stageMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
@@ -89,7 +79,7 @@ export default function Consultas() {
   const handleEstadoChange = async (c, newStage) => {
     const patch = await buildPipelineStagePatchAsync(c, newStage, {
       etapas,
-      getNextNroPpto,
+      allocateNroPpto,
     });
     if (!patch) return;
     stageMutation.mutate({ id: c.id, data: patch });
