@@ -44,7 +44,7 @@ export function applyFechaGanadoOnStageChange({
 
 /**
  * Builds update patch for pipeline stage changes (stage + fecha_ganado).
- * Caller may add nroppto after await getNextNroPpto() when shouldAssignNroPpto is true.
+ * Caller may add nroppto after await allocateNroPpto() when shouldAssignNroPpto is true.
  */
 export function buildPipelineStagePatch(consulta, newStage, extra = {}) {
   if (!newStage || newStage === consulta?.pipeline_stage) {
@@ -65,13 +65,14 @@ export function buildPipelineStagePatch(consulta, newStage, extra = {}) {
 export async function buildPipelineStagePatchAsync(
   consulta,
   newStage,
-  { etapas = [], getNextNroPpto, extra = {} } = {}
+  { etapas = [], allocateNroPpto, getNextNroPpto, extra = {} } = {}
 ) {
   const patch = buildPipelineStagePatch(consulta, newStage, extra);
   if (!patch) return null;
 
-  if (shouldAssignNroPpto(consulta, newStage, etapas) && typeof getNextNroPpto === "function") {
-    patch.nroppto = await getNextNroPpto();
+  const allocate = allocateNroPpto ?? getNextNroPpto;
+  if (shouldAssignNroPpto(consulta, newStage, etapas) && typeof allocate === "function") {
+    patch.nroppto = await allocate();
   }
 
   return patch;

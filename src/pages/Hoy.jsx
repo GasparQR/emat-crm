@@ -23,6 +23,7 @@ import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/l
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
 import AsesorAvatar from "@/components/crm/AsesorAvatar";
+import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -57,19 +58,8 @@ export default function Hoy() {
     [etapas]
   );
 
-  const getNextNroPpto = async () => {
-    const rows = await entities.Consulta.filter(
-      { workspace_id: workspace?.id || "local" },
-      "-nroppto",
-      2000
-    );
-    const maxNro = (rows || []).reduce((max, item) => {
-      const nro = Number(item?.nroppto);
-      if (!Number.isFinite(nro)) return max;
-      return Math.max(max, nro);
-    }, 0);
-    return maxNro + 1;
-  };
+  const workspaceId = workspace?.id || "local";
+  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
@@ -140,7 +130,7 @@ export default function Hoy() {
   const handleStageChange = async (consulta, newStage) => {
     const patch = await buildPipelineStagePatchAsync(consulta, newStage, {
       etapas,
-      getNextNroPpto,
+      allocateNroPpto,
     });
     if (!patch) return;
     await updateMutation.mutateAsync({ id: consulta.id, data: patch });

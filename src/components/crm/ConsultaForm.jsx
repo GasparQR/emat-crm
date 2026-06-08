@@ -29,6 +29,11 @@ import {
   buildFirmasYAsesoresMap,
   resolveAsesorFromMap,
 } from "@/lib/asesorDisplay";
+import {
+  createConsultaWithNroppto,
+  isNropptoUniqueViolation,
+  peekNextConsultaNroPpto,
+} from "@/lib/consultaNroppto";
 
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -222,22 +227,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     let active = true;
     const loadNextNroPpto = async () => {
       try {
-        const rows = await entities.Consulta.filter(
-          { workspace_id: workspace?.id || "local" },
-          "-nroppto",
-          2000
-        );
-        const maxNro = (rows || []).reduce((max, item) => {
-          const nro = Number(item?.nroppto);
-          if (!Number.isFinite(nro)) return max;
-          return Math.max(max, nro);
-        }, 0);
+        const proximoNro = await peekNextConsultaNroPpto(workspace?.id || "local");
         const defaults = emptyForm();
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
           setFormData({
             ...defaults,
-            nroPpto: maxNro + 1,
+            nroPpto: String(proximoNro),
             asesor: defaultAsesorCodigo || defaults.asesor,
             proximoSeguimiento,
             condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
@@ -405,20 +401,6 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     });
   };
 
-  const getNextNroPpto = async () => {
-    const rows = await entities.Consulta.filter(
-      { workspace_id: workspace?.id || "local" },
-      "-nroppto",
-      2000
-    );
-    const maxNro = (rows || []).reduce((max, item) => {
-      const nro = Number(item?.nroppto);
-      if (!Number.isFinite(nro)) return max;
-      return Math.max(max, nro);
-    }, 0);
-    return maxNro + 1;
-  };
-
   const handleCreateLead = async () => {
     if (!newLeadData.nombre?.trim()) {
       toast.error("El nombre del lead es requerido");
@@ -498,11 +480,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
     }
     setLoading(true);
     try {
-      let nroPptoValue = formData.nroPpto;
-      if (!consulta?.id) {
-        nroPptoValue = await getNextNroPpto();
-        set("nroPpto", nroPptoValue);
-      }
+      const workspaceId = workspace?.id || "local";
+      const nroPptoValue = consulta?.id ? formData.nroPpto : null;
       const asesorResolved = resolveAsesorFromMap(formData.asesor, firmasYAsesoresMap);
       if (!asesorResolved) {
         toast.error("Asesor no válido o sin catálogo");
@@ -558,7 +537,8 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         cantidad: formData.items?.[0]?.cantidad !== "" ? parseFloat(formData.items[0].cantidad) : null,
         observaciones: formData.observaciones,
         notas: formData.notas || null,
-        nroppto: nroPptoValue !== "" ? parseInt(nroPptoValue) : null,
+        nroppto:
+          nroPptoValue !== "" && nroPptoValue != null ? parseInt(nroPptoValue, 10) : null,
         iva: ivaPercent,
         empresa: formData.empresa || "EMAT",
         fechapresupuesto: formData.fechaPresupuesto || new Date().toISOString().split("T")[0],
@@ -584,17 +564,33 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         }
         toast.success("Presupuesto actualizado");
       } else {
+        const createRow = async (row) => {
+          try {
+            return await entities.Consulta.create(row);
+          } catch (err) {
+            const fallbackPayload = buildFallbackPayload(row, err);
+            if (Object.keys(fallbackPayload).length !== Object.keys(row).length) {
+              return await entities.Consulta.create(fallbackPayload);
+            }
+            throw err;
+          }
+        };
         try {
-          await entities.Consulta.create(payload);
+          const { nroppto: _omit, ...payloadWithoutNro } = payload;
+          const created = await createConsultaWithNroppto(
+            createRow,
+            payloadWithoutNro,
+            workspaceId,
+          );
+          set("nroPpto", created?.nroppto != null ? String(created.nroppto) : "");
+          toast.success("Presupuesto creado");
         } catch (err) {
-          const fallbackPayload = buildFallbackPayload(payload, err);
-          if (Object.keys(fallbackPayload).length !== Object.keys(payload).length) {
-            await entities.Consulta.create(fallbackPayload);
+          if (isNropptoUniqueViolation(err)) {
+            toast.error("No se pudo asignar número de presupuesto; intentá de nuevo.");
           } else {
             throw err;
           }
         }
-        toast.success("Presupuesto creado");
       }
       onSave?.();
       onOpenChange(false);
