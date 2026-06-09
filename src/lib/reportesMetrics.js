@@ -55,6 +55,33 @@ export const fmtPesosCompacto = (n) => `$${fmtCompacto(n || 0)}`;
 export const fmtMonthYear = (mes, ano) =>
   mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 
+/**
+ * @typedef {Object} ReportConsulta
+ * @property {string} [asesor]
+ * @property {string|number} [ano]
+ * @property {string} [mes]
+ * @property {string} [pipeline_stage]
+ * @property {string} [fecha_ganado]
+ * @property {string} [fechaGanado]
+ * @property {string} [created_date]
+ * @property {string} [createdDate]
+ * @property {string} [fechapresupuesto]
+ * @property {string} [fechaPresupuesto]
+ * @property {number} [superficiem2]
+ * @property {number} [fibrakg]
+ * @property {number} [importe]
+ * @property {string} [proximoseguimiento]
+ * @property {string} [tipoaplicacion]
+ * @property {string} [canalOrigen]
+ * @property {string} [canalorigen]
+ * @property {string} [ubicacionobra]
+ * @property {string} [razonperdida]
+ */
+
+/**
+ * @param {ReportConsulta} [consulta]
+ * @param {string} [mode]
+ */
 export function resolveConsultaDate(consulta, mode = DATE_CRITERIA.PRESUPUESTO) {
   if (!consulta) return null;
 
@@ -94,6 +121,25 @@ export function resolveConsultaDate(consulta, mode = DATE_CRITERIA.PRESUPUESTO) 
   return null;
 }
 
+/**
+ * @typedef {Object} ReportDateFilterOptions
+ * @property {string} [mode]
+ * @property {string} [desde]
+ * @property {string} [hasta]
+ * @property {string} [asesor]
+ */
+
+/**
+ * @typedef {Object} ReportScreenFilterOptions
+ * @property {string} [filtroAsesor]
+ * @property {string} [filtroAno]
+ * @property {string} [filtroMesAno]
+ */
+
+/**
+ * @param {ReportConsulta[]} consultas
+ * @param {ReportDateFilterOptions} [options]
+ */
 export function filterConsultasForReport(
   consultas,
   { mode, desde, hasta, asesor = "todos" } = {},
@@ -110,6 +156,10 @@ export function filterConsultasForReport(
   });
 }
 
+/**
+ * @param {ReportConsulta[]} consultas
+ * @param {ReportScreenFilterOptions} [options]
+ */
 export function filterConsultasForScreen(
   consultas,
   { filtroAsesor, filtroAno, filtroMesAno } = {},

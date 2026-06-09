@@ -5,24 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, AlertCircle, CheckCircle2, MessageCircle, ArrowLeft } from "lucide-react";
+import { Calendar, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import moment from "moment";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
-import QuickCallButton from "@/components/crm/QuickCallButton";
-import { useActiveCall } from "@/components/context/ActiveCallContext";
+import HoyConsultaItem from "@/components/crm/HoyConsultaItem";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
-import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
-import AsesorAvatar from "@/components/crm/AsesorAvatar";
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 
 export default function Hoy() {
@@ -35,7 +32,6 @@ export default function Hoy() {
   const isLogistica = roleIsLogistica(user);
   const { asesorOptions, getAsesorNombre } = useAsesores(user);
   const { data: currentUser } = useCurrentUser();
-  const { setCallTarget } = useActiveCall();
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-hoy', workspace?.id],
@@ -61,7 +57,19 @@ export default function Hoy() {
   const workspaceId = workspace?.id || "local";
   const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
-  const updateMutation = useMutation({
+  const stageMutation = useMutation({
+    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
+    onSuccess: () => {
+      const wid = workspace?.id;
+      queryClient.invalidateQueries({ queryKey: ['consultas-hoy', wid] });
+      queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', wid] });
+      queryClient.invalidateQueries({ queryKey: ['consultas-list', wid] });
+      toast.success("Etapa actualizada");
+    },
+    onError: (e) => toast.error(e?.message || "Error al actualizar etapa"),
+  });
+
+  const followUpMutation = useMutation({
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
       const wid = workspace?.id;
@@ -69,7 +77,8 @@ export default function Hoy() {
       queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', wid] });
       queryClient.invalidateQueries({ queryKey: ['consultas-list', wid] });
       toast.success("Actualizado");
-    }
+    },
+    onError: (e) => toast.error(e?.message || "No se pudo actualizar el seguimiento"),
   });
 
   const today = moment();
@@ -118,12 +127,12 @@ export default function Hoy() {
     setShowWhatsApp(true);
   };
 
-  const handleMarcarCompletado = async (consulta) => {
+  const handleMarcarCompletado = (consulta) => {
     const days = currentUser?.consulta_follow_up_days ?? 3;
     const nuevaFecha = getNextFollowUpDate(days);
-    await updateMutation.mutateAsync({
+    followUpMutation.mutate({
       id: consulta.id,
-      data: { proximoseguimiento: nuevaFecha }
+      data: { proximoseguimiento: nuevaFecha },
     });
   };
 
@@ -133,101 +142,17 @@ export default function Hoy() {
       allocateNroPpto,
     });
     if (!patch) return;
-    await updateMutation.mutateAsync({ id: consulta.id, data: patch });
+    stageMutation.mutate({ id: consulta.id, data: patch });
   };
 
-  const ConsultaItem = ({ consulta, tipo }) => {
-    const fechaMostrar = consulta.proximoseguimiento;
-    const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
-    const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
-    return (
-    <Card
-      className="hover:shadow-md transition-all cursor-pointer"
-      onClick={() => {
-        if (phone) setCallTarget({ phone, label: consulta.contactonombre });
-      }}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1" onClick={(e) => e.stopPropagation()}>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <h3 className="font-semibold text-slate-900">{consulta.contactonombre}</h3>
-              <div className="min-w-[140px]" onClick={(e) => e.stopPropagation()}>
-                <Select
-                  value={consulta.pipeline_stage}
-                  onValueChange={(v) => handleStageChange(consulta, v)}
-                >
-                  <SelectTrigger
-                    className={cn("h-8 text-xs text-white border-0", stageColor)}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {etapas.map((s) => (
-                      <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>
-                        {s.pipeline_stage}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {consulta.asesor && (
-                <div className="flex items-center gap-1">
-                  <AsesorAvatar
-                    codigo={consulta.asesor}
-                    size="xs"
-                    title={getAsesorNombre(consulta.asesor) || consulta.asesor}
-                  />
-                  <span className="text-xs font-medium text-slate-600">
-                    {getAsesorNombre(consulta.asesor) || consulta.asesor}
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="text-sm text-slate-600 mb-1">{consulta.productoConsultado}</p>
-            {consulta.variante && (
-              <p className="text-xs text-slate-400">{consulta.variante}</p>
-            )}
-            {consulta.precioCotizado && (
-              <p className="text-sm font-medium text-slate-900 mt-2">
-                {consulta.moneda === "USD" ? "US$" : "$"} {consulta.precioCotizado.toLocaleString()}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <Calendar className="w-3 h-3 text-slate-400" />
-              <span className={`text-xs ${
-                tipo === "vencido" ? "text-red-600 font-medium" : "text-slate-500"
-              }`}>
-                {moment(fechaMostrar).format("DD/MM/YYYY")}
-                {tipo === "vencido" && " (vencido)"}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2 ml-4" onClick={(e) => e.stopPropagation()}>
-            <QuickCallButton
-              phone={phone}
-              className="h-9 w-9 min-h-9 min-w-9 p-0 rounded-md"
-            />
-            <Button
-              size="sm"
-              onClick={() => handleWhatsApp(consulta)}
-              className="bg-[#25D366] hover:bg-[#20bd5a] text-white h-9 w-9 p-0"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleMarcarCompletado(consulta)}
-              className="h-9 w-9 p-0"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-    );
+  const consultaItemProps = {
+    etapas,
+    etapaColorMap,
+    stagePending: stageMutation.isPending,
+    getAsesorNombre,
+    onStageChange: handleStageChange,
+    onWhatsApp: handleWhatsApp,
+    onMarcarCompletado: handleMarcarCompletado,
   };
 
   return (
@@ -307,7 +232,9 @@ export default function Hoy() {
 
           <TabsContent value="vencidos" className="space-y-3 mt-4">
             {vencidos.length > 0 ? (
-              vencidos.map(c => <ConsultaItem key={c.id} consulta={c} tipo="vencido" />)
+              vencidos.map((c) => (
+                <HoyConsultaItem key={c.id} consulta={c} tipo="vencido" {...consultaItemProps} />
+              ))
             ) : (
               <Card>
                 <CardContent className="text-center py-12">
@@ -320,7 +247,9 @@ export default function Hoy() {
 
           <TabsContent value="hoy" className="space-y-3 mt-4">
             {hoy.length > 0 ? (
-              hoy.map(c => <ConsultaItem key={c.id} consulta={c} tipo="hoy" />)
+              hoy.map((c) => (
+                <HoyConsultaItem key={c.id} consulta={c} tipo="hoy" {...consultaItemProps} />
+              ))
             ) : (
               <Card>
                 <CardContent className="text-center py-12">
@@ -333,7 +262,9 @@ export default function Hoy() {
 
           <TabsContent value="proximos" className="space-y-3 mt-4">
             {proximos3d.length > 0 ? (
-              proximos3d.map(c => <ConsultaItem key={c.id} consulta={c} tipo="proximo" />)
+              proximos3d.map((c) => (
+                <HoyConsultaItem key={c.id} consulta={c} tipo="proximo" {...consultaItemProps} />
+              ))
             ) : (
               <Card>
                 <CardContent className="text-center py-12">

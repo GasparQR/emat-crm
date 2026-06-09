@@ -9,6 +9,10 @@ import {
 import { buildCommercialHealthScore } from "@/lib/reportesHealthScore";
 import { buildReportInsights } from "@/lib/reportesInsights";
 
+/**
+ * @param {import('./reportesMetrics').ReportConsulta[]} consultas
+ * @param {import('./reportesMetrics').ReportDateFilterOptions} [options]
+ */
 export function buildReportBundle(
   consultas,
   { mode, desde, hasta, asesor = "todos" } = {},
