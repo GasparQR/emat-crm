@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { DragDropContext, Draggable, Droppable } from "@hello-pangea/dnd";
@@ -27,9 +27,10 @@ import usePipelineRealtime from "@/hooks/usePipelineRealtime";
 import { slugifyStageCodigo, WON_UMBRELLA_CODE } from "@/lib/pipelineStage";
 import {
   deletePipelineStageWithReassign,
-  previewDeletePipelineStage,
+  previewPipelineStageConsultas,
   renamePipelineStage,
   reorderPipelineStages,
+  stageBlockedByConsultasMessage,
 } from "@/lib/pipelineStageApi";
 
 const COLOR_OPTIONS = [
@@ -67,6 +68,11 @@ function rowToForm(row) {
   };
 }
 
+function isStageBlockedError(message, stageName) {
+  const msg = String(message || "");
+  return msg.includes("Hay consultas en la etapa") || msg.includes(stageName);
+}
+
 export default function ConfiguracionPipelineEtapas() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
@@ -78,11 +84,10 @@ export default function ConfiguracionPipelineEtapas() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editConsultaCount, setEditConsultaCount] = useState(null);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deletePreview, setDeletePreview] = useState(null);
-  const [reassignTo, setReassignTo] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   const { data: etapas = [], isLoading } = useQuery({
@@ -93,21 +98,35 @@ export default function ConfiguracionPipelineEtapas() {
     },
   });
 
-  const activas = useMemo(() => etapas.filter((s) => s.activa !== false), [etapas]);
-
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["pipeline-stages", workspaceId] });
 
   const openCreate = () => {
     setForm({ ...EMPTY_FORM });
     setEditing(false);
+    setEditConsultaCount(null);
     setOpen(true);
   };
 
-  const openEdit = (row) => {
+  const openEdit = async (row) => {
     setForm(rowToForm(row));
     setEditing(true);
+    setEditConsultaCount(null);
     setOpen(true);
+    try {
+      const preview = await previewPipelineStageConsultas(workspaceId, row.id);
+      setEditConsultaCount(preview?.consulta_count ?? 0);
+    } catch {
+      setEditConsultaCount(null);
+    }
+  };
+
+  const blockIfConsultas = (stageName, count) => {
+    if ((count ?? 0) > 0) {
+      toast.error(stageBlockedByConsultasMessage(stageName, count));
+      return true;
+    }
+    return false;
   };
 
   const handleSave = async () => {
@@ -121,6 +140,18 @@ export default function ConfiguracionPipelineEtapas() {
     try {
       if (editing && form.id) {
         const existing = etapas.find((s) => s.id === form.id);
+        const deactivating = existing?.activa !== false && form.activa === false;
+
+        if (deactivating) {
+          const preview = await previewPipelineStageConsultas(workspaceId, form.id);
+          const count = preview?.consulta_count ?? editConsultaCount ?? 0;
+          const stageLabel = preview?.pipeline_stage || existing?.pipeline_stage || name;
+          if (blockIfConsultas(stageLabel, count)) {
+            setForm((f) => ({ ...f, activa: true }));
+            return;
+          }
+        }
+
         if (existing && existing.pipeline_stage !== name) {
           await renamePipelineStage(workspaceId, form.id, name);
         }
@@ -147,7 +178,13 @@ export default function ConfiguracionPipelineEtapas() {
       setOpen(false);
       refresh();
     } catch (e) {
-      toast.error(e?.message || "Error al guardar");
+      const stageName = form.pipeline_stage || etapas.find((s) => s.id === form.id)?.pipeline_stage;
+      if (isStageBlockedError(e?.message, stageName)) {
+        toast.error(stageBlockedByConsultasMessage(stageName, editConsultaCount || 1));
+        setForm((f) => ({ ...f, activa: true }));
+      } else {
+        toast.error(e?.message || "Error al guardar");
+      }
     } finally {
       setSaving(false);
     }
@@ -170,11 +207,13 @@ export default function ConfiguracionPipelineEtapas() {
   };
 
   const openDelete = async (row) => {
-    setDeleteTarget(row);
-    setReassignTo("");
     try {
-      const preview = await previewDeletePipelineStage(workspaceId, row.id);
-      setDeletePreview(preview);
+      const preview = await previewPipelineStageConsultas(workspaceId, row.id);
+      const count = preview?.consulta_count ?? 0;
+      const stageName = preview?.pipeline_stage || row.pipeline_stage;
+      if (blockIfConsultas(stageName, count)) return;
+
+      setDeleteTarget(row);
       setDeleteOpen(true);
     } catch (e) {
       toast.error(e?.message || "No se pudo validar la eliminación");
@@ -183,36 +222,26 @@ export default function ConfiguracionPipelineEtapas() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    if (deletePreview?.es_sistema) {
-      toast.error("No se pueden eliminar etapas de sistema");
-      return;
-    }
-    const count = deletePreview?.consulta_count ?? 0;
-    if (count > 0 && !reassignTo) {
-      toast.error("Seleccioná una etapa destino para reasignar las consultas");
-      return;
-    }
 
     setDeleting(true);
     try {
-      await deletePipelineStageWithReassign(
-        workspaceId,
-        deleteTarget.id,
-        count > 0 ? reassignTo : null,
-      );
+      await deletePipelineStageWithReassign(workspaceId, deleteTarget.id);
       toast.success("Etapa eliminada");
       setDeleteOpen(false);
       refresh();
     } catch (e) {
-      toast.error(e?.message || "Error al eliminar");
+      const stageName = deleteTarget.pipeline_stage;
+      if (isStageBlockedError(e?.message, stageName)) {
+        toast.error(stageBlockedByConsultasMessage(stageName, 1));
+      } else {
+        toast.error(e?.message || "Error al eliminar");
+      }
     } finally {
       setDeleting(false);
     }
   };
 
-  const reassignOptions = activas.filter(
-    (s) => s.id !== deleteTarget?.id && s.pipeline_stage !== deleteTarget?.pipeline_stage,
-  );
+  const canDeactivate = editConsultaCount === null || editConsultaCount === 0;
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
@@ -318,8 +347,8 @@ export default function ConfiguracionPipelineEtapas() {
         </Card>
 
         <p className="text-xs text-slate-500">
-          Las etapas de sistema no se pueden eliminar. Ejecutada se agrupa bajo Ganada solo en reportes.
-          Los cambios se sincronizan en tiempo real con el Kanban.
+          No se puede desactivar ni eliminar una etapa con consultas. Movelas desde Consultas o Pipeline primero.
+          Las etapas de sistema no se pueden eliminar. Los cambios se sincronizan en tiempo real con el Kanban.
         </p>
       </div>
 
@@ -356,10 +385,24 @@ export default function ConfiguracionPipelineEtapas() {
               </Select>
             </div>
             <div className="flex items-center justify-between">
-              <Label>Activa en Kanban</Label>
+              <div>
+                <Label>Activa en Kanban</Label>
+                {editing && editConsultaCount > 0 && (
+                  <p className="text-[11px] text-amber-700 mt-0.5">
+                    {editConsultaCount} consulta{editConsultaCount !== 1 ? "s" : ""} en esta etapa
+                  </p>
+                )}
+              </div>
               <Switch
                 checked={form.activa !== false}
-                onCheckedChange={(v) => setForm((f) => ({ ...f, activa: v }))}
+                disabled={editing && !canDeactivate}
+                onCheckedChange={(v) => {
+                  if (!v && editing && editConsultaCount > 0) {
+                    toast.error(stageBlockedByConsultasMessage(form.pipeline_stage, editConsultaCount));
+                    return;
+                  }
+                  setForm((f) => ({ ...f, activa: v }));
+                }}
               />
             </div>
             {editing && form.es_sistema && (
@@ -392,29 +435,8 @@ export default function ConfiguracionPipelineEtapas() {
               <div className="space-y-3 text-sm text-slate-600">
                 <p>
                   Vas a eliminar <strong>{deleteTarget?.pipeline_stage}</strong>.
+                  No hay consultas en esta etapa.
                 </p>
-                {deletePreview?.consulta_count > 0 ? (
-                  <>
-                    <p>
-                      Hay <strong>{deletePreview.consulta_count}</strong> consulta(s) en esta etapa.
-                      Elegí a dónde reasignarlas:
-                    </p>
-                    <Select value={reassignTo} onValueChange={setReassignTo}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Etapa destino" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {reassignOptions.map((s) => (
-                          <SelectItem key={s.id} value={s.pipeline_stage}>
-                            {s.pipeline_stage}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
-                ) : (
-                  <p>No hay consultas en esta etapa.</p>
-                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -422,7 +444,7 @@ export default function ConfiguracionPipelineEtapas() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={deleting || (deletePreview?.consulta_count > 0 && !reassignTo)}
+              disabled={deleting}
               className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? "Eliminando…" : "Eliminar"}

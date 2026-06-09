@@ -1,5 +1,14 @@
 import { supabase } from "@/api/supabaseClient";
 
+export function stageBlockedByConsultasMessage(stageName, count) {
+  const n = Number(count) || 0;
+  const suffix =
+    n === 1
+      ? "hay 1 consulta en la etapa"
+      : `hay ${n} consultas en la etapa`;
+  return `No es posible: ${suffix} «${stageName}». Movelas a otra etapa desde Consultas o Pipeline antes de continuar.`;
+}
+
 export async function previewDeletePipelineStage(workspaceId, stageId) {
   const { data, error } = await supabase.rpc("preview_delete_pipeline_stage", {
     p_workspace_id: workspaceId,
@@ -8,6 +17,9 @@ export async function previewDeletePipelineStage(workspaceId, stageId) {
   if (error) throw error;
   return data;
 }
+
+/** @alias previewDeletePipelineStage */
+export const previewPipelineStageConsultas = previewDeletePipelineStage;
 
 export async function reorderPipelineStages(workspaceId, orderedIds) {
   const { error } = await supabase.rpc("reorder_pipeline_stages", {
