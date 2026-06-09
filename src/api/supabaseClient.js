@@ -477,12 +477,29 @@ export const workspaceSettingsApi = {
   },
 
   async upsert(workspaceId, fields) {
+    const existing = await this.get(workspaceId);
     const row = {
       workspace_id: workspaceId,
       consulta_default_condiciones_comerciales:
-        fields.consulta_default_condiciones_comerciales ?? '',
-      consulta_default_observaciones: fields.consulta_default_observaciones ?? '',
-      consulta_default_iva: fields.consulta_default_iva ?? 21,
+        fields.consulta_default_condiciones_comerciales
+        ?? existing?.consulta_default_condiciones_comerciales
+        ?? '',
+      consulta_default_observaciones:
+        fields.consulta_default_observaciones
+        ?? existing?.consulta_default_observaciones
+        ?? '',
+      consulta_default_iva:
+        fields.consulta_default_iva
+        ?? existing?.consulta_default_iva
+        ?? 21,
+      view_layout_config:
+        fields.view_layout_config
+        ?? existing?.view_layout_config
+        ?? {},
+      frequent_cities:
+        fields.frequent_cities
+        ?? existing?.frequent_cities
+        ?? [],
       updated_date: new Date().toISOString(),
     };
     const { data, error } = await supabase
@@ -495,6 +512,28 @@ export const workspaceSettingsApi = {
       throw error;
     }
     return data;
+  },
+
+  async saveViewLayout(workspaceId, viewLayoutConfig) {
+    const existing = await this.get(workspaceId);
+    return this.upsert(workspaceId, {
+      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
+      consulta_default_observaciones: existing?.consulta_default_observaciones,
+      consulta_default_iva: existing?.consulta_default_iva,
+      view_layout_config: viewLayoutConfig,
+      frequent_cities: existing?.frequent_cities,
+    });
+  },
+
+  async saveFrequentCities(workspaceId, frequentCities) {
+    const existing = await this.get(workspaceId);
+    return this.upsert(workspaceId, {
+      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
+      consulta_default_observaciones: existing?.consulta_default_observaciones,
+      consulta_default_iva: existing?.consulta_default_iva,
+      view_layout_config: existing?.view_layout_config,
+      frequent_cities: frequentCities,
+    });
   },
 };
 

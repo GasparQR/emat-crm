@@ -1,4 +1,5 @@
 import moment from "moment";
+import { normalizeFilterValues } from "@/lib/reportesMetrics";
 
 export function previousPeriodRange(desde, hasta) {
   const start = moment(desde).startOf("day");
@@ -114,20 +115,38 @@ export function buildComparativeMetrics(currentMetrics, previousMetrics, meta = 
 }
 
 export function getScreenDateRange({ filtroMesAno, filtroAno, mesesOrden }) {
-  if (filtroMesAno && filtroMesAno !== "todos") {
-    const [mes, ano] = filtroMesAno.split("|");
-    const idx = mesesOrden.indexOf(String(mes).trim().toUpperCase());
-    if (idx >= 0) {
-      const start = moment({ year: Number(ano), month: idx, day: 1 });
+  const mesAnos = normalizeFilterValues(filtroMesAno);
+  const anos = normalizeFilterValues(filtroAno);
+
+  if (mesAnos.length) {
+    const ranges = mesAnos
+      .map((ma) => {
+        const [mes, ano] = ma.split("|");
+        const idx = mesesOrden.indexOf(String(mes).trim().toUpperCase());
+        if (idx < 0) return null;
+        const start = moment({ year: Number(ano), month: idx, day: 1 });
+        return {
+          desde: start.format("YYYY-MM-DD"),
+          hasta: start.clone().endOf("month").format("YYYY-MM-DD"),
+        };
+      })
+      .filter(Boolean);
+    if (ranges.length) {
       return {
-        desde: start.format("YYYY-MM-DD"),
-        hasta: start.clone().endOf("month").format("YYYY-MM-DD"),
+        desde: ranges.reduce((min, r) => (r.desde < min ? r.desde : min), ranges[0].desde),
+        hasta: ranges.reduce((max, r) => (r.hasta > max ? r.hasta : max), ranges[0].hasta),
       };
     }
   }
-  if (filtroAno && filtroAno !== "todos") {
-    return { desde: `${filtroAno}-01-01`, hasta: `${filtroAno}-12-31` };
+
+  if (anos.length) {
+    const sorted = [...anos].sort((a, b) => Number(a) - Number(b));
+    return {
+      desde: `${sorted[0]}-01-01`,
+      hasta: `${sorted[sorted.length - 1]}-12-31`,
+    };
   }
+
   return {
     desde: moment().subtract(30, "days").format("YYYY-MM-DD"),
     hasta: moment().format("YYYY-MM-DD"),

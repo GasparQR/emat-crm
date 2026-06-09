@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Settings, MessageSquare, Users, UserCog, Package, Layers } from "lucide-react";
+import { ArrowLeft, Settings, MessageSquare, Users, UserCog, Package, Layers, LayoutList } from "lucide-react";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { isAdmin } from "@/lib/permissions";
 
@@ -53,6 +53,13 @@ export default function Ajustes() {
             icon: Layers,
             to: "/configuracion/pipeline-etapas",
             color: "bg-teal-100 text-teal-700",
+          },
+          {
+            title: "Vistas y filtros",
+            description: "Columnas y filtros visibles en listados del CRM",
+            icon: LayoutList,
+            to: "/configuracion/vistas-listados",
+            color: "bg-indigo-100 text-indigo-700",
           },
         ]
       : []),

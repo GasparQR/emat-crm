@@ -42,6 +42,7 @@ import {
   fmtCompacto,
   fmtPesos,
   fmtPesosCompacto,
+  normalizeFilterValues,
 } from "@/lib/reportesMetrics";
 import { getScreenDateRange } from "@/lib/reportesComparative";
 import { buildReportBundle } from "@/lib/reportesBundle";
@@ -49,6 +50,11 @@ import { downloadReportesPdf } from "@/lib/reportesPdf";
 import ReportesPdfLayout from "@/components/reportes/ReportesPdfLayout";
 import HealthScoreCard from "@/components/reportes/HealthScoreCard";
 import KpiCardWithDelta from "@/components/reportes/KpiCardWithDelta";
+import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
+import ViewFilterBar from "@/components/crm/filters/ViewFilterBar";
+import useWorkspaceViewConfig from "@/hooks/useWorkspaceViewConfig";
+import useViewSessionFilters from "@/hooks/useViewSessionFilters";
+import { isFilterEnabled } from "@/lib/viewLayout";
 
 const ESTADO_BADGE = {
   "A COTIZAR": "bg-slate-100 text-slate-700",
@@ -60,9 +66,6 @@ const ESTADO_BADGE = {
 };
 
 export default function Reportes() {
-  const [filtroMesAno, setFiltroMesAno] = useState("todos");
-  const [filtroAsesor, setFiltroAsesor] = useState("todos");
-  const [filtroAno, setFiltroAno] = useState("todos");
   const [exportOpen, setExportOpen] = useState(false);
   const [exportMode, setExportMode] = useState(DATE_CRITERIA.PRESUPUESTO);
   const [exportDesde, setExportDesde] = useState(() =>
@@ -74,6 +77,14 @@ export default function Reportes() {
   const [pdfRender, setPdfRender] = useState(null);
   const pdfReadyRef = useRef(null);
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id || "local";
+  const { viewConfig } = useWorkspaceViewConfig(workspaceId);
+  const { getFilter, setFilter } = useViewSessionFilters("reportes", workspaceId, [
+    "mes_ano", "asesor", "ano",
+  ]);
+  const filtroMesAno = getFilter("mes_ano");
+  const filtroAsesor = getFilter("asesor");
+  const filtroAno = getFilter("ano");
   const { user } = useAuth();
   const canViewAll = canViewGlobalData(user);
   const { asesorOptions, getAsesorHexColor } = useAsesores(user);
@@ -185,12 +196,14 @@ export default function Reportes() {
   const { comparative: screenComparative, healthScore: screenHealthScore, insights: screenInsights } =
     screenBundle || {};
 
-  const asesorExportLabel =
-    filtroAsesor === "todos"
-      ? canViewAll
-        ? "Todos los asesores"
-        : user?.asesor_codigo || "Mi cartera"
-      : filtroAsesor;
+  const asesorExportLabel = (() => {
+    const selected = normalizeFilterValues(filtroAsesor);
+    if (!selected.length) {
+      return canViewAll ? "Todos los asesores" : user?.asesor_codigo || "Mi cartera";
+    }
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} asesores`;
+  })();
 
   const handleOpenExport = () => {
     setExportDesde(moment().subtract(30, "days").format("YYYY-MM-DD"));
@@ -317,46 +330,39 @@ export default function Reportes() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Select value={filtroMesAno} onValueChange={setFiltroMesAno}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Mes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {mesesAnosDisponibles.map((item) => (
-                  <SelectItem key={item.key} value={item.key}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {canViewAll && (
-            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Asesor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los asesores</SelectItem>
-                {filterAsesorOptions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <ViewFilterBar>
+            {isFilterEnabled("reportes", viewConfig, "mes_ano") && (
+              <MultiSelectFilter
+                label="Mes / año"
+                options={mesesAnosDisponibles.map((item) => ({
+                  value: item.key,
+                  label: item.label,
+                }))}
+                selected={filtroMesAno}
+                onChange={(v) => setFilter("mes_ano", v)}
+                triggerClassName="w-40"
+              />
             )}
 
-            <Select value={filtroAno} onValueChange={setFiltroAno}>
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Año" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los años</SelectItem>
-                {anos.map((a) => (
-                  <SelectItem key={a} value={String(a)}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {canViewAll && isFilterEnabled("reportes", viewConfig, "asesor") && (
+              <MultiSelectFilter
+                label="Asesor"
+                options={filterAsesorOptions.map((a) => ({ value: a.value, label: a.label }))}
+                selected={filtroAsesor}
+                onChange={(v) => setFilter("asesor", v)}
+                triggerClassName="w-40"
+              />
+            )}
+
+            {isFilterEnabled("reportes", viewConfig, "ano") && (
+              <MultiSelectFilter
+                label="Año"
+                options={anos.map((a) => ({ value: String(a), label: String(a) }))}
+                selected={filtroAno}
+                onChange={(v) => setFilter("ano", v)}
+                triggerClassName="w-28"
+              />
+            )}
 
             <Button
               variant="outline"
@@ -367,7 +373,7 @@ export default function Reportes() {
               <FileDown className="w-4 h-4" />
               {exporting ? "Generando PDF…" : "Exportar PDF"}
             </Button>
-          </div>
+          </ViewFilterBar>
         </div>
 
         <Dialog open={exportOpen} onOpenChange={setExportOpen}>

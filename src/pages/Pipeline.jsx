@@ -17,23 +17,29 @@ import {
 import { isAdmin } from "@/lib/permissions";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { filterConsultasByVisibility } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
+import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
+import ViewFilterBar from "@/components/crm/filters/ViewFilterBar";
+import useWorkspaceViewConfig from "@/hooks/useWorkspaceViewConfig";
+import useViewSessionFilters from "@/hooks/useViewSessionFilters";
+import { isFilterEnabled, matchesMultiFilter } from "@/lib/viewLayout";
 
 export default function Pipeline() {
   const [showForm, setShowForm] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
-  const [filtroCanal, setFiltroCanal] = useState("todos");
-  const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
-  const [filtroAsesor, setFiltroAsesor] = useState("todos");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id || "local";
+  const { viewConfig } = useWorkspaceViewConfig(workspaceId);
+  const { getFilter, setFilter } = useViewSessionFilters("pipeline", workspaceId, [
+    "canal", "asesor", "prioridad",
+  ]);
   const { user } = useAuth();
   const { data: currentUser } = useCurrentUser();
   const admin = isAdmin(currentUser);
@@ -64,8 +70,8 @@ export default function Pipeline() {
     }
   });
 
-  const workspaceId = workspace?.id || "local";
-  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
+  const workspaceIdForNro = workspace?.id || "local";
+  const allocateNroPpto = () => allocateConsultaNroPpto(workspaceIdForNro);
 
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
@@ -116,12 +122,35 @@ export default function Pipeline() {
     () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
     [asesorOptions, visibleConsultas]
   );
+  const canalOptions = useMemo(() => {
+    const counts = {};
+    visibleConsultas.forEach((c) => {
+      const canal = c.canalOrigen ?? c.canalorigen;
+      if (canal) counts[canal] = (counts[canal] || 0) + 1;
+    });
+    const defaults = ["Meta", "WhatsApp", "Cliente Fidelidad", "Referido", "Google"];
+    defaults.forEach((d) => { if (!counts[d]) counts[d] = 0; });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ value: label, label, count }));
+  }, [visibleConsultas]);
+
+  const prioridadOptions = useMemo(() => {
+    const counts = {};
+    visibleConsultas.forEach((c) => {
+      if (c.prioridad) counts[c.prioridad] = (counts[c.prioridad] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, count]) => ({ value: label, label, count }));
+  }, [visibleConsultas]);
+
   // Filtrar consultas
   const consultasFiltradas = visibleConsultas.filter(c => {
     const canal = c.canalOrigen ?? c.canalorigen;
-    if (filtroCanal !== "todos" && canal !== filtroCanal) return false;
-    if (filtroPrioridad !== "todas" && c.prioridad !== filtroPrioridad) return false;
-    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
+    if (!matchesMultiFilter(getFilter("canal"), canal)) return false;
+    if (!matchesMultiFilter(getFilter("prioridad"), c.prioridad)) return false;
+    if (!matchesMultiFilter(getFilter("asesor"), c.asesor)) return false;
     return true;
   });
 
@@ -162,40 +191,42 @@ export default function Pipeline() {
               </Button>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <ViewFilterBar className="gap-2">
             <Filter className="w-4 h-4 text-slate-400" />
-            <Select value={filtroCanal} onValueChange={setFiltroCanal}>
-              <SelectTrigger className="w-[130px] h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                <SelectItem value="Meta">Meta</SelectItem>
-                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                <SelectItem value="Cliente Fidelidad">Cliente Fidelidad</SelectItem>
-                <SelectItem value="Referido">Referido</SelectItem>
-                <SelectItem value="Google">Google</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
-              <SelectTrigger className="w-[130px] h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Asesor</SelectItem>
-                {filterAsesorOptions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            {isFilterEnabled("pipeline", viewConfig, "canal") && (
+              <MultiSelectFilter
+                label="Canal"
+                options={canalOptions}
+                selected={getFilter("canal")}
+                onChange={(v) => setFilter("canal", v)}
+                triggerClassName="w-[130px]"
+              />
+            )}
+            {isFilterEnabled("pipeline", viewConfig, "prioridad") && (
+              <MultiSelectFilter
+                label="Prioridad"
+                options={prioridadOptions}
+                selected={getFilter("prioridad")}
+                onChange={(v) => setFilter("prioridad", v)}
+                triggerClassName="w-[130px]"
+              />
+            )}
+            {isFilterEnabled("pipeline", viewConfig, "asesor") && (
+              <MultiSelectFilter
+                label="Asesor"
+                options={filterAsesorOptions.map((a) => ({ value: a.value, label: a.label }))}
+                selected={getFilter("asesor")}
+                onChange={(v) => setFilter("asesor", v)}
+                triggerClassName="w-[130px]"
+              />
+            )}
+          </ViewFilterBar>
         </div>
       </div>
 
       {/* Kanban */}
       <div className="p-4 sm:p-6 overflow-x-auto">
-        <DragDropContext key={`${filtroCanal}-${filtroPrioridad}-${filtroAsesor}`} onDragEnd={handleDragEnd}>
+        <DragDropContext key={JSON.stringify(getFilter("canal")) + JSON.stringify(getFilter("prioridad")) + JSON.stringify(getFilter("asesor"))} onDragEnd={handleDragEnd}>
           <div className="flex gap-4 min-w-max">
             {etapas.map(etapa => (
               <PipelineColumn

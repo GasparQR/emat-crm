@@ -15,6 +15,7 @@ import ConfiguracionUsuarios from '@/pages/config/ConfiguracionUsuarios';
 import ConfiguracionAsesores from '@/pages/config/ConfiguracionAsesores';
 import ConfiguracionCatalogoProductos from '@/pages/config/ConfiguracionCatalogoProductos';
 import ConfiguracionPipelineEtapas from '@/pages/config/ConfiguracionPipelineEtapas';
+import ConfiguracionVistasListados from '@/pages/config/ConfiguracionVistasListados';
 import { canAccessRoute } from '@/lib/permissions';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -106,6 +107,16 @@ const AuthenticatedApp = () => {
               <RequireRole roles={['ADMIN']}>
                 <LayoutWrapper currentPageName="Ajustes">
                   <ConfiguracionPipelineEtapas />
+                </LayoutWrapper>
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/configuracion/vistas-listados"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <LayoutWrapper currentPageName="Ajustes">
+                  <ConfiguracionVistasListados />
                 </LayoutWrapper>
               </RequireRole>
             }

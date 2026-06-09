@@ -26,20 +26,35 @@ import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/l
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import AsesorAvatar from "@/components/crm/AsesorAvatar";
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
+import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
+import ViewFilterBar from "@/components/crm/filters/ViewFilterBar";
+import useWorkspaceViewConfig from "@/hooks/useWorkspaceViewConfig";
+import useViewSessionFilters from "@/hooks/useViewSessionFilters";
+import {
+  getEnabledColumns,
+  isFilterEnabled,
+  matchesMultiFilter,
+} from "@/lib/viewLayout";
 
 export default function Consultas() {
   const [showForm, setShowForm] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
   const [detalleConsulta, setDetalleConsulta] = useState(null);
   const [search, setSearch] = useState("");
-  const [filtroEstado, setFiltroEstado] = useState("todos");
-  const [filtroAsesor, setFiltroAsesor] = useState("todos");
-  const [filtroAno, setFiltroAno] = useState("todos");
   const [filtroFechaGanadoDesde, setFiltroFechaGanadoDesde] = useState("");
   const [filtroFechaGanadoHasta, setFiltroFechaGanadoHasta] = useState("");
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id || "local";
+  const { viewConfig } = useWorkspaceViewConfig(workspaceId);
+  const { getFilter, setFilter } = useViewSessionFilters("consultas", workspaceId, [
+    "estado", "asesor", "ano",
+  ]);
+  const enabledColumns = useMemo(
+    () => getEnabledColumns("consultas", viewConfig),
+    [viewConfig],
+  );
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
   const { asesorOptions, getAsesorNombre } = useAsesores(user);
@@ -61,7 +76,6 @@ export default function Consultas() {
     [etapas]
   );
 
-  const workspaceId = workspace?.id || "local";
   const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const stageMutation = useMutation({
@@ -159,13 +173,9 @@ export default function Consultas() {
     }
 
     // Filtro de estado (solo si no es "todos")
-    if (filtroEstado !== "todos" && c.pipeline_stage !== filtroEstado) return false;
-
-    // Filtro de asesor (solo si no es "todos")
-    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
-
-    // Filtro de año (solo si no es "todos")
-    if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
+    if (!matchesMultiFilter(getFilter("estado"), c.pipeline_stage)) return false;
+    if (!matchesMultiFilter(getFilter("asesor"), c.asesor)) return false;
+    if (!matchesMultiFilter(getFilter("ano"), c.ano != null ? String(c.ano) : "")) return false;
 
     if (filtroFechaGanadoDesde || filtroFechaGanadoHasta) {
       const fechaGanado = getFechaGanadoFromConsulta(c);
@@ -201,6 +211,135 @@ export default function Consultas() {
     }
   };
 
+  const colCount = Math.max(enabledColumns.length, 1);
+
+  const renderConsultaCell = (colId, c) => {
+    const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
+    switch (colId) {
+      case "cliente":
+        return (
+          <>
+            <div className="min-w-0 flex items-center gap-1.5">
+              <p className="font-medium text-slate-900 truncate text-sm flex-1">{c.contactonombre}</p>
+              <QuickCallButton phone={c.contactowhatsapp ?? c.contactoWhatsapp} />
+            </div>
+            <div className="min-w-0">
+              {c.nroppto && (
+                <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
+              )}
+              {c.ubicacionobra && (
+                <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
+                  <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                  {c.ubicacionobra}
+                </p>
+              )}
+            </div>
+          </>
+        );
+      case "asesor":
+        return c.asesor ? (
+          <AsesorAvatar
+            codigo={c.asesor}
+            size="sm"
+            title={getAsesorNombre(c.asesor) || c.asesor}
+          />
+        ) : null;
+      case "m2_tipo":
+        return c.superficiem2 ? (
+          <div className="flex items-center gap-1 text-sm font-medium">
+            <Ruler className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{c.superficiem2} m²</span>
+          </div>
+        ) : null;
+      case "importe":
+        return c.importe ? (
+          <span className="font-bold text-slate-900 text-sm truncate block">
+            ${Number(c.importe).toLocaleString("es-AR")}
+          </span>
+        ) : (
+          <span className="text-slate-400">-</span>
+        );
+      case "estado":
+        return (
+          <Select
+            value={c.pipeline_stage}
+            onValueChange={(v) => handleEstadoChange(c, v)}
+            disabled={stageMutation.isPending}
+          >
+            <SelectTrigger
+              className={cn(
+                "h-8 text-xs text-white border-0 max-w-[160px]",
+                etapaColorMap[c.pipeline_stage] || "bg-slate-500",
+              )}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {etapas.map((s) => (
+                <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>
+                  {s.pipeline_stage}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      case "fecha_ganada":
+        return getFechaGanadoFromConsulta(c) ? (
+          <span className="text-sm text-slate-600">
+            {moment(getFechaGanadoFromConsulta(c)).format("DD/MM/YY")}
+          </span>
+        ) : (
+          <span className="text-slate-400">-</span>
+        );
+      case "seguimiento":
+        return c.proximoseguimiento ? (
+          <div className={cn("flex items-center gap-1 text-sm", seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500")}>
+            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+            {moment(c.proximoseguimiento).format("DD/MM/YY")}
+          </div>
+        ) : (
+          <span className="text-slate-400">-</span>
+        );
+      case "acciones":
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {!isLogistica && (
+                <DropdownMenuItem onClick={() => handleEdit(c)}>Editar</DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => openConsultaPdf(c)}>
+                <FileText className="w-4 h-4 mr-2" />Ver PDF
+              </DropdownMenuItem>
+              {!isLogistica && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => {
+                      if (window.confirm("¿Eliminar este presupuesto?")) {
+                        handleDelete(c).catch((e) => {
+                          toast.error("Error al eliminar: " + e.message);
+                        });
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />Eliminar
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50">
       {/* Header */}
@@ -226,56 +365,63 @@ export default function Consultas() {
           </div>
 
           {/* Filtros */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[180px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                placeholder="Buscar nombre, N° o ubicación..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-9"
+          <ViewFilterBar>
+            {isFilterEnabled("consultas", viewConfig, "busqueda") && (
+              <div className="relative flex-1 min-w-[180px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar nombre, N° o ubicación..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
+            {isFilterEnabled("consultas", viewConfig, "estado") && (
+              <MultiSelectFilter
+                label="Estado"
+                options={etapas.map((e) => ({ value: e.pipeline_stage, label: e.pipeline_stage }))}
+                selected={getFilter("estado")}
+                onChange={(v) => setFilter("estado", v)}
               />
-            </div>
-            <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-              <SelectTrigger className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los estados</SelectItem>
-                {etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Asesor" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos</SelectItem>
-                {filterAsesorOptions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filtroAno} onValueChange={setFiltroAno}>
-              <SelectTrigger className="w-28"><SelectValue placeholder="Año" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los años</SelectItem>
-                {anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Input
-              type="date"
-              value={filtroFechaGanadoDesde}
-              onChange={(e) => setFiltroFechaGanadoDesde(e.target.value)}
-              className="w-40"
-              title="Fecha ganada desde"
-              aria-label="Fecha ganada desde"
-            />
-            <Input
-              type="date"
-              value={filtroFechaGanadoHasta}
-              onChange={(e) => setFiltroFechaGanadoHasta(e.target.value)}
-              className="w-40"
-              title="Fecha ganada hasta"
-              aria-label="Fecha ganada hasta"
-            />
-          </div>
+            )}
+            {isFilterEnabled("consultas", viewConfig, "asesor") && (
+              <MultiSelectFilter
+                label="Asesor"
+                options={filterAsesorOptions.map((a) => ({ value: a.value, label: a.label }))}
+                selected={getFilter("asesor")}
+                onChange={(v) => setFilter("asesor", v)}
+              />
+            )}
+            {isFilterEnabled("consultas", viewConfig, "ano") && (
+              <MultiSelectFilter
+                label="Año"
+                options={anos.map((a) => ({ value: String(a), label: String(a) }))}
+                selected={getFilter("ano")}
+                onChange={(v) => setFilter("ano", v)}
+              />
+            )}
+            {isFilterEnabled("consultas", viewConfig, "fecha_ganada_desde") && (
+              <Input
+                type="date"
+                value={filtroFechaGanadoDesde}
+                onChange={(e) => setFiltroFechaGanadoDesde(e.target.value)}
+                className="w-40"
+                title="Fecha ganada desde"
+                aria-label="Fecha ganada desde"
+              />
+            )}
+            {isFilterEnabled("consultas", viewConfig, "fecha_ganada_hasta") && (
+              <Input
+                type="date"
+                value={filtroFechaGanadoHasta}
+                onChange={(e) => setFiltroFechaGanadoHasta(e.target.value)}
+                className="w-40"
+                title="Fecha ganada hasta"
+                aria-label="Fecha ganada hasta"
+              />
+            )}
+          </ViewFilterBar>
         </div>
       </div>
 
@@ -302,173 +448,36 @@ export default function Consultas() {
         ) : (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-x-auto">
           <Table className="w-full table-fixed min-w-[820px]">
-            <colgroup>
-              <col className="w-[26%]" />
-              <col className="w-[7%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[12%]" />
-              <col className="w-[10%]" />
-              <col className="w-[12%]" />
-              <col className="w-[5%]" />
-            </colgroup>
             <TableHeader>
               <TableRow className="bg-slate-50/50">
-                <TableHead className="font-semibold">Cliente</TableHead>
-                <TableHead className="font-semibold">Asesor</TableHead>
-                <TableHead className="font-semibold">m² / Tipo</TableHead>
-                <TableHead className="font-semibold">Importe</TableHead>
-                <TableHead className="font-semibold">Estado</TableHead>
-                <TableHead className="font-semibold">Fecha ganada</TableHead>
-                <TableHead className="font-semibold">Seguimiento</TableHead>
-                <TableHead className="font-semibold text-right"></TableHead>
+                {enabledColumns.map((col) => (
+                  <TableHead
+                    key={col.id}
+                    className={cn("font-semibold", col.id === "acciones" && "text-right")}
+                  >
+                    {col.id === "acciones" ? "" : col.label}
+                  </TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
-              ) : filtradas.map(c => {
-                const seguimientoVencido = c.proximoseguimiento && moment(c.proximoseguimiento).isBefore(moment(), "day");
-                return (
-                  <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
-
-                    {/* Cliente: nombre + #ppto + ubicación fusionados */}
-                    <TableCell className="py-2">
-                      <div className="min-w-0 flex items-center gap-1.5">
-                        <p className="font-medium text-slate-900 truncate text-sm flex-1">{c.contactonombre}</p>
-                        <QuickCallButton phone={c.contactowhatsapp ?? c.contactoWhatsapp} />
-                      </div>
-                      <div className="min-w-0">
-                        {c.nroppto && (
-                          <p className="text-xs text-slate-400 truncate">#{c.nroppto} · {c.mes} {c.ano}</p>
-                        )}
-                        {c.ubicacionobra && (
-                          <p className="text-xs text-slate-400 truncate flex items-center gap-0.5 mt-0.5">
-                            <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-                            {c.ubicacionobra}
-                          </p>
-                        )}
-                      </div>
+                <TableRow><TableCell colSpan={colCount} className="text-center py-12 text-slate-400">Cargando...</TableCell></TableRow>
+              ) : filtradas.map(c => (
+                <TableRow key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => openRow(c)}>
+                  {enabledColumns.map((col) => (
+                    <TableCell
+                      key={col.id}
+                      className={cn("py-2", col.id === "acciones" && "text-right")}
+                      onClick={col.id === "estado" || col.id === "acciones" ? (e) => e.stopPropagation() : undefined}
+                    >
+                      {renderConsultaCell(col.id, c)}
                     </TableCell>
-
-                    {/* Asesor — solo avatar */}
-                    <TableCell className="py-2">
-                      {c.asesor && (
-                        <AsesorAvatar
-                          codigo={c.asesor}
-                          size="sm"
-                          title={getAsesorNombre(c.asesor) || c.asesor}
-                        />
-                      )}
-                    </TableCell>
-
-                    {/* m² / Tipo */}
-                    <TableCell className="py-2">
-                      <div className="space-y-1">
-                        {c.superficiem2 && (
-                          <div className="flex items-center gap-1 text-sm font-medium">
-                            <Ruler className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                            <span className="truncate">{c.superficiem2} m²</span>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Importe */}
-                    <TableCell className="py-2">
-                      {c.importe ? (
-                        <span className="font-bold text-slate-900 text-sm truncate block">
-                          ${Number(c.importe).toLocaleString("es-AR")}
-                        </span>
-                      ) : <span className="text-slate-400">-</span>}
-                    </TableCell>
-
-                    {/* Estado */}
-                    <TableCell className="py-2" onClick={(e) => e.stopPropagation()}>
-                      <Select
-                        value={c.pipeline_stage}
-                        onValueChange={(v) => handleEstadoChange(c, v)}
-                        disabled={stageMutation.isPending}
-                      >
-                        <SelectTrigger
-                          className={cn(
-                            "h-8 text-xs text-white border-0 max-w-[160px]",
-                            etapaColorMap[c.pipeline_stage] || "bg-slate-500"
-                          )}
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {etapas.map((s) => (
-                            <SelectItem key={s.pipeline_stage} value={s.pipeline_stage}>
-                              {s.pipeline_stage}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-
-                    <TableCell className="py-2">
-                      {getFechaGanadoFromConsulta(c) ? (
-                        <span className="text-sm text-slate-600">
-                          {moment(getFechaGanadoFromConsulta(c)).format("DD/MM/YY")}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
-                    </TableCell>
-
-                    {/* Seguimiento */}
-                    <TableCell className="py-2">
-                      {c.proximoseguimiento ? (
-                        <div className={cn("flex items-center gap-1 text-sm", seguimientoVencido ? "text-red-600 font-medium" : "text-slate-500")}>
-                          <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                          {moment(c.proximoseguimiento).format("DD/MM/YY")}
-                        </div>
-                      ) : <span className="text-slate-400">-</span>}
-                    </TableCell>
-
-                    {/* Acciones */}
-                    <TableCell className="py-2 text-right" onClick={e => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {!isLogistica && (
-                            <DropdownMenuItem onClick={() => handleEdit(c)}>Editar</DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => openConsultaPdf(c)}>
-                            <FileText className="w-4 h-4 mr-2" />Ver PDF
-                          </DropdownMenuItem>
-                          {!isLogistica && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => {
-                                  if (window.confirm("¿Eliminar este presupuesto?")) {
-                                    handleDelete(c).catch((e) => {
-                                      toast.error("Error al eliminar: " + e.message);
-                                    });
-                                  }
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />Eliminar
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-
-                  </TableRow>
-                );
-              })}
+                  ))}
+                </TableRow>
+              ))}
               {!isLoading && filtradas.length === 0 && (
-                <TableRow><TableCell colSpan={8} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={colCount} className="text-center py-12 text-slate-400">No hay presupuestos</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
