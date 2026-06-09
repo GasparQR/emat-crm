@@ -98,8 +98,8 @@ export default function Contactos() {
   });
 
   const visibleConsultas = useMemo(
-    () => filterConsultasByVisibility(consultas, currentUser, etapas),
-    [consultas, currentUser, etapas],
+    () => filterConsultasByVisibility(consultas, currentUser, pipelineStages),
+    [consultas, currentUser, pipelineStages],
   );
   const visibleContactos = useMemo(() => filterContactosByVisibility(contactos, currentUser), [contactos, currentUser]);
 
