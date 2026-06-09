@@ -1,6 +1,15 @@
 import { cn } from "@/lib/utils";
 import ComparativeBadge from "@/components/reportes/ComparativeBadge";
 
+/**
+ * @param {object} props
+ * @param {string} props.label
+ * @param {string|number} props.value
+ * @param {object} [props.delta]
+ * @param {string} [props.accent]
+ * @param {string} [props.variant]
+ * @param {string} [props.className]
+ */
 export default function KpiCardWithDelta({
   label,
   value,

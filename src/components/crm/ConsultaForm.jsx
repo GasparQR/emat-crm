@@ -221,7 +221,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         observaciones: consulta.observaciones ?? "",
         notas: consulta.notas ?? "",
         razonPerdida: consulta.razonperdida ?? consulta.razonPerdida ?? "",
-        fechaGanado: isWonStage(etapa) ? (fechaGanadoStored ?? "") : "",
+        fechaGanado: isWonStage(etapa, etapas) ? (fechaGanadoStored ?? "") : "",
       });
       return;
     }
@@ -326,7 +326,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
 
   const handleEtapaChange = (etapa) => {
     setFormData((prev) => {
-      const fechaGanado = isWonStage(etapa)
+      const fechaGanado = isWonStage(etapa, etapas)
         ? (prev.fechaGanado || todayDateString())
         : "";
       return { ...prev, etapa, fechaGanado };
@@ -509,13 +509,14 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
       }
 
       let fechaGanadoValue = null;
-      if (isWonStage(formData.etapa)) {
+      if (isWonStage(formData.etapa, etapas)) {
         const existing = getFechaGanadoFromConsulta(consulta);
         const patch = applyFechaGanadoOnStageChange({
           previousStage: consulta?.pipeline_stage ?? consulta?.etapa,
           nextStage: formData.etapa,
           currentFechaGanado: existing,
           patch: {},
+          etapas,
         });
         fechaGanadoValue = patch.fecha_ganado ?? existing ?? null;
       }
@@ -781,7 +782,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
                   <SelectContent>{etapas.map(e => <SelectItem key={e.pipeline_stage} value={e.pipeline_stage}>{e.pipeline_stage}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              {isWonStage(formData.etapa) && (
+              {isWonStage(formData.etapa, etapas) && (
                 <div className="space-y-1">
                   <Label>Fecha ganada</Label>
                   <Input

@@ -8,7 +8,14 @@ import PipelineColumn from "@/components/crm/PipelineColumn";
 import ConsultaForm from "@/components/crm/ConsultaForm";
 import WhatsAppSender from "@/components/crm/WhatsAppSender";
 import { Button } from "@/components/ui/button";
-import { Plus, Filter, ArrowLeft } from "lucide-react";
+import { Plus, Filter, ArrowLeft, Settings2 } from "lucide-react";
+import usePipelineRealtime from "@/hooks/usePipelineRealtime";
+import {
+  buildPipelineStagePatchAsync,
+  getLostStageName,
+} from "@/lib/pipelineStage";
+import { isAdmin } from "@/lib/permissions";
+import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -28,7 +35,11 @@ export default function Pipeline() {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
   const { user } = useAuth();
+  const { data: currentUser } = useCurrentUser();
+  const admin = isAdmin(currentUser);
   const { asesorOptions } = useAsesores(user);
+
+  usePipelineRealtime(workspace?.id);
 
   const { data: consultas = [], refetch } = useQuery({
     queryKey: ['consultas-pipeline', workspace?.id],
@@ -61,15 +72,14 @@ export default function Pipeline() {
 
     const { draggableId, destination } = result;
     const newEtapa = destination.droppableId;
+    const consulta = consultas.find((c) => c.id === draggableId);
+    if (!consulta) return;
 
-    const patch = { pipeline_stage: newEtapa };
-
-    // Assign nroppto when moving to a non-NUEVO LEAD stage and the consulta has none yet
-    const destStage = etapas.find(s => s.pipeline_stage === newEtapa);
-    const consulta = consultas.find(c => c.id === draggableId);
-    if (destStage && destStage.orden !== 0 && consulta && !consulta.nroppto) {
-      patch.nroppto = await allocateNroPpto();
-    }
+    const patch = await buildPipelineStagePatchAsync(consulta, newEtapa, {
+      etapas,
+      getNextNroPpto: allocateNroPpto,
+    });
+    if (!patch) return;
 
     updateMutation.mutate({
       id: draggableId,
@@ -92,15 +102,16 @@ export default function Pipeline() {
 
   // Nuevo: marcar como perdido directamente desde la card del pipeline
   const handleMarcarPerdido = async (consulta, motivo) => {
+    const lostStage = getLostStageName(etapas);
     await updateMutation.mutateAsync({
       id: consulta.id,
-      data: { pipeline_stage: "PERDIDA", razonperdida: motivo }
+      data: { pipeline_stage: lostStage, razonperdida: motivo },
     });
     toast.success(`Marcado como Perdido — ${motivo}`);
   };
 
 
-  const visibleConsultas = filterConsultasByVisibility(consultas, user);
+  const visibleConsultas = filterConsultasByVisibility(consultas, user, etapas);
   const filterAsesorOptions = useMemo(
     () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
     [asesorOptions, visibleConsultas]
@@ -137,6 +148,14 @@ export default function Pipeline() {
               <p className="text-slate-1000">{consultasFiltradas.length} consultas activas</p>
             </div>
             <div className="flex items-center gap-2">
+              {admin && (
+                <Link to="/configuracion/pipeline-etapas">
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <Settings2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Etapas</span>
+                  </Button>
+                </Link>
+              )}
               <Button onClick={() => { setSelectedConsulta(null); setShowForm(true); }} className="gap-2">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nueva</span>

@@ -22,6 +22,7 @@ import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
 import { toast } from "sonner";
@@ -69,6 +70,7 @@ export default function Reportes() {
   );
   const [exportHasta, setExportHasta] = useState(() => moment().format("YYYY-MM-DD"));
   const [exporting, setExporting] = useState(false);
+  const [showWonBreakdown, setShowWonBreakdown] = useState(false);
   const [pdfRender, setPdfRender] = useState(null);
   const pdfReadyRef = useRef(null);
   const { workspace } = useWorkspace();
@@ -85,9 +87,19 @@ export default function Reportes() {
     enabled: !!workspace,
   });
 
+  const { data: etapas = [] } = useQuery({
+    queryKey: ["pipeline-stages", workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter((s) => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
   const visibleConsultas = useMemo(
-    () => filterConsultasByVisibility(consultas, user),
-    [consultas, user]
+    () => filterConsultasByVisibility(consultas, user, etapas),
+    [consultas, user, etapas],
   );
 
   const anos = useMemo(
@@ -147,7 +159,11 @@ export default function Reportes() {
     maxPipelineVal,
     seguimientoInfo,
     perdidasData,
-  } = useMemo(() => buildReportMetrics(filtradas), [filtradas]);
+    wonBreakdown,
+  } = useMemo(
+    () => buildReportMetrics(filtradas, { etapas, showWonBreakdown }),
+    [filtradas, etapas, showWonBreakdown],
+  );
 
   const screenDateRange = useMemo(
     () => getScreenDateRange({ filtroMesAno, filtroAno, mesesOrden: MESES_ORDEN }),
@@ -161,8 +177,10 @@ export default function Reportes() {
       desde: screenDateRange.desde,
       hasta: screenDateRange.hasta,
       asesor: filtroAsesor,
+      etapas,
+      showWonBreakdown,
     });
-  }, [visibleConsultas, screenDateRange, filtroAsesor]);
+  }, [visibleConsultas, screenDateRange, filtroAsesor, etapas, showWonBreakdown]);
 
   const { comparative: screenComparative, healthScore: screenHealthScore, insights: screenInsights } =
     screenBundle || {};
@@ -212,6 +230,8 @@ export default function Reportes() {
       desde: exportDesde,
       hasta: exportHasta,
       asesor: filtroAsesor,
+      etapas,
+      showWonBreakdown,
     });
 
     setExportOpen(false);
@@ -492,12 +512,19 @@ export default function Reportes() {
                 delta={screenComparative?.enSeguimiento}
                 accent="amber"
               />
-              <KpiCardWithDelta
-                label="Ganadas"
-                value={kpis.ganadasCount ?? "—"}
-                delta={screenComparative?.ganadas}
-                accent="green"
-              />
+              <div>
+                <KpiCardWithDelta
+                  label="Ganadas"
+                  value={kpis.ganadasCount ?? "—"}
+                  delta={screenComparative?.ganadas}
+                  accent="green"
+                />
+                {showWonBreakdown && wonBreakdown?.total > 0 && (
+                  <p className="text-[11px] text-emerald-700 mt-1 px-1">
+                    {wonBreakdown.ganadaLabel}: {wonBreakdown.ganada} · {wonBreakdown.ejecutadaLabel}: {wonBreakdown.ejecutada}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -522,8 +549,12 @@ export default function Reportes() {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
                   <CardTitle className="text-base">Distribucion por estado</CardTitle>
+                  <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                    <Switch checked={showWonBreakdown} onCheckedChange={setShowWonBreakdown} />
+                    Desglose Ganada / Ejecutada
+                  </label>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={280}>
@@ -537,10 +568,27 @@ export default function Reportes() {
                         nameKey="name"
                       >
                         {estadoDistData.map((entry, i) => (
-                          <Cell key={i} fill={ESTADO_COLORS[entry.name] || "#94a3b8"} />
+                          <Cell
+                            key={i}
+                            fill={
+                              ESTADO_COLORS[entry.name]
+                              || (entry.name === wonBreakdown?.umbrellaLabel ? ESTADO_COLORS.GANADA : "#94a3b8")
+                            }
+                          />
                         ))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip
+                        formatter={(value, _name, props) => {
+                          const breakdown = props?.payload?.breakdown;
+                          if (breakdown && Object.keys(breakdown).length) {
+                            const detail = Object.entries(breakdown)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" · ");
+                            return [`${value} (${detail})`, props.payload.name];
+                          }
+                          return [value, props?.payload?.name];
+                        }}
+                      />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -632,7 +680,7 @@ export default function Reportes() {
                   {metricasCrecimiento && (
                     <div className="text-right">
                       <p className={`text-2xl sm:text-3xl font-bold ${metricasCrecimiento.color}`}>
-                        {metricasCrecimiento.direccion} {Math.abs(metricasCrecimiento.crecimiento)}%
+                        {metricasCrecimiento.direccion} {Math.abs(Number(metricasCrecimiento.crecimiento))}%
                       </p>
                       <p className="text-xs text-slate-500 mt-1">
                         {metricasCrecimiento.ultimo} presupuestos últimamente
@@ -768,7 +816,7 @@ export default function Reportes() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
                       <XAxis type="number" tick={{ fontSize: 11 }} />
-                      <Tooltip formatter={(v) => [`${fmt(Math.round(v))} m²`, "m²"]} />
+                      <Tooltip formatter={(v) => [`${fmt(Math.round(Number(v)))} m²`, "m²"]} />
                       <Bar dataKey="m2" name="m²" fill="#06b6d4" radius={[0,4,4,0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -801,16 +849,31 @@ export default function Reportes() {
           {/* TAB 4: PIPELINE & SEGUIMIENTO */}
           <TabsContent value="pipeline" className="space-y-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base">Embudo del pipeline</CardTitle>
+                <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                  <Switch checked={showWonBreakdown} onCheckedChange={setShowWonBreakdown} />
+                  Desglose Ganada / Ejecutada
+                </label>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-col gap-3">
                   {pipelineData.map((d) => {
                     const pct = (d.cantidad / maxPipelineVal) * 100;
+                    const breakdownText = d.breakdown
+                      ? Object.entries(d.breakdown)
+                          .filter(([, n]) => n > 0)
+                          .map(([k, n]) => `${k} (${n})`)
+                          .join(" · ")
+                      : null;
                     return (
                       <div key={d.pipeline_stage} className="flex items-center gap-3">
-                        <span className="w-28 text-sm font-medium text-slate-600 text-right">{d.pipeline_stage}</span>
+                        <div className="w-28 text-right shrink-0">
+                          <span className="text-sm font-medium text-slate-600 block">{d.pipeline_stage}</span>
+                          {breakdownText && !showWonBreakdown && (
+                            <span className="text-[10px] text-emerald-700 block mt-0.5">{breakdownText}</span>
+                          )}
+                        </div>
                         <div className="flex-1 bg-slate-100 rounded-full h-8 relative overflow-hidden">
                           <div
                             className="h-full rounded-full flex items-center justify-end pr-3 transition-all"

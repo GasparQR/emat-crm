@@ -136,7 +136,10 @@ export default function Consultas() {
     }
   };
 
-  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const visibleConsultas = useMemo(
+    () => filterConsultasByVisibility(consultas, user, etapas),
+    [consultas, user, etapas],
+  );
   const filterAsesorOptions = useMemo(
     () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
     [asesorOptions, visibleConsultas]
