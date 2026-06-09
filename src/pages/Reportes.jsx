@@ -1,16 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid,
 } from "recharts";
 import {
-  TrendingUp, ArrowLeft, Target, Layers,
-  DollarSign, Calendar, CheckCircle, Clock, XCircle, AlertCircle,
+  TrendingUp, ArrowLeft,
+  Calendar, CheckCircle, Clock, XCircle, AlertCircle, FileDown,
 } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -18,18 +24,30 @@ import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import moment from "moment";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import { canViewGlobalData, filterConsultasByVisibility } from "@/lib/permissions";
-
-const ESTADO_COLORS = {
-  "A COTIZAR": "#94a3b8",
-  "NEGOCIACION": "#f59e0b",
-  "GANADA": "#10b981",
-  "EJECUTADA": "#059669",
-  "PAUSADA": "#6b7280",
-  "PERDIDA": "#ef4444",
-};
+import {
+  CHART_COLORS,
+  DATE_CRITERIA,
+  DATE_CRITERIA_LABELS,
+  ESTADO_COLORS,
+  MESES_ORDEN,
+  buildReportMetrics,
+  filterConsultasForReport,
+  filterConsultasForScreen,
+  fmt,
+  fmtCompacto,
+  fmtPesos,
+  fmtPesosCompacto,
+} from "@/lib/reportesMetrics";
+import { getScreenDateRange } from "@/lib/reportesComparative";
+import { buildReportBundle } from "@/lib/reportesBundle";
+import { downloadReportesPdf } from "@/lib/reportesPdf";
+import ReportesPdfLayout from "@/components/reportes/ReportesPdfLayout";
+import HealthScoreCard from "@/components/reportes/HealthScoreCard";
+import KpiCardWithDelta from "@/components/reportes/KpiCardWithDelta";
 
 const ESTADO_BADGE = {
   "A COTIZAR": "bg-slate-100 text-slate-700",
@@ -40,26 +58,19 @@ const ESTADO_BADGE = {
   "PERDIDA": "bg-red-100 text-red-700",
 };
 
-const MESES_ORDEN = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
-const CHART_COLORS = ["#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899","#a855f7","#22d3ee","#f43f5e"];
-const UNKNOWN_MONTH_INDEX = 99;
-const MIN_ADVISOR_BUDGETS = 3;
-
-const fmt = (n) => n?.toLocaleString("es-AR") ?? "0";
-const fmtPesos = (n) => `$${(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 0 })}`;
-const fmtCompacto = (n) => {
-  if (!n) return "0";
-  if (n >= 1000000) return `${(n / 1000000).toFixed(n % 1000000 >= 100000 ? 1 : 0)}M`.replace('.0', '');
-  if (n >= 1000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}K`.replace('.0', '');
-  return n?.toLocaleString("es-AR") ?? "0";
-};
-const fmtPesosCompacto = (n) => `$${fmtCompacto(n || 0)}`;
-const fmtMonthYear = (mes, ano) =>
-  mes && ano ? `${mes.slice(0, 3)} ${ano}` : "Sin fecha";
 export default function Reportes() {
   const [filtroMesAno, setFiltroMesAno] = useState("todos");
   const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("todos");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportMode, setExportMode] = useState(DATE_CRITERIA.PRESUPUESTO);
+  const [exportDesde, setExportDesde] = useState(() =>
+    moment().subtract(30, "days").format("YYYY-MM-DD"),
+  );
+  const [exportHasta, setExportHasta] = useState(() => moment().format("YYYY-MM-DD"));
+  const [exporting, setExporting] = useState(false);
+  const [pdfRender, setPdfRender] = useState(null);
+  const pdfReadyRef = useRef(null);
   const { workspace } = useWorkspace();
   const { user } = useAuth();
   const canViewAll = canViewGlobalData(user);
@@ -111,238 +122,151 @@ export default function Reportes() {
     });
   }, [visibleConsultas]);
 
-  const filtradas = useMemo(() => {
-    return visibleConsultas.filter((c) => {
-      if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
-      if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
-      if (filtroMesAno !== "todos") {
-        const [mesSel, anoSel] = filtroMesAno.split("|");
-        const mesConsulta = String(c?.mes || "").trim().toUpperCase();
-        const anoConsulta = String(c?.ano || "").trim();
-        if (mesConsulta !== mesSel || anoConsulta !== anoSel) return false;
-      }
-      return true;
-    });
-  }, [visibleConsultas, filtroAsesor, filtroAno, filtroMesAno]);
-
-  // TAB 1 - DASHBOARD EJECUTIVO
-  const kpis = useMemo(() => {
-    const ganadas = filtradas.filter((c) => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA");
-    const conEstado = filtradas.filter((c) => c.pipeline_stage);
-    const tasa =
-      conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
-    const m2Total = filtradas.reduce((s, c) => s + (c.superficiem2 || 0), 0);
-    const fibraKgTotal = filtradas.reduce((s, c) => s + (c.fibrakg || 0), 0);
-    const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
-    const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
-    const enSeguimiento = filtradas.filter(
-      (c) => c.proximoseguimiento && ["NUEVO LEAD","NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
-    );
-    return {
-      total: filtradas.length,
-      tasa,
-      m2Total: Math.round(m2Total),
-      fibraKgTotal: Math.round(fibraKgTotal),
-      importeGanado,
-      ticketPromedio,
-      enSeguimiento: enSeguimiento.length,
-    };
-  }, [filtradas]);
-
-  const porMesData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const key = fmtMonthYear(c.mes, c.ano);
-      if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, ganados: 0, perdidos: 0, otros: 0 };
-      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") map[key].ganados++;
-      else if (c.pipeline_stage === "PERDIDA") map[key].perdidos++;
-      else map[key].otros++;
-    });
-    return Object.values(map).sort((a, b) => {
-      if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
-      const idxA = MESES_ORDEN.indexOf(a.mes);
-      const idxB = MESES_ORDEN.indexOf(b.mes);
-      return (idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA) - (idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB);
-    });
-  }, [filtradas]);
-
-  const estadoDistData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const e = c.pipeline_stage || "Sin estado";
-      map[e] = (map[e] || 0) + 1;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [filtradas]);
-
-  // TAB 2 - ASESORES
-  const asesoresData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const a = c.asesor || "Sin asignar";
-      if (!map[a]) map[a] = { asesor: a, total: 0, ganados: 0, importe: 0, m2: 0 };
-      map[a].total++;
-      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
-        map[a].ganados++;
-        map[a].importe += c.importe || 0;
-      }
-      map[a].m2 += c.superficiem2 || 0;
-    });
-    return Object.values(map)
-      .map((d) => ({ ...d, tasa: d.total > 0 ? ((d.ganados / d.total) * 100).toFixed(1) : 0 }))
-      .sort((a, b) => b.total - a.total);
-  }, [filtradas]);
-
-  const mejorAsesor = useMemo(
+  const filtradas = useMemo(
     () =>
-      [...asesoresData]
-        .filter((a) => a.total >= MIN_ADVISOR_BUDGETS)
-        .sort((a, b) => parseFloat(b.tasa) - parseFloat(a.tasa))[0] || null,
-    [asesoresData]
+      filterConsultasForScreen(visibleConsultas, {
+        filtroAsesor,
+        filtroAno,
+        filtroMesAno,
+      }),
+    [visibleConsultas, filtroAsesor, filtroAno, filtroMesAno],
   );
 
-  // TAB 3 - ANÁLISIS COMERCIAL
-  const tipoAplicacionData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const t = c.tipoaplicacion || "Sin especificar";
-      if (!map[t]) map[t] = { name: t, cantidad: 0, m2: 0 };
-      map[t].cantidad++;
-      map[t].m2 += c.superficiem2 || 0;
-    });
-    return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
-  }, [filtradas]);
+  const {
+    kpis,
+    porMesData,
+    estadoDistData,
+    asesoresData,
+    mejorAsesor,
+    tipoAplicacionData,
+    canalOrigenData,
+    ubicacionData,
+    evolucionMensual,
+    metricasCrecimiento,
+    pipelineData,
+    maxPipelineVal,
+    seguimientoInfo,
+    perdidasData,
+  } = useMemo(() => buildReportMetrics(filtradas), [filtradas]);
 
-  const canalOrigenData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const raw = c.canalOrigen ?? c.canalorigen;
-      const ch = (raw && String(raw).trim()) || "Sin canal";
-      if (!map[ch]) map[ch] = { name: ch, cantidad: 0, ganados: 0 };
-      map[ch].cantidad++;
-      if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
-        map[ch].ganados++;
+  const screenDateRange = useMemo(
+    () => getScreenDateRange({ filtroMesAno, filtroAno, mesesOrden: MESES_ORDEN }),
+    [filtroMesAno, filtroAno],
+  );
+
+  const screenBundle = useMemo(() => {
+    if (!visibleConsultas.length) return null;
+    return buildReportBundle(visibleConsultas, {
+      mode: DATE_CRITERIA.PRESUPUESTO,
+      desde: screenDateRange.desde,
+      hasta: screenDateRange.hasta,
+      asesor: filtroAsesor,
+    });
+  }, [visibleConsultas, screenDateRange, filtroAsesor]);
+
+  const { comparative: screenComparative, healthScore: screenHealthScore, insights: screenInsights } =
+    screenBundle || {};
+
+  const asesorExportLabel =
+    filtroAsesor === "todos"
+      ? canViewAll
+        ? "Todos los asesores"
+        : user?.asesor_codigo || "Mi cartera"
+      : filtroAsesor;
+
+  const handleOpenExport = () => {
+    setExportDesde(moment().subtract(30, "days").format("YYYY-MM-DD"));
+    setExportHasta(moment().format("YYYY-MM-DD"));
+    setExportMode(DATE_CRITERIA.PRESUPUESTO);
+    setExportOpen(true);
+  };
+
+  const handleConfirmExport = () => {
+    if (!exportDesde || !exportHasta) {
+      toast.error("Completá las fechas desde y hasta");
+      return;
+    }
+    if (moment(exportDesde).isAfter(moment(exportHasta), "day")) {
+      toast.error("La fecha desde no puede ser posterior a hasta");
+      return;
+    }
+
+    const filtradasExport = filterConsultasForReport(visibleConsultas, {
+      mode: exportMode,
+      desde: exportDesde,
+      hasta: exportHasta,
+      asesor: filtroAsesor,
+    });
+
+    if (filtradasExport.length === 0) {
+      toast.error("No hay presupuestos en ese período con el criterio seleccionado");
+      return;
+    }
+
+    if (filtradasExport.length > 1500) {
+      toast.warning("El rango incluye muchos presupuestos; la exportación puede demorar.");
+    }
+
+    const bundle = buildReportBundle(visibleConsultas, {
+      mode: exportMode,
+      desde: exportDesde,
+      hasta: exportHasta,
+      asesor: filtroAsesor,
+    });
+
+    setExportOpen(false);
+    setExporting(true);
+
+    pdfReadyRef.current = async () => {
+      const toastId = toast.loading("Generando PDF…");
+      try {
+        await downloadReportesPdf({
+          desde: exportDesde,
+          hasta: exportHasta,
+          meta: {
+            title: canViewAll ? "Reportes & Analytics" : "Mis reportes",
+            dateCriteriaLabel: DATE_CRITERIA_LABELS[exportMode],
+            asesorLabel: asesorExportLabel,
+            totalCount: bundle.filtradas.length,
+            previousCount: bundle.meta.previousCount,
+            prevDesde: bundle.meta.prevDesde,
+            prevHasta: bundle.meta.prevHasta,
+            generatedBy: user?.email || user?.nombre || user?.asesor_codigo,
+          },
+          onProgress: ({ sectionIndex, totalSections }) => {
+            toast.loading(`Capturando sección ${sectionIndex}/${totalSections}…`, { id: toastId });
+          },
+        });
+        toast.success("PDF exportado correctamente", { id: toastId });
+      } catch (error) {
+        console.error(error);
+        toast.error("Error al exportar el PDF", { id: toastId });
+      } finally {
+        setPdfRender(null);
+        setExporting(false);
       }
-    });
-    return Object.values(map).sort((a, b) => b.cantidad - a.cantidad);
-  }, [filtradas]);
-
-  const ubicacionData = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      const u = c.ubicacionobra || "Sin especificar";
-      map[u] = (map[u] || 0) + 1;
-    });
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 10);
-  }, [filtradas]);
-
-  const evolucionMensual = useMemo(() => {
-    const map = {};
-    filtradas.forEach((c) => {
-      if (!c.mes || !c.ano) return;
-      const key = fmtMonthYear(c.mes, c.ano);
-      if (!map[key]) map[key] = { label: key, mes: c.mes, ano: c.ano, total: 0 };
-      map[key].total++;
-    });
-    return Object.values(map).sort((a, b) => {
-      if (a.ano !== b.ano) return (a.ano || 0) - (b.ano || 0);
-      const idxA = MESES_ORDEN.indexOf(a.mes);
-      const idxB = MESES_ORDEN.indexOf(b.mes);
-      return (idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA) - (idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB);
-    });
-  }, [filtradas]);
-
-  const metricasCrecimiento = useMemo(() => {
-    if (evolucionMensual.length < 2) return null;
-    const primero = evolucionMensual[0].total;
-    const ultimo = evolucionMensual[evolucionMensual.length - 1].total;
-    const crecimiento = primero > 0 ? ((ultimo - primero) / primero) * 100 : 0;
-    const promedio = Math.round(evolucionMensual.reduce((sum, m) => sum + m.total, 0) / evolucionMensual.length);
-    return {
-      crecimiento: crecimiento.toFixed(1),
-      direccion: crecimiento >= 0 ? "↑" : "↓",
-      color: crecimiento >= 0 ? "text-green-700" : "text-red-700",
-      primero,
-      ultimo,
-      promedio,
-      meses: evolucionMensual.length,
     };
-  }, [evolucionMensual]);
 
-  // TAB 4 - PIPELINE & SEGUIMIENTO
-  const pipelineData = useMemo(() => {
-    const pipeline_stages = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
-    return pipeline_stages.map((e) => ({
-      pipeline_stage: e,
-      cantidad: filtradas.filter((c) => c.pipeline_stage === e).length,
-      fill: ESTADO_COLORS[e],
-    }));
-  }, [filtradas]);
-
-  const maxPipelineVal = useMemo(
-    () => Math.max(...pipelineData.map((x) => x.cantidad), 1),
-    [pipelineData]
-  );
-
-  const seguimientoInfo = useMemo(() => {
-    const hoy = moment();
-    const en7dias = hoy.clone().add(7, "days");
-    const vencidos = filtradas.filter(
-      (c) =>
-        c.proximoseguimiento &&
-        moment(c.proximoseguimiento).isBefore(hoy, "day") &&
-        ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
-    );
-    const proximos = filtradas.filter(
-      (c) =>
-        c.proximoseguimiento &&
-        moment(c.proximoseguimiento).isBetween(hoy, en7dias, "day", "[]") &&
-        ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage)
-    );
-    const tiemposEnPipeline = filtradas
-      .filter((c) => (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") && c.created_date)
-      .map((c) => moment(c.fecha_ganado || c.created_date).diff(moment(c.created_date), "days"))
-      .filter((d) => d >= 0);
-    const tiempoProm =
-      tiemposEnPipeline.length > 0
-        ? Math.round(tiemposEnPipeline.reduce((a, b) => a + b, 0) / tiemposEnPipeline.length)
-        : null;
-    return { vencidos, proximos, tiempoProm };
-  }, [filtradas]);
-
-  // TAB 5 - PÉRDIDAS
-  const perdidasData = useMemo(() => {
-    const perdidas = filtradas.filter((c) => c.pipeline_stage === "PERDIDA");
-    const motivosMap = {};
-    perdidas.forEach((c) => {
-      const m = c.razonperdida || "Sin especificar";
-      motivosMap[m] = (motivosMap[m] || 0) + 1;
+    setPdfRender({
+      metrics: bundle.metrics,
+      comparative: bundle.comparative,
+      healthScore: bundle.healthScore,
+      insights: bundle.insights,
+      meta: {
+        title: canViewAll ? "Reportes & Analytics" : "Mis reportes",
+        desde: exportDesde,
+        hasta: exportHasta,
+        prevDesde: bundle.meta.prevDesde,
+        prevHasta: bundle.meta.prevHasta,
+        dateCriteriaLabel: DATE_CRITERIA_LABELS[exportMode],
+        asesorLabel: asesorExportLabel,
+        totalCount: bundle.filtradas.length,
+        previousCount: bundle.meta.previousCount,
+        generatedBy: user?.email || user?.nombre || user?.asesor_codigo,
+      },
+      canViewAll,
     });
-    const motivosPie = Object.entries(motivosMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-    const porAsesorMap = {};
-    perdidas.forEach((c) => {
-      const a = c.asesor || "Sin asignar";
-      porAsesorMap[a] = (porAsesorMap[a] || 0) + 1;
-    });
-    const porAsesor = Object.entries(porAsesorMap)
-      .map(([asesor, count]) => ({ asesor, perdidas: count }))
-      .sort((a, b) => b.perdidas - a.perdidas);
-    const porTipoMap = {};
-    perdidas.forEach((c) => {
-      const t = c.tipoaplicacion || "Sin especificar";
-      porTipoMap[t] = (porTipoMap[t] || 0) + 1;
-    });
-    const porTipo = Object.entries(porTipoMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-    const pct = filtradas.length > 0 ? ((perdidas.length / filtradas.length) * 100).toFixed(1) : 0;
-    return { total: perdidas.length, pct, motivosPie, porAsesor, porTipo };
-  }, [filtradas]);
+  };
 
   if (isLoading) {
     return (
@@ -413,8 +337,86 @@ export default function Reportes() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={handleOpenExport}
+              disabled={exporting}
+            >
+              <FileDown className="w-4 h-4" />
+              {exporting ? "Generando PDF…" : "Exportar PDF"}
+            </Button>
           </div>
         </div>
+
+        <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Exportar reporte a PDF</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Criterio de fecha</Label>
+                <RadioGroup value={exportMode} onValueChange={setExportMode}>
+                  {Object.entries(DATE_CRITERIA_LABELS).map(([value, label]) => (
+                    <div key={value} className="flex items-center space-x-2">
+                      <RadioGroupItem value={value} id={`export-date-${value}`} />
+                      <Label htmlFor={`export-date-${value}`} className="font-normal cursor-pointer">
+                        {label}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="export-desde">Desde</Label>
+                  <Input
+                    id="export-desde"
+                    type="date"
+                    value={exportDesde}
+                    onChange={(e) => setExportDesde(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="export-hasta">Hasta</Label>
+                  <Input
+                    id="export-hasta"
+                    type="date"
+                    value={exportHasta}
+                    onChange={(e) => setExportHasta(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Se incluyen KPIs y gráficos de todas las secciones del reporte para el período
+                seleccionado. Filtro de asesor actual: {asesorExportLabel}.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setExportOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmExport} disabled={exporting}>
+                Generar PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {pdfRender && (
+          <ReportesPdfLayout
+            metrics={pdfRender.metrics}
+            meta={pdfRender.meta}
+            comparative={pdfRender.comparative}
+            healthScore={pdfRender.healthScore}
+            insights={pdfRender.insights}
+            canViewAll={pdfRender.canViewAll}
+            getAsesorHexColor={getAsesorHexColor}
+            onReady={() => pdfReadyRef.current?.()}
+          />
+        )}
 
         {/* Tabs */}
         <Tabs defaultValue="ejecutivo" className="space-y-6">
@@ -428,83 +430,74 @@ export default function Reportes() {
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5" />Total presupuestos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{kpis.total}</p>
-                </CardContent>
-              </Card>
+            {screenHealthScore && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <HealthScoreCard healthScore={screenHealthScore} className="lg:col-span-1" />
+                {screenInsights?.length > 0 && (
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Hallazgos destacados</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {screenInsights.slice(0, 5).map((item, i) => (
+                        <div key={`${item.title}-${i}`} className="text-sm border-b border-slate-100 pb-2 last:border-0">
+                          <p className="font-semibold text-slate-800">{item.title}</p>
+                          <p className="text-slate-600 mt-0.5">{item.body}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversion
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Target className="w-3.5 h-3.5" />m² cotizados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Target className="w-3.5 h-3.5" />Fibra kg
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5" />Importe ganado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5" />Ticket promedio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />En seguimiento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <KpiCardWithDelta
+                label="Total presupuestos"
+                value={kpis.total}
+                delta={screenComparative?.total}
+                accent="blue"
+              />
+              <KpiCardWithDelta
+                label="Tasa conversión"
+                value={`${kpis.tasa}%`}
+                delta={screenComparative?.tasa}
+                accent="green"
+              />
+              <KpiCardWithDelta
+                label="m² cotizados"
+                value={fmtCompacto(kpis.m2Total)}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="Fibra kg"
+                value={fmtCompacto(kpis.fibraKgTotal)}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="Importe ganado"
+                value={fmtPesosCompacto(kpis.importeGanado)}
+                delta={screenComparative?.importeGanado}
+                accent="green"
+              />
+              <KpiCardWithDelta
+                label="Ticket promedio"
+                value={fmtPesosCompacto(kpis.ticketPromedio)}
+                delta={screenComparative?.ticketPromedio}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="En seguimiento"
+                value={kpis.enSeguimiento}
+                delta={screenComparative?.enSeguimiento}
+                accent="amber"
+              />
+              <KpiCardWithDelta
+                label="Ganadas"
+                value={kpis.ganadasCount ?? "—"}
+                delta={screenComparative?.ganadas}
+                accent="green"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

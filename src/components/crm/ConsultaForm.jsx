@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Package } from "lucide-react";
+import CatalogoProductoPickerDialog from "@/components/crm/CatalogoProductoPickerDialog";
 import { buildConsultaPdf } from "@/lib/consultaPdf";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { useActiveCall } from "@/components/context/ActiveCallContext";
@@ -136,6 +137,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
   const [previewPayload, setPreviewPayload] = useState(null);
   const [showNewLead, setShowNewLead] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [newLeadData, setNewLeadData] = useState({
     nombre: "", whatsapp: "", empresa: "", asesor: "", canalOrigen: "",
   });
@@ -374,6 +376,23 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         ...prev.items,
         createItem({ descripcionServicio: "" }),
       ], prev.iva);
+      return {
+        ...prev,
+        items: nextItems,
+        descripcionServicio: nextItems[0]?.descripcionServicio ?? "",
+        precioUnitario: nextItems[0]?.precioUnitario ?? "",
+        cantidad: nextItems[0]?.cantidad ?? "",
+        importe: totalText,
+      };
+    });
+  };
+
+  const addCatalogItem = ({ descripcionServicio, precioUnitario, cantidad }) => {
+    setFormData((prev) => {
+      const { nextItems, totalText } = computeItemsAndTotal(
+        [...prev.items, createItem({ descripcionServicio, precioUnitario, cantidad })],
+        prev.iva,
+      );
       return {
         ...prev,
         items: nextItems,
@@ -814,10 +833,22 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
               <div className="space-y-1 col-span-2">
                 <div className="flex items-center justify-between">
                   <Label>Items del presupuesto</Label>
-                  <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addItem}>
-                    <Plus className="w-3 h-3 mr-1" />
-                    Agregar item
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setCatalogOpen(true)}
+                    >
+                      <Package className="w-3 h-3 mr-1" />
+                      Agregar item catálogo
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addItem}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      Agregar item
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {formData.items.map((item, index) => (
@@ -973,6 +1004,12 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <CatalogoProductoPickerDialog
+      open={catalogOpen}
+      onOpenChange={setCatalogOpen}
+      onSelect={addCatalogItem}
+    />
 
     {/* Nuevo Lead Dialog */}
     <Dialog open={showNewLead} onOpenChange={setShowNewLead}>

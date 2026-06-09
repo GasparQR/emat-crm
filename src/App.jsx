@@ -11,6 +11,7 @@ import Login from '@/pages/Login';
 import RequireRole from '@/components/auth/RequireRole';
 import ConfiguracionUsuarios from '@/pages/config/ConfiguracionUsuarios';
 import ConfiguracionAsesores from '@/pages/config/ConfiguracionAsesores';
+import ConfiguracionCatalogoProductos from '@/pages/config/ConfiguracionCatalogoProductos';
 import { canAccessRoute } from '@/lib/permissions';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -82,6 +83,16 @@ const AuthenticatedApp = () => {
               <RequireRole roles={['ADMIN']}>
                 <LayoutWrapper currentPageName="Ajustes">
                   <ConfiguracionAsesores />
+                </LayoutWrapper>
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/configuracion/catalogo-productos"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <LayoutWrapper currentPageName="Ajustes">
+                  <ConfiguracionCatalogoProductos />
                 </LayoutWrapper>
               </RequireRole>
             }
