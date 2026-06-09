@@ -10,12 +10,19 @@ import { buildCommercialHealthScore } from "@/lib/reportesHealthScore";
 import { buildReportInsights } from "@/lib/reportesInsights";
 
 /**
+ * @typedef {import('./reportesMetrics').ReportDateFilterOptions & {
+ *   etapas?: object[],
+ *   showWonBreakdown?: boolean,
+ * }} ReportBundleOptions
+ */
+
+/**
  * @param {import('./reportesMetrics').ReportConsulta[]} consultas
- * @param {import('./reportesMetrics').ReportDateFilterOptions} [options]
+ * @param {ReportBundleOptions} [options]
  */
 export function buildReportBundle(
   consultas,
-  { mode, desde, hasta, asesor = "todos" } = {},
+  { mode, desde, hasta, asesor = "todos", etapas = [], showWonBreakdown = false } = {},
 ) {
   const { prevDesde, prevHasta } = previousPeriodRange(desde, hasta);
 
@@ -27,8 +34,9 @@ export function buildReportBundle(
     asesor,
   });
 
-  const metrics = buildReportMetrics(filtradas);
-  const previousMetrics = buildReportMetrics(filtradasPrev);
+  const metricsOptions = { etapas, showWonBreakdown };
+  const metrics = buildReportMetrics(filtradas, metricsOptions);
+  const previousMetrics = buildReportMetrics(filtradasPrev, metricsOptions);
 
   const comparative = buildComparativeMetrics(metrics, previousMetrics, {
     desde,

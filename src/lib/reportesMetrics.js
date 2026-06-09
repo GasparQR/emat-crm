@@ -1,4 +1,12 @@
 import moment from "moment";
+import {
+  buildWonBreakdown,
+  getReportGroupLabel,
+  isLostStage,
+  isReportGroupedStage,
+  isWonStage,
+  WON_UMBRELLA_CODE,
+} from "@/lib/pipelineStage";
 
 export const ESTADO_COLORS = {
   "A COTIZAR": "#94a3b8",
@@ -177,10 +185,89 @@ export function filterConsultasForScreen(
   });
 }
 
-export function buildReportMetrics(filtradas = []) {
-  const ganadas = filtradas.filter(
-    (c) => c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA",
-  );
+function isFollowUpStage(stageName, etapas) {
+  const codigos = ["NUEVO_LEAD", "NEGOCIACION", "A_COTIZAR"];
+  const names = ["NUEVO LEAD", "NEGOCIACION", "A COTIZAR"];
+  const stage = etapas.find((s) => s.pipeline_stage === stageName);
+  if (stage?.codigo) return codigos.includes(stage.codigo);
+  return names.includes(stageName);
+}
+
+function buildEstadoDistData(filtradas, etapas, showWonBreakdown) {
+  const map = {};
+  filtradas.forEach((c) => {
+    const raw = c.pipeline_stage || "Sin estado";
+    const key = showWonBreakdown ? raw : getReportGroupLabel(raw, etapas);
+    if (!map[key]) map[key] = { name: key, value: 0, breakdown: {} };
+    map[key].value += 1;
+    if (!showWonBreakdown && isReportGroupedStage(raw, etapas)) {
+      map[key].breakdown[raw] = (map[key].breakdown[raw] || 0) + 1;
+    }
+  });
+  return Object.values(map).map(({ name, value, breakdown }) => ({
+    name,
+    value,
+    breakdown: Object.keys(breakdown).length ? breakdown : undefined,
+  }));
+}
+
+function buildPipelineFunnelData(filtradas, etapas, showWonBreakdown) {
+  const activeStages = (etapas || [])
+    .filter((s) => s.activa !== false)
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+
+  const funnelStages = activeStages.length
+    ? activeStages.filter((s) => s.orden !== 0 && s.codigo !== "PERDIDA" && s.codigo !== "NUEVO_LEAD")
+    : [];
+
+  if (!funnelStages.length) {
+    const legacy = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
+    return legacy.map((e) => ({
+      pipeline_stage: e,
+      cantidad: filtradas.filter((c) => c.pipeline_stage === e).length,
+      fill: ESTADO_COLORS[e],
+    }));
+  }
+
+  const wonBreakdown = buildWonBreakdown(filtradas, etapas);
+  const rows = [];
+
+  funnelStages.forEach((stage) => {
+    if (!showWonBreakdown && stage.agrupa_en_reporte_codigo) return;
+
+    if (!showWonBreakdown && stage.codigo === WON_UMBRELLA_CODE) {
+      rows.push({
+        pipeline_stage: stage.pipeline_stage,
+        cantidad: wonBreakdown.total,
+        fill: ESTADO_COLORS.GANADA,
+        breakdown: {
+          [wonBreakdown.ganadaLabel]: wonBreakdown.ganada,
+          [wonBreakdown.ejecutadaLabel]: wonBreakdown.ejecutada,
+        },
+      });
+      return;
+    }
+
+    rows.push({
+      pipeline_stage: stage.pipeline_stage,
+      cantidad: filtradas.filter((c) => c.pipeline_stage === stage.pipeline_stage).length,
+      fill: ESTADO_COLORS[stage.pipeline_stage] || ESTADO_COLORS[stage.codigo] || "#94a3b8",
+      breakdown:
+        showWonBreakdown && stage.codigo === WON_UMBRELLA_CODE
+          ? { [wonBreakdown.ganadaLabel]: wonBreakdown.ganada }
+          : undefined,
+    });
+  });
+
+  return rows;
+}
+
+/**
+ * @param {import('./reportesMetrics').ReportConsulta[]} filtradas
+ * @param {{ etapas?: object[], showWonBreakdown?: boolean }} [options]
+ */
+export function buildReportMetrics(filtradas = [], { etapas = [], showWonBreakdown = false } = {}) {
+  const ganadas = filtradas.filter((c) => isWonStage(c.pipeline_stage, etapas));
   const conEstado = filtradas.filter((c) => c.pipeline_stage);
   const tasa =
     conEstado.length > 0 ? ((ganadas.length / conEstado.length) * 100).toFixed(1) : 0;
@@ -189,10 +276,9 @@ export function buildReportMetrics(filtradas = []) {
   const importeGanado = ganadas.reduce((s, c) => s + (c.importe || 0), 0);
   const ticketPromedio = ganadas.length > 0 ? importeGanado / ganadas.length : 0;
   const enSeguimiento = filtradas.filter(
-    (c) =>
-      c.proximoseguimiento &&
-      ["NUEVO LEAD", "NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage),
+    (c) => c.proximoseguimiento && isFollowUpStage(c.pipeline_stage, etapas),
   );
+  const wonBreakdown = buildWonBreakdown(filtradas, etapas);
 
   const kpis = {
     total: filtradas.length,
@@ -211,9 +297,9 @@ export function buildReportMetrics(filtradas = []) {
     if (!porMesMap[key]) {
       porMesMap[key] = { label: key, mes: c.mes, ano: c.ano, ganados: 0, perdidos: 0, otros: 0 };
     }
-    if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
+    if (isWonStage(c.pipeline_stage, etapas)) {
       porMesMap[key].ganados++;
-    } else if (c.pipeline_stage === "PERDIDA") {
+    } else if (isLostStage(c.pipeline_stage, etapas)) {
       porMesMap[key].perdidos++;
     } else {
       porMesMap[key].otros++;
@@ -226,12 +312,7 @@ export function buildReportMetrics(filtradas = []) {
     return (idxA === -1 ? UNKNOWN_MONTH_INDEX : idxA) - (idxB === -1 ? UNKNOWN_MONTH_INDEX : idxB);
   });
 
-  const estadoMap = {};
-  filtradas.forEach((c) => {
-    const e = c.pipeline_stage || "Sin estado";
-    estadoMap[e] = (estadoMap[e] || 0) + 1;
-  });
-  const estadoDistData = Object.entries(estadoMap).map(([name, value]) => ({ name, value }));
+  const estadoDistData = buildEstadoDistData(filtradas, etapas, showWonBreakdown);
 
   const asesorMap = {};
   filtradas.forEach((c) => {
@@ -240,7 +321,7 @@ export function buildReportMetrics(filtradas = []) {
       asesorMap[a] = { asesor: a, total: 0, ganados: 0, importe: 0, m2: 0 };
     }
     asesorMap[a].total++;
-    if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
+    if (isWonStage(c.pipeline_stage, etapas)) {
       asesorMap[a].ganados++;
       asesorMap[a].importe += c.importe || 0;
     }
@@ -273,7 +354,7 @@ export function buildReportMetrics(filtradas = []) {
     const ch = (raw && String(raw).trim()) || "Sin canal";
     if (!canalMap[ch]) canalMap[ch] = { name: ch, cantidad: 0, ganados: 0 };
     canalMap[ch].cantidad++;
-    if (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") {
+    if (isWonStage(c.pipeline_stage, etapas)) {
       canalMap[ch].ganados++;
     }
   });
@@ -322,12 +403,7 @@ export function buildReportMetrics(filtradas = []) {
     };
   }
 
-  const pipelineStages = ["A COTIZAR", "NEGOCIACION", "PAUSADA", "GANADA", "EJECUTADA"];
-  const pipelineData = pipelineStages.map((e) => ({
-    pipeline_stage: e,
-    cantidad: filtradas.filter((c) => c.pipeline_stage === e).length,
-    fill: ESTADO_COLORS[e],
-  }));
+  const pipelineData = buildPipelineFunnelData(filtradas, etapas, showWonBreakdown);
   const maxPipelineVal = Math.max(...pipelineData.map((x) => x.cantidad), 1);
 
   const hoy = moment();
@@ -336,18 +412,18 @@ export function buildReportMetrics(filtradas = []) {
     (c) =>
       c.proximoseguimiento &&
       moment(c.proximoseguimiento).isBefore(hoy, "day") &&
-      ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage),
+      isFollowUpStage(c.pipeline_stage, etapas),
   );
   const proximos = filtradas.filter(
     (c) =>
       c.proximoseguimiento &&
       moment(c.proximoseguimiento).isBetween(hoy, en7dias, "day", "[]") &&
-      ["NEGOCIACION", "A COTIZAR"].includes(c.pipeline_stage),
+      isFollowUpStage(c.pipeline_stage, etapas),
   );
   const tiemposEnPipeline = filtradas
     .filter(
       (c) =>
-        (c.pipeline_stage === "GANADA" || c.pipeline_stage === "EJECUTADA") &&
+        isWonStage(c.pipeline_stage, etapas) &&
         c.created_date,
     )
     .map((c) =>
@@ -361,7 +437,7 @@ export function buildReportMetrics(filtradas = []) {
 
   const seguimientoInfo = { vencidos, proximos, tiempoProm };
 
-  const perdidas = filtradas.filter((c) => c.pipeline_stage === "PERDIDA");
+  const perdidas = filtradas.filter((c) => isLostStage(c.pipeline_stage, etapas));
   const motivosMap = {};
   perdidas.forEach((c) => {
     const m = c.razonperdida || "Sin especificar";
@@ -402,6 +478,7 @@ export function buildReportMetrics(filtradas = []) {
 
   return {
     kpis,
+    wonBreakdown,
     porMesData,
     estadoDistData,
     asesoresData,

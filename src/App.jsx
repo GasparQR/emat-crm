@@ -1,4 +1,6 @@
 import { Toaster } from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "sonner"
+import AppUpdateChecker from "@/components/AppUpdateChecker"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
@@ -12,6 +14,7 @@ import RequireRole from '@/components/auth/RequireRole';
 import ConfiguracionUsuarios from '@/pages/config/ConfiguracionUsuarios';
 import ConfiguracionAsesores from '@/pages/config/ConfiguracionAsesores';
 import ConfiguracionCatalogoProductos from '@/pages/config/ConfiguracionCatalogoProductos';
+import ConfiguracionPipelineEtapas from '@/pages/config/ConfiguracionPipelineEtapas';
 import { canAccessRoute } from '@/lib/permissions';
 
 const { Pages, Layout, mainPage } = pagesConfig;
@@ -97,6 +100,16 @@ const AuthenticatedApp = () => {
               </RequireRole>
             }
           />
+          <Route
+            path="/configuracion/pipeline-etapas"
+            element={
+              <RequireRole roles={['ADMIN']}>
+                <LayoutWrapper currentPageName="Ajustes">
+                  <ConfiguracionPipelineEtapas />
+                </LayoutWrapper>
+              </RequireRole>
+            }
+          />
           <Route path="/" element={
             <LayoutWrapper currentPageName={mainPageKey}>
               <MainPage />
@@ -142,8 +155,10 @@ function App() {
       <QueryClientProvider client={queryClientInstance}>
         <Router>
           <NavigationTracker />
+          <AppUpdateChecker />
           <AuthenticatedApp />
         </Router>
+        <SonnerToaster position="top-right" richColors />
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>

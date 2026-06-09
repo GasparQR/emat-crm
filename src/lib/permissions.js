@@ -1,4 +1,5 @@
 import { resolveDefaultAsesorCodigo } from "@/lib/asesorDefaults";
+import { isWonStage } from "@/lib/pipelineStage";
 
 const ROLE = {
   ADMIN: 'ADMIN',
@@ -62,11 +63,11 @@ export function getDefaultAsesorForUser(user, catalogRows = []) {
   return resolveDefaultAsesorCodigo(user, catalogRows);
 }
 
-export function filterConsultasByVisibility(consultas, user) {
+export function filterConsultasByVisibility(consultas, user, etapas = []) {
   if (!Array.isArray(consultas)) return [];
   if (isAdmin(user)) return consultas;
   if (isLogistica(user)) {
-    return consultas.filter((c) => c.pipeline_stage === 'GANADA' || c.pipeline_stage === 'EJECUTADA');
+    return consultas.filter((c) => isWonStage(c.pipeline_stage, etapas));
   }
   if (isAsesor(user) && !user?.can_view_other_advisors) {
     return consultas.filter((c) =>

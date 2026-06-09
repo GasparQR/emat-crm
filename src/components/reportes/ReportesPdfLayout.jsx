@@ -197,6 +197,7 @@ export default function ReportesPdfLayout({
     maxPipelineVal,
     seguimientoInfo,
     perdidasData,
+    wonBreakdown,
   } = metrics;
 
   useEffect(() => {
@@ -399,9 +400,20 @@ export default function ReportesPdfLayout({
         <div className="space-y-2 mb-4">
           {pipelineData.map((d) => {
             const pct = maxPipelineVal ? (d.cantidad / maxPipelineVal) * 100 : 0;
+            const breakdownText = d.breakdown
+              ? Object.entries(d.breakdown)
+                  .filter(([, n]) => n > 0)
+                  .map(([k, n]) => `${k} (${n})`)
+                  .join(" · ")
+              : null;
             return (
               <div key={d.pipeline_stage} className="flex items-center gap-2">
-                <span className="w-24 text-xs text-right text-slate-600">{d.pipeline_stage}</span>
+                <div className="w-24 text-right shrink-0">
+                  <span className="text-xs text-slate-600 block">{d.pipeline_stage}</span>
+                  {breakdownText && (
+                    <span className="text-[8px] text-emerald-700 block">{breakdownText}</span>
+                  )}
+                </div>
                 <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full flex items-center justify-end pr-2 text-white text-xs font-bold"
@@ -413,6 +425,11 @@ export default function ReportesPdfLayout({
               </div>
             );
           })}
+          {wonBreakdown?.total > 0 && (
+            <p className="text-[9px] text-emerald-700 mt-1">
+              {wonBreakdown.ganadaLabel} ({wonBreakdown.ganada}) · {wonBreakdown.ejecutadaLabel} ({wonBreakdown.ejecutada})
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-3 gap-3 text-center text-sm">
           <div className="rounded border border-red-200 bg-red-50 p-3">

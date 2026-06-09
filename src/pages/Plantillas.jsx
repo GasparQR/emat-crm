@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { entities } from "@/api/supabaseClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const CATEGORIAS = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Civil", "Imper", "General"];
-const ETAPAS = ["NUEVO LEAD", "A COTIZAR", "NEGOCIACION", "GANADA", "EJECUTADA", "PAUSADA", "PERDIDA", "General"];
+const ETAPA_GENERAL = "General";
 
 const VARIABLES = [
   { key: "{NOMBRE}", desc: "Nombre del cliente" },
@@ -62,6 +62,21 @@ export default function Plantillas() {
     queryFn: () => workspace ? entities.PlantillaWhatsApp.filter({ workspace_id: workspace.id }, "-created_date") : [],
     enabled: !!workspace
   });
+
+  const { data: etapas = [] } = useQuery({
+    queryKey: ["pipeline-stages", workspace?.id],
+    queryFn: async () => {
+      if (!workspace) return [];
+      const stages = await entities.PipelineStage.filter({ workspace_id: workspace.id }, "orden", 100);
+      return stages.filter((s) => s.activa !== false);
+    },
+    enabled: !!workspace,
+  });
+
+  const etapaOptions = useMemo(
+    () => [...etapas.map((s) => s.pipeline_stage), ETAPA_GENERAL],
+    [etapas],
+  );
 
   const { data: variablesDB = [] } = useQuery({
     queryKey: ['variables', workspace?.id],
@@ -306,7 +321,7 @@ export default function Plantillas() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ETAPAS.map(e => (
+                    {etapaOptions.map(e => (
                       <SelectItem key={e} value={e}>{e}</SelectItem>
                     ))}
                   </SelectContent>

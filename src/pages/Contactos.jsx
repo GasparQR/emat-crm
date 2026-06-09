@@ -97,7 +97,10 @@ export default function Contactos() {
     enabled: !!workspace,
   });
 
-  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, currentUser), [consultas, currentUser]);
+  const visibleConsultas = useMemo(
+    () => filterConsultasByVisibility(consultas, currentUser, pipelineStages),
+    [consultas, currentUser, pipelineStages],
+  );
   const visibleContactos = useMemo(() => filterContactosByVisibility(contactos, currentUser), [contactos, currentUser]);
 
   const consultaMap = useMemo(() => {

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Settings, MessageSquare, Users, UserCog, Package } from "lucide-react";
+import { ArrowLeft, Settings, MessageSquare, Users, UserCog, Package, Layers } from "lucide-react";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { isAdmin } from "@/lib/permissions";
 
@@ -46,6 +46,13 @@ export default function Ajustes() {
             icon: Package,
             to: "/configuracion/catalogo-productos",
             color: "bg-amber-100 text-amber-700",
+          },
+          {
+            title: "Etapas del pipeline",
+            description: "Nombres, colores y orden de columnas del Kanban",
+            icon: Layers,
+            to: "/configuracion/pipeline-etapas",
+            color: "bg-teal-100 text-teal-700",
           },
         ]
       : []),

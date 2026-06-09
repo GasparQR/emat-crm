@@ -18,6 +18,7 @@ import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { isWonStage } from "@/lib/pipelineStage";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
@@ -84,12 +85,15 @@ export default function Hoy() {
   const today = moment();
 
   const baseFilter = (c) => {
-    if (isLogistica && c.pipeline_stage !== "GANADA" && c.pipeline_stage !== "EJECUTADA") return false;
+    if (isLogistica && !isWonStage(c.pipeline_stage, etapas)) return false;
     if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
     return true;
   };
 
-  const visibleConsultas = useMemo(() => filterConsultasByVisibility(consultas, user), [consultas, user]);
+  const visibleConsultas = useMemo(
+    () => filterConsultasByVisibility(consultas, user, etapas),
+    [consultas, user, etapas],
+  );
   const filterAsesorOptions = useMemo(
     () => buildAsesorFilterOptions(asesorOptions, visibleConsultas),
     [asesorOptions, visibleConsultas]
