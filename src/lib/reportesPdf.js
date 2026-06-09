@@ -167,6 +167,29 @@ export async function buildReportesPdfFromElement(rootEl, { meta = {}, onProgres
   return doc;
 }
 
+/**
+ * @typedef {Object} ReportPdfMeta
+ * @property {string} [title]
+ * @property {string} [dateCriteriaLabel]
+ * @property {string} [asesorLabel]
+ * @property {number} [totalCount]
+ * @property {number} [previousCount]
+ * @property {string} [prevDesde]
+ * @property {string} [prevHasta]
+ * @property {string} [generatedBy]
+ */
+
+/**
+ * @typedef {Object} DownloadReportesPdfOptions
+ * @property {string} [desde]
+ * @property {string} [hasta]
+ * @property {ReportPdfMeta} [meta]
+ * @property {(progress: { sectionIndex: number, totalSections: number }) => void} [onProgress]
+ */
+
+/**
+ * @param {DownloadReportesPdfOptions} [options]
+ */
 export async function downloadReportesPdf({ desde, hasta, meta = {}, onProgress } = {}) {
   const rootEl = document.getElementById(PDF_ROOT_ID);
   const doc = await buildReportesPdfFromElement(rootEl, {
