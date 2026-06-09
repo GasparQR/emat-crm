@@ -516,5 +516,6 @@ export const entities = {
   Mensaje: createEntityProxy('mensaje'),
   ListaWhatsApp: createEntityProxy('listawhatsapp'),
   VariablePlantilla: createEntityProxy('variableplantilla'),
+  CatalogoProducto: createEntityProxy('catalogo_producto'),
   Usuario: createEntityProxy('usuario'),
 };

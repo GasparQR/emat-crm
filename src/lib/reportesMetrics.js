@@ -146,6 +146,7 @@ export function buildReportMetrics(filtradas = []) {
 
   const kpis = {
     total: filtradas.length,
+    ganadasCount: ganadas.length,
     tasa,
     m2Total: Math.round(m2Total),
     fibraKgTotal: Math.round(fibraKgTotal),

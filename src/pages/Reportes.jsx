@@ -15,8 +15,8 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Legend, CartesianGrid,
 } from "recharts";
 import {
-  TrendingUp, ArrowLeft, Target, Layers,
-  DollarSign, Calendar, CheckCircle, Clock, XCircle, AlertCircle, FileDown,
+  TrendingUp, ArrowLeft,
+  Calendar, CheckCircle, Clock, XCircle, AlertCircle, FileDown,
 } from "lucide-react";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { Link } from "react-router-dom";
@@ -39,12 +39,15 @@ import {
   filterConsultasForScreen,
   fmt,
   fmtCompacto,
-  fmtMonthYear,
   fmtPesos,
   fmtPesosCompacto,
 } from "@/lib/reportesMetrics";
+import { getScreenDateRange } from "@/lib/reportesComparative";
+import { buildReportBundle } from "@/lib/reportesBundle";
 import { downloadReportesPdf } from "@/lib/reportesPdf";
 import ReportesPdfLayout from "@/components/reportes/ReportesPdfLayout";
+import HealthScoreCard from "@/components/reportes/HealthScoreCard";
+import KpiCardWithDelta from "@/components/reportes/KpiCardWithDelta";
 
 const ESTADO_BADGE = {
   "A COTIZAR": "bg-slate-100 text-slate-700",
@@ -146,6 +149,24 @@ export default function Reportes() {
     perdidasData,
   } = useMemo(() => buildReportMetrics(filtradas), [filtradas]);
 
+  const screenDateRange = useMemo(
+    () => getScreenDateRange({ filtroMesAno, filtroAno, mesesOrden: MESES_ORDEN }),
+    [filtroMesAno, filtroAno],
+  );
+
+  const screenBundle = useMemo(() => {
+    if (!visibleConsultas.length) return null;
+    return buildReportBundle(visibleConsultas, {
+      mode: DATE_CRITERIA.PRESUPUESTO,
+      desde: screenDateRange.desde,
+      hasta: screenDateRange.hasta,
+      asesor: filtroAsesor,
+    });
+  }, [visibleConsultas, screenDateRange, filtroAsesor]);
+
+  const { comparative: screenComparative, healthScore: screenHealthScore, insights: screenInsights } =
+    screenBundle || {};
+
   const asesorExportLabel =
     filtroAsesor === "todos"
       ? canViewAll
@@ -182,17 +203,44 @@ export default function Reportes() {
       return;
     }
 
-    const metrics = buildReportMetrics(filtradasExport);
+    if (filtradasExport.length > 1500) {
+      toast.warning("El rango incluye muchos presupuestos; la exportación puede demorar.");
+    }
+
+    const bundle = buildReportBundle(visibleConsultas, {
+      mode: exportMode,
+      desde: exportDesde,
+      hasta: exportHasta,
+      asesor: filtroAsesor,
+    });
+
     setExportOpen(false);
     setExporting(true);
 
     pdfReadyRef.current = async () => {
+      const toastId = toast.loading("Generando PDF…");
       try {
-        await downloadReportesPdf({ desde: exportDesde, hasta: exportHasta });
-        toast.success("PDF exportado correctamente");
+        await downloadReportesPdf({
+          desde: exportDesde,
+          hasta: exportHasta,
+          meta: {
+            title: canViewAll ? "Reportes & Analytics" : "Mis reportes",
+            dateCriteriaLabel: DATE_CRITERIA_LABELS[exportMode],
+            asesorLabel: asesorExportLabel,
+            totalCount: bundle.filtradas.length,
+            previousCount: bundle.meta.previousCount,
+            prevDesde: bundle.meta.prevDesde,
+            prevHasta: bundle.meta.prevHasta,
+            generatedBy: user?.email || user?.nombre || user?.asesor_codigo,
+          },
+          onProgress: ({ sectionIndex, totalSections }) => {
+            toast.loading(`Capturando sección ${sectionIndex}/${totalSections}…`, { id: toastId });
+          },
+        });
+        toast.success("PDF exportado correctamente", { id: toastId });
       } catch (error) {
         console.error(error);
-        toast.error("Error al exportar el PDF");
+        toast.error("Error al exportar el PDF", { id: toastId });
       } finally {
         setPdfRender(null);
         setExporting(false);
@@ -200,14 +248,21 @@ export default function Reportes() {
     };
 
     setPdfRender({
-      metrics,
+      metrics: bundle.metrics,
+      comparative: bundle.comparative,
+      healthScore: bundle.healthScore,
+      insights: bundle.insights,
       meta: {
         title: canViewAll ? "Reportes & Analytics" : "Mis reportes",
         desde: exportDesde,
         hasta: exportHasta,
+        prevDesde: bundle.meta.prevDesde,
+        prevHasta: bundle.meta.prevHasta,
         dateCriteriaLabel: DATE_CRITERIA_LABELS[exportMode],
         asesorLabel: asesorExportLabel,
-        totalCount: filtradasExport.length,
+        totalCount: bundle.filtradas.length,
+        previousCount: bundle.meta.previousCount,
+        generatedBy: user?.email || user?.nombre || user?.asesor_codigo,
       },
       canViewAll,
     });
@@ -354,6 +409,9 @@ export default function Reportes() {
           <ReportesPdfLayout
             metrics={pdfRender.metrics}
             meta={pdfRender.meta}
+            comparative={pdfRender.comparative}
+            healthScore={pdfRender.healthScore}
+            insights={pdfRender.insights}
             canViewAll={pdfRender.canViewAll}
             getAsesorHexColor={getAsesorHexColor}
             onReady={() => pdfReadyRef.current?.()}
@@ -372,83 +430,74 @@ export default function Reportes() {
 
           {/* TAB 1: DASHBOARD EJECUTIVO */}
           <TabsContent value="ejecutivo" className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5" />Total presupuestos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{kpis.total}</p>
-                </CardContent>
-              </Card>
+            {screenHealthScore && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <HealthScoreCard healthScore={screenHealthScore} className="lg:col-span-1" />
+                {screenInsights?.length > 0 && (
+                  <Card className="lg:col-span-2">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">Hallazgos destacados</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {screenInsights.slice(0, 5).map((item, i) => (
+                        <div key={`${item.title}-${i}`} className="text-sm border-b border-slate-100 pb-2 last:border-0">
+                          <p className="font-semibold text-slate-800">{item.title}</p>
+                          <p className="text-slate-600 mt-0.5">{item.body}</p>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" />Tasa conversion
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-emerald-600">{kpis.tasa}%</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Target className="w-3.5 h-3.5" />m² cotizados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.m2Total)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Target className="w-3.5 h-3.5" />Fibra kg
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-slate-900">{fmtCompacto(kpis.fibraKgTotal)}</p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-green-700 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5" />Importe ganado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-800">{fmtPesosCompacto(kpis.importeGanado)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5" />Ticket promedio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900">{fmtPesosCompacto(kpis.ticketPromedio)}</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />En seguimiento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-amber-600">{kpis.enSeguimiento}</p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <KpiCardWithDelta
+                label="Total presupuestos"
+                value={kpis.total}
+                delta={screenComparative?.total}
+                accent="blue"
+              />
+              <KpiCardWithDelta
+                label="Tasa conversión"
+                value={`${kpis.tasa}%`}
+                delta={screenComparative?.tasa}
+                accent="green"
+              />
+              <KpiCardWithDelta
+                label="m² cotizados"
+                value={fmtCompacto(kpis.m2Total)}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="Fibra kg"
+                value={fmtCompacto(kpis.fibraKgTotal)}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="Importe ganado"
+                value={fmtPesosCompacto(kpis.importeGanado)}
+                delta={screenComparative?.importeGanado}
+                accent="green"
+              />
+              <KpiCardWithDelta
+                label="Ticket promedio"
+                value={fmtPesosCompacto(kpis.ticketPromedio)}
+                delta={screenComparative?.ticketPromedio}
+                accent="slate"
+              />
+              <KpiCardWithDelta
+                label="En seguimiento"
+                value={kpis.enSeguimiento}
+                delta={screenComparative?.enSeguimiento}
+                accent="amber"
+              />
+              <KpiCardWithDelta
+                label="Ganadas"
+                value={kpis.ganadasCount ?? "—"}
+                delta={screenComparative?.ganadas}
+                accent="green"
+              />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
