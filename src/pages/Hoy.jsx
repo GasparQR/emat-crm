@@ -20,15 +20,21 @@ import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
 import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
 import { isWonStage } from "@/lib/pipelineStage";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
+import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
+import useWorkspaceViewConfig from "@/hooks/useWorkspaceViewConfig";
+import useViewSessionFilters from "@/hooks/useViewSessionFilters";
+import { isFilterEnabled, matchesMultiFilter } from "@/lib/viewLayout";
 
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [selectedConsulta, setSelectedConsulta] = useState(null);
-  const [filtroAsesor, setFiltroAsesor] = useState("todos");
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const workspaceId = workspace?.id || "local";
+  const { viewConfig } = useWorkspaceViewConfig(workspaceId);
+  const { getFilter, setFilter } = useViewSessionFilters("hoy", workspaceId, ["asesor"]);
   const { user } = useAuth();
   const isLogistica = roleIsLogistica(user);
   const { asesorOptions, getAsesorNombre } = useAsesores(user);
@@ -55,7 +61,6 @@ export default function Hoy() {
     [etapas]
   );
 
-  const workspaceId = workspace?.id || "local";
   const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const stageMutation = useMutation({
@@ -86,7 +91,7 @@ export default function Hoy() {
 
   const baseFilter = (c) => {
     if (isLogistica && !isWonStage(c.pipeline_stage, etapas)) return false;
-    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
+    if (!matchesMultiFilter(getFilter("asesor"), c.asesor)) return false;
     return true;
   };
 
@@ -177,19 +182,17 @@ export default function Hoy() {
               {today.format("dddd, DD [de] MMMM [de] YYYY")}
             </p>
           </div>
-          <div className="w-full sm:w-48">
-            <Select value={filtroAsesor} onValueChange={setFiltroAsesor}>
-              <SelectTrigger>
-                <SelectValue placeholder="Asesor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los asesores</SelectItem>
-                {filterAsesorOptions.map((a) => (
-                  <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isFilterEnabled("hoy", viewConfig, "asesor") && (
+            <div className="w-full sm:w-48">
+              <MultiSelectFilter
+                label="Asesor"
+                options={filterAsesorOptions.map((a) => ({ value: a.value, label: a.label }))}
+                selected={getFilter("asesor")}
+                onChange={(v) => setFilter("asesor", v)}
+                triggerClassName="w-full"
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

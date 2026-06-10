@@ -35,6 +35,7 @@ import {
   isNropptoUniqueViolation,
   peekNextConsultaNroPpto,
 } from "@/lib/consultaNroppto";
+import { mapContactoToConsultaPrefill } from "@/lib/contactoConsulta";
 
 export const CANALES = ["Referido", "Meta", "Google", "WhatsApp", "Agente", "Cliente Fidelidad", "Otro"];
 const TIPOS_APLICACION = ["Soplado", "Proyectado", "Pegado", "Bolsa", "Imper", "Otro"];
@@ -130,7 +131,18 @@ function buildFallbackPayload(payload, err) {
   return next;
 }
 
-export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
+function mergeContactPrefill(base, prefillFromContact) {
+  if (!prefillFromContact) return base;
+  const prefill = mapContactoToConsultaPrefill(prefillFromContact);
+  return {
+    ...base,
+    ...prefill,
+    asesor: prefill.asesor || base.asesor,
+    notas: prefill.notas || base.notas,
+  };
+}
+
+export default function ConsultaForm({ open, onOpenChange, consulta, onSave, prefillFromContact = null }) {
   const [formData, setFormData] = useState(emptyForm());
   const [loading, setLoading] = useState(false);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -233,7 +245,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
         const defaults = emptyForm();
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
-          setFormData({
+          setFormData(mergeContactPrefill({
             ...defaults,
             nroPpto: String(proximoNro),
             asesor: defaultAsesorCodigo || defaults.asesor,
@@ -241,13 +253,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
             observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
             iva: presupuestoDefaults.defaultIva,
-          });
+          }, prefillFromContact));
         }
       } catch {
         const defaults = emptyForm();
         const proximoSeguimiento = getNextFollowUpDate(currentUser?.consulta_follow_up_days);
         if (active) {
-          setFormData({
+          setFormData(mergeContactPrefill({
             ...defaults,
             nroPpto: 1,
             asesor: defaultAsesorCodigo || defaults.asesor,
@@ -255,7 +267,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
             condicionesComerciales: presupuestoDefaults.condicionesComerciales || defaults.condicionesComerciales,
             observaciones: presupuestoDefaults.observaciones || defaults.observaciones,
             iva: presupuestoDefaults.defaultIva,
-          });
+          }, prefillFromContact));
         }
       }
     };
@@ -265,6 +277,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave }) {
   }, [
     consulta,
     open,
+    prefillFromContact,
     workspace?.id,
     presupuestoDefaults.condicionesComerciales,
     presupuestoDefaults.observaciones,

@@ -139,9 +139,9 @@ export function resolveConsultaDate(consulta, mode = DATE_CRITERIA.PRESUPUESTO) 
 
 /**
  * @typedef {Object} ReportScreenFilterOptions
- * @property {string} [filtroAsesor]
- * @property {string} [filtroAno]
- * @property {string} [filtroMesAno]
+ * @property {string|string[]} [filtroAsesor]
+ * @property {string|string[]} [filtroAno]
+ * @property {string|string[]} [filtroMesAno]
  */
 
 /**
@@ -156,12 +156,21 @@ export function filterConsultasForReport(
   const to = moment(hasta).endOf("day");
   if (!from.isValid() || !to.isValid()) return [];
 
+  const asesores = normalizeFilterValues(asesor);
+
   return (consultas || []).filter((c) => {
-    if (asesor !== "todos" && c.asesor !== asesor) return false;
+    if (asesores.length && !asesores.includes(c.asesor)) return false;
     const date = resolveConsultaDate(c, mode);
     if (!date) return false;
     return date.isBetween(from, to, "day", "[]");
   });
+}
+
+/** Normalize legacy single-value or multi-value filter inputs */
+export function normalizeFilterValues(val) {
+  if (Array.isArray(val)) return val.filter(Boolean);
+  if (!val || val === "todos" || val === "todas") return [];
+  return [String(val)];
 }
 
 /**
@@ -172,14 +181,22 @@ export function filterConsultasForScreen(
   consultas,
   { filtroAsesor, filtroAno, filtroMesAno } = {},
 ) {
+  const asesores = normalizeFilterValues(filtroAsesor);
+  const anos = normalizeFilterValues(filtroAno);
+  const mesAnos = normalizeFilterValues(filtroMesAno);
+
   return (consultas || []).filter((c) => {
-    if (filtroAsesor !== "todos" && c.asesor !== filtroAsesor) return false;
-    if (filtroAno !== "todos" && String(c.ano) !== filtroAno) return false;
-    if (filtroMesAno !== "todos") {
-      const [mesSel, anoSel] = filtroMesAno.split("|");
+    if (asesores.length && !asesores.includes(c.asesor)) return false;
+    if (anos.length && !anos.includes(String(c.ano))) return false;
+    if (mesAnos.length) {
       const mesConsulta = String(c?.mes || "").trim().toUpperCase();
       const anoConsulta = String(c?.ano || "").trim();
-      if (mesConsulta !== mesSel || anoConsulta !== anoSel) return false;
+      const match = mesAnos.some((ma) => {
+        const [mesSel, anoSel] = ma.split("|");
+        return mesConsulta === String(mesSel).trim().toUpperCase()
+          && anoConsulta === String(anoSel).trim();
+      });
+      if (!match) return false;
     }
     return true;
   });
