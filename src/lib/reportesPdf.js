@@ -13,7 +13,38 @@ export function buildReportesFileName({ desde, hasta }) {
   return `Reportes EMAT ${desde}_${hasta}.pdf`;
 }
 
+export function waitForImagesInElement(rootEl, timeoutMs = 5000) {
+  if (!rootEl) return Promise.resolve();
+  const images = Array.from(rootEl.querySelectorAll("img"));
+  const pending = images.filter((img) => !img.complete);
+  if (pending.length === 0) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    const timer = setTimeout(done, timeoutMs);
+    let remaining = pending.length;
+    pending.forEach((img) => {
+      const onFinish = () => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearTimeout(timer);
+          done();
+        }
+      };
+      img.addEventListener("load", onFinish, { once: true });
+      img.addEventListener("error", onFinish, { once: true });
+    });
+  });
+}
+
 export async function waitForChartsPaint(rootEl) {
+  await waitForImagesInElement(rootEl);
+
   await new Promise((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(resolve));
   });
