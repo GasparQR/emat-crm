@@ -2,6 +2,8 @@ import { jsPDF } from "jspdf";
 import { parseConsultaItems } from "@/utils/parseConsultaItems";
 import { parseIvaPercent, formatIvaLabel } from "@/lib/consultaIva";
 import { EMAT_LOGO_DATA_URI, EMAT_LOGO_BASE64 } from "@/lib/brandAssets";
+import { getPdfFooterLinks } from "@/lib/consultaDefaults";
+import { workspaceSettingsApi } from "@/api/supabaseClient";
 
 const LOGO_ASPECT = 769 / 324;
 const LOGO_HEIGHT_MM = 12;
@@ -78,7 +80,41 @@ const drawHeaderRect = (doc, x, y, w, h, bgColor, textColor) => {
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 };
 
-export const buildConsultaPdf = (consulta) => {
+export function formatPdfFooterSocialLine(footerLinks = {}) {
+  const parts = [];
+  if (footerLinks.instagram) {
+    parts.push(`Instagram: ${footerLinks.instagram}`);
+  }
+  if (footerLinks.website) {
+    parts.push(footerLinks.website);
+  }
+  if (footerLinks.linkedin) {
+    parts.push(`LinkedIn: ${footerLinks.linkedin}`);
+  }
+  return parts.join("  ·  ");
+}
+
+function drawPdfFooter(doc, pageWidth, pageHeight, c, footerLinks = {}) {
+  const socialLine = formatPdfFooterSocialLine(footerLinks);
+  let footerY = pageHeight - 6;
+
+  if (socialLine) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(socialLine, pageWidth / 2, footerY, { align: "center" });
+    footerY = pageHeight - 12;
+  } else {
+    footerY = pageHeight - 12;
+  }
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Cotizó ${fmt(c.firmaAsesor || c.asesor, "Asesor")}`, 14, footerY);
+}
+
+export const buildConsultaPdf = (consulta, { footerLinks } = {}) => {
   const c = normalizeConsulta(consulta);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -251,22 +287,28 @@ export const buildConsultaPdf = (consulta) => {
   doc.text(condLines, 14, contentY);
   contentY += condLines.length * 3 + 3;
 
-  // === FIRMA Y DATOS COTIZADOR ===
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text(`Cotizó ${fmt(c.firmaAsesor || c.asesor, "Asesor")}`, 14, pageHeight - 12);
+  // === FIRMA Y REDES SOCIALES ===
+  drawPdfFooter(doc, pageWidth, pageHeight, c, footerLinks);
 
   return doc;
 };
 
-export const openConsultaPdf = (consulta) => {
+async function resolveFooterLinksForConsulta(consulta) {
+  const workspaceId = consulta?.workspace_id ?? consulta?.workspaceId ?? "local";
+  const settings = await workspaceSettingsApi.get(workspaceId);
+  return getPdfFooterLinks(settings);
+}
+
+export const openConsultaPdf = async (consulta) => {
   const c = normalizeConsulta(consulta);
-  const doc = buildConsultaPdf(c);
+  const footerLinks = await resolveFooterLinksForConsulta(consulta);
+  const doc = buildConsultaPdf(c, { footerLinks });
   doc.save(buildConsultaFileName(c));
 };
 
-export const saveConsultaPdf = (consulta) => {
+export const saveConsultaPdf = async (consulta) => {
   const c = normalizeConsulta(consulta);
-  const doc = buildConsultaPdf(c);
+  const footerLinks = await resolveFooterLinksForConsulta(consulta);
+  const doc = buildConsultaPdf(c, { footerLinks });
   doc.save(buildConsultaFileName(c));
 };

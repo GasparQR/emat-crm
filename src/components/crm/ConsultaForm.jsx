@@ -157,6 +157,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave, pre
   const { data: currentUser } = useCurrentUser();
   const { asesorOptions, defaultAsesorCodigo } = useAsesores(currentUser);
   const { resolved: presupuestoDefaults } = useConsultaDefaults();
+  const pdfFooterLinks = presupuestoDefaults.footerLinks;
   const { setCallTarget, clearCallTarget } = useActiveCall();
 
   const { data: etapas = [] } = useQuery({
@@ -646,7 +647,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave, pre
       asesor: asesorResolved.codigo,
       firmaasesor: asesorResolved.firma,
     };
-    const doc = buildConsultaPdf(payload);
+    const doc = buildConsultaPdf(payload, { footerLinks: pdfFooterLinks });
     const blob = doc.output("blob");
     if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
     const url = URL.createObjectURL(blob);
@@ -657,7 +658,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave, pre
 
   const downloadPreviewPdf = () => {
     if (!previewPayload) return;
-    const doc = buildConsultaPdf(previewPayload);
+    const doc = buildConsultaPdf(previewPayload, { footerLinks: pdfFooterLinks });
     const nro = previewPayload.nroppto || "S/N";
     const cliente = previewPayload.contactoNombre || "Cliente";
     doc.save(`Presupuesto nº ${nro} - ${cliente}.pdf`);

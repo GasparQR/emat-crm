@@ -13,5 +13,14 @@ export function getConsultaPresupuestoDefaults(workspaceSettings, user) {
     condicionesComerciales: userCond.trim() || globalCond.trim() || "",
     observaciones: userObs.trim() || globalObs.trim() || "",
     defaultIva: parseIvaPercent(workspaceSettings?.consulta_default_iva, 21),
+    footerLinks: getPdfFooterLinks(workspaceSettings),
+  };
+}
+
+export function getPdfFooterLinks(workspaceSettings) {
+  return {
+    instagram: (workspaceSettings?.pdf_footer_instagram ?? "").trim(),
+    website: (workspaceSettings?.pdf_footer_website ?? "").trim(),
+    linkedin: (workspaceSettings?.pdf_footer_linkedin ?? "").trim(),
   };
 }

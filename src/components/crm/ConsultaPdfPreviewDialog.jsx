@@ -2,16 +2,19 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { buildConsultaPdf, normalizeConsulta, buildConsultaFileName } from "@/lib/consultaPdf";
+import { useConsultaDefaults } from "@/components/hooks/useConsultaDefaults";
 
 export default function ConsultaPdfPreviewDialog({ consulta, open, onOpenChange }) {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState("");
   const [previewPayload, setPreviewPayload] = useState(null);
+  const { resolved } = useConsultaDefaults();
+  const pdfFooterLinks = resolved.footerLinks;
 
   useEffect(() => {
     if (!open || !consulta) return;
 
     const payload = normalizeConsulta(consulta);
-    const doc = buildConsultaPdf(payload);
+    const doc = buildConsultaPdf(payload, { footerLinks: pdfFooterLinks });
     const blob = doc.output("blob");
     const url = URL.createObjectURL(blob);
     setPreviewPayload(payload);
@@ -20,7 +23,7 @@ export default function ConsultaPdfPreviewDialog({ consulta, open, onOpenChange 
     return () => {
       URL.revokeObjectURL(url);
     };
-  }, [open, consulta?.id]);
+  }, [open, consulta?.id, pdfFooterLinks]);
 
   const handleOpenChange = (next) => {
     if (!next) {
@@ -32,7 +35,7 @@ export default function ConsultaPdfPreviewDialog({ consulta, open, onOpenChange 
 
   const downloadPdf = () => {
     if (!previewPayload) return;
-    const doc = buildConsultaPdf(previewPayload);
+    const doc = buildConsultaPdf(previewPayload, { footerLinks: pdfFooterLinks });
     doc.save(buildConsultaFileName(previewPayload));
   };
 

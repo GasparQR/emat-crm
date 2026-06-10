@@ -500,6 +500,18 @@ export const workspaceSettingsApi = {
         fields.frequent_cities
         ?? existing?.frequent_cities
         ?? [],
+      pdf_footer_instagram:
+        fields.pdf_footer_instagram
+        ?? existing?.pdf_footer_instagram
+        ?? '',
+      pdf_footer_website:
+        fields.pdf_footer_website
+        ?? existing?.pdf_footer_website
+        ?? '',
+      pdf_footer_linkedin:
+        fields.pdf_footer_linkedin
+        ?? existing?.pdf_footer_linkedin
+        ?? '',
       updated_date: new Date().toISOString(),
     };
     const { data, error } = await supabase
