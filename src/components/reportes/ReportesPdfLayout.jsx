@@ -12,7 +12,7 @@ import {
   fmtPesosCompacto,
 } from "@/lib/reportesMetrics";
 import { PDF_ROOT_ID } from "@/lib/reportesPdf";
-import { EMAT_LOGO_DATA_URI } from "@/lib/brandAssets";
+import { EMAT_LOGO_URL } from "@/lib/brandAssets";
 import { INSIGHT_TYPE_STYLES, REPORTES_THEME } from "@/lib/reportesTheme";
 import { getSectionConclusion } from "@/lib/reportesInsights";
 import HealthScoreCard from "@/components/reportes/HealthScoreCard";
@@ -237,7 +237,7 @@ export default function ReportesPdfLayout({
           }}
         >
           <div className="flex items-start justify-between">
-            <img src={EMAT_LOGO_DATA_URI} alt="EMAT" className="h-12 object-contain brightness-0 invert" />
+            <img src={EMAT_LOGO_URL} alt="EMAT" className="h-12 w-auto object-contain" />
             <span className="text-[10px] uppercase tracking-widest border border-white/30 rounded-full px-3 py-1">
               Confidencial · Uso interno
             </span>

@@ -488,13 +488,13 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave, pre
       toast.error("El nombre es requerido");
       return;
     }
+    if (!consulta?.id && !formData.canalOrigen) {
+      toast.error("El canal de origen es requerido");
+      return;
+    }
     if (formData.etapa === "NUEVO LEAD") {
       if (!formData.contactoWhatsapp?.trim()) {
         toast.error("El número de teléfono / WhatsApp es requerido para NUEVO LEAD");
-        return;
-      }
-      if (!formData.canalOrigen) {
-        toast.error("El canal de origen es requerido para NUEVO LEAD");
         return;
       }
       if (!formData.asesor) {
@@ -708,7 +708,7 @@ export default function ConsultaForm({ open, onOpenChange, consulta, onSave, pre
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label>Canal de origen</Label>
+                <Label>Canal de origen{!consulta?.id ? " *" : ""}</Label>
                 <Select value={formData.canalOrigen} onValueChange={v => set("canalOrigen", v)}>
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>{CANALES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
