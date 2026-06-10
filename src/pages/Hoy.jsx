@@ -61,7 +61,6 @@ export default function Hoy() {
     [etapas]
   );
 
-  const workspaceId = workspace?.id || "local";
   const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const stageMutation = useMutation({
