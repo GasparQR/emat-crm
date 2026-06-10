@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Ruler, FileText } from "lucide-react";
+import { Plus, Search, Calendar, MoreHorizontal, ArrowLeft, Trash2, MapPin, Ruler, Weight, FileText } from "lucide-react";
+import { getConsultaCantidadDisplay } from "@/lib/consultaDisplay";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import ConsultaForm from "@/components/crm/ConsultaForm";
@@ -244,13 +245,18 @@ export default function Consultas() {
             title={getAsesorNombre(c.asesor) || c.asesor}
           />
         ) : null;
-      case "m2_tipo":
-        return c.superficiem2 ? (
+      case "m2_tipo": {
+        const cantidad = getConsultaCantidadDisplay(c);
+        if (!cantidad) return null;
+        const Icon = cantidad.kind === "m2" ? Ruler : Weight;
+        const label = cantidad.kind === "m2" ? `${cantidad.value} m²` : `${cantidad.value} kg`;
+        return (
           <div className="flex items-center gap-1 text-sm font-medium">
-            <Ruler className="w-3 h-3 text-slate-400 flex-shrink-0" />
-            <span className="truncate">{c.superficiem2} m²</span>
+            <Icon className="w-3 h-3 text-slate-400 flex-shrink-0" />
+            <span className="truncate">{label}</span>
           </div>
-        ) : null;
+        );
+      }
       case "importe":
         return c.importe ? (
           <span className="font-bold text-slate-900 text-sm truncate block">
