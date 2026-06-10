@@ -40,6 +40,10 @@ export default function Configuracion() {
   const [firmasAsesor, setFirmasAsesor] = useState({});
   const [miFirma, setMiFirma] = useState("");
   const [savingGlobalTexts, setSavingGlobalTexts] = useState(false);
+  const [footerInstagram, setFooterInstagram] = useState("");
+  const [footerWebsite, setFooterWebsite] = useState("");
+  const [footerLinkedin, setFooterLinkedin] = useState("");
+  const [savingFooterLinks, setSavingFooterLinks] = useState(false);
   const [savingPersonalTexts, setSavingPersonalTexts] = useState(false);
   const [savingFirmas, setSavingFirmas] = useState(false);
   const [savingMiFirma, setSavingMiFirma] = useState(false);
@@ -116,6 +120,9 @@ export default function Configuracion() {
     setGlobalCondiciones(workspaceSettings.consulta_default_condiciones_comerciales ?? "");
     setGlobalObservaciones(workspaceSettings.consulta_default_observaciones ?? "");
     setGlobalDefaultIva(ivaSelectValue(workspaceSettings.consulta_default_iva ?? 21));
+    setFooterInstagram(workspaceSettings.pdf_footer_instagram ?? "");
+    setFooterWebsite(workspaceSettings.pdf_footer_website ?? "");
+    setFooterLinkedin(workspaceSettings.pdf_footer_linkedin ?? "");
   }, [workspaceSettings]);
 
   useEffect(() => {
@@ -194,6 +201,24 @@ export default function Configuracion() {
       toast.error("Error al guardar textos globales");
     } finally {
       setSavingGlobalTexts(false);
+    }
+  };
+
+  const handleSaveFooterLinks = async () => {
+    if (!userIsAdmin) return;
+    setSavingFooterLinks(true);
+    try {
+      await workspaceSettingsApi.upsert(workspaceId, {
+        pdf_footer_instagram: footerInstagram.trim(),
+        pdf_footer_website: footerWebsite.trim(),
+        pdf_footer_linkedin: footerLinkedin.trim(),
+      });
+      invalidatePresupuestoCaches();
+      toast.success("Redes del pie de PDF guardadas");
+    } catch {
+      toast.error("Error al guardar redes del PDF");
+    } finally {
+      setSavingFooterLinks(false);
     }
   };
 
@@ -425,6 +450,47 @@ export default function Configuracion() {
             </Button>
           </CardContent>
         </Card>
+
+        {userIsAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Redes en pie de PDF</CardTitle>
+              <CardDescription>
+                Instagram, sitio web y LinkedIn que aparecen al pie del presupuesto en PDF. Los campos vacíos no se muestran.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Instagram</Label>
+                <Input
+                  value={footerInstagram}
+                  onChange={(e) => setFooterInstagram(e.target.value)}
+                  placeholder="@emat o URL completa"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Sitio web</Label>
+                <Input
+                  value={footerWebsite}
+                  onChange={(e) => setFooterWebsite(e.target.value)}
+                  placeholder="www.emat.com.ar"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>LinkedIn</Label>
+                <Input
+                  value={footerLinkedin}
+                  onChange={(e) => setFooterLinkedin(e.target.value)}
+                  placeholder="linkedin.com/company/emat"
+                />
+              </div>
+              <Button onClick={handleSaveFooterLinks} disabled={savingFooterLinks} className="gap-2">
+                {savingFooterLinks && <Loader2 className="w-4 h-4 animate-spin" />}
+                Guardar redes del PDF
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {userIsAdmin ? (
           <Card>
