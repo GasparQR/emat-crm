@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Ruler } from "lucide-react";
+import { Calendar, MapPin, Ruler, Weight } from "lucide-react";
+import { getConsultaCantidadDisplay } from "@/lib/consultaDisplay";
 import { cn } from "@/lib/utils";
 import moment from "moment";
 import QuickCallButton from "./QuickCallButton";
@@ -21,6 +22,7 @@ export default function MobileConsultaListItem({
   const { data: currentUser } = useCurrentUser();
   const { getAsesorNombre } = useAsesores(currentUser);
   const fechaGanado = getFechaGanadoFromConsulta(consulta);
+  const cantidad = getConsultaCantidadDisplay(consulta);
 
   const handleClick = () => {
     if (phone && onCallTarget) {
@@ -66,10 +68,19 @@ export default function MobileConsultaListItem({
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        {consulta.superficiem2 && (
+        {cantidad && (
           <span className="text-xs text-slate-600 flex items-center gap-1 bg-slate-50 rounded px-2 py-0.5">
-            <Ruler className="w-3 h-3" />
-            {consulta.superficiem2} m²
+            {cantidad.kind === "m2" ? (
+              <>
+                <Ruler className="w-3 h-3" />
+                {cantidad.value} m²
+              </>
+            ) : (
+              <>
+                <Weight className="w-3 h-3" />
+                {cantidad.value} kg
+              </>
+            )}
           </span>
         )}
         {consulta.pipeline_stage && (
