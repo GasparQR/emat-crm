@@ -14,7 +14,17 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle } from "lucide-react";
+import { Plus, Search, MessageCircle, Mail, MapPin, ArrowLeft, Trash2, Edit, AlertTriangle, FileText } from "lucide-react";
+import ConsultaForm from "@/components/crm/ConsultaForm";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import ContactoWhatsAppSender from "@/components/crm/ContactoWhatsAppSender";
 import MobileContactoListItem from "@/components/crm/MobileContactoListItem";
@@ -62,6 +72,12 @@ export default function Contactos() {
   // Pipeline dialog state
   const [pipelineDialog, setPipelineDialog] = useState(null); // { contacto, mensaje }
   const [etapaSeleccionada, setEtapaSeleccionada] = useState("");
+
+  // Presupuesto desde contacto
+  const [showConsultaForm, setShowConsultaForm] = useState(false);
+  const [consultaForForm, setConsultaForForm] = useState(null);
+  const [prefillContact, setPrefillContact] = useState(null);
+  const [presupuestoChoice, setPresupuestoChoice] = useState(null); // { contacto, consulta }
 
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
@@ -292,6 +308,36 @@ export default function Contactos() {
     });
     setSelectedContacto(null);
     setShowForm(false);
+  };
+
+  const openNewPresupuestoFromContact = (contacto) => {
+    setConsultaForForm(null);
+    setPrefillContact(contacto);
+    setShowConsultaForm(true);
+  };
+
+  const handleCrearPresupuesto = (contacto) => {
+    const existing = consultas.find((q) => q.contactonombre === contacto.nombre);
+    if (existing) {
+      setPresupuestoChoice({ contacto, consulta: existing });
+      return;
+    }
+    openNewPresupuestoFromContact(contacto);
+  };
+
+  const handleOpenExistingPresupuesto = () => {
+    if (!presupuestoChoice) return;
+    setConsultaForForm(presupuestoChoice.consulta);
+    setPrefillContact(null);
+    setPresupuestoChoice(null);
+    setShowConsultaForm(true);
+  };
+
+  const handleCreateNewPresupuesto = () => {
+    if (!presupuestoChoice) return;
+    const { contacto } = presupuestoChoice;
+    setPresupuestoChoice(null);
+    openNewPresupuestoFromContact(contacto);
   };
 
   const handleEdit = (contacto) => {
@@ -527,6 +573,15 @@ export default function Contactos() {
       case "acciones":
         return (
           <div className="flex items-center justify-end gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0"
+              title="Crear presupuesto"
+              onClick={() => handleCrearPresupuesto(contacto)}
+            >
+              <FileText className="w-3.5 h-3.5" />
+            </Button>
             <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEdit(contacto)}>
               <Edit className="w-3.5 h-3.5" />
             </Button>
@@ -855,6 +910,54 @@ export default function Contactos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!presupuestoChoice}
+        onOpenChange={(open) => { if (!open) setPresupuestoChoice(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Este contacto ya tiene un presupuesto</AlertDialogTitle>
+            <AlertDialogDescription>
+              {presupuestoChoice?.consulta && (
+                <>
+                  Presupuesto #{presupuestoChoice.consulta.nroppto ?? "S/N"} en etapa
+                  &quot;{presupuestoChoice.consulta.pipeline_stage}&quot;.
+                  ¿Querés abrirlo o crear uno nuevo?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button variant="outline" onClick={handleOpenExistingPresupuesto}>
+              Abrir existente
+            </Button>
+            <Button onClick={handleCreateNewPresupuesto}>
+              Crear nuevo
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ConsultaForm
+        open={showConsultaForm}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConsultaForForm(null);
+            setPrefillContact(null);
+          }
+          setShowConsultaForm(open);
+        }}
+        consulta={consultaForForm}
+        prefillFromContact={prefillContact}
+        onSave={() => {
+          queryClient.invalidateQueries({ queryKey: ["consultas-pipeline", workspace?.id] });
+          queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
+          setConsultaForForm(null);
+          setPrefillContact(null);
+        }}
+      />
 
     </div>
   );
