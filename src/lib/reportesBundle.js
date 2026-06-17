@@ -22,7 +22,14 @@ import { buildReportInsights } from "@/lib/reportesInsights";
  */
 export function buildReportBundle(
   consultas,
-  { mode, desde, hasta, asesor = "todos", etapas = [], showWonBreakdown = false } = {},
+  {
+    mode,
+    desde,
+    hasta,
+    asesor = /** @type {string|string[]} */ ("todos"),
+    etapas = [],
+    showWonBreakdown = false,
+  } = {},
 ) {
   const { prevDesde, prevHasta } = previousPeriodRange(desde, hasta);
 

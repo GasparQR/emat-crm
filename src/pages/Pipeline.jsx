@@ -14,12 +14,11 @@ import {
   buildPipelineStagePatchAsync,
   getLostStageName,
 } from "@/lib/pipelineStage";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, filterConsultasByVisibility, canEditConsultaStage } from "@/lib/permissions";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/SimpleAuthContext";
-import { filterConsultasByVisibility } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
 import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
@@ -67,7 +66,11 @@ export default function Pipeline() {
     mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', workspace?.id] });
-    }
+    },
+    onError: (e) => {
+      queryClient.invalidateQueries({ queryKey: ['consultas-pipeline', workspace?.id] });
+      toast.error(e?.message || "Error al actualizar etapa");
+    },
   });
 
   const workspaceIdForNro = workspace?.id || "local";
@@ -80,6 +83,11 @@ export default function Pipeline() {
     const newEtapa = destination.droppableId;
     const consulta = consultas.find((c) => c.id === draggableId);
     if (!consulta) return;
+
+    if (!canEditConsultaStage(user, consulta.asesor)) {
+      toast.error("No tenés permiso para mover este presupuesto.");
+      return;
+    }
 
     const patch = await buildPipelineStagePatchAsync(consulta, newEtapa, {
       etapas,

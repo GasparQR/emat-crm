@@ -45,10 +45,12 @@ export function canViewAsesorData(user, asesorCodigo) {
   if (isLogistica(user)) return true;
   if (!isAsesor(user)) return false;
   if (user?.can_view_other_advisors) return true;
-  return (
-    String(user?.asesor_codigo ?? "").trim().toUpperCase() ===
-    String(asesorCodigo).trim().toUpperCase()
-  );
+  return matchesUserAsesorCodigo(asesorCodigo, user?.asesor_codigo);
+}
+
+export function canEditConsultaStage(user, asesorCodigo) {
+  if (isLogistica(user)) return false;
+  return canViewAsesorData(user, asesorCodigo);
 }
 
 function matchesUserAsesorCodigo(recordAsesor, userAsesorCodigo) {
