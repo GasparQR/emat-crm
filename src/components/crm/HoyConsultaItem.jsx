@@ -17,12 +17,15 @@ export default function HoyConsultaItem({
   onStageChange,
   onWhatsApp,
   onMarcarCompletado,
+  canEditStage,
 }) {
   const fechaMostrar = consulta.proximoseguimiento;
   const stageColor = etapaColorMap[consulta.pipeline_stage] || "bg-slate-500";
   const phone = consulta.contactowhatsapp ?? consulta.contactoWhatsapp;
   const currentStage = consulta.pipeline_stage ?? "";
   const stageInList = etapas.some((s) => s.pipeline_stage === currentStage);
+
+  const stageEditable = canEditStage ? canEditStage(consulta) : true;
 
   return (
     <Card className="hover:shadow-md transition-all">
@@ -35,7 +38,7 @@ export default function HoyConsultaItem({
                 <Select
                   value={currentStage}
                   onValueChange={(v) => onStageChange?.(consulta, v)}
-                  disabled={stagePending}
+                  disabled={stagePending || !stageEditable}
                 >
                   <SelectTrigger
                     className={cn("h-8 text-xs text-white border-0", stageColor)}

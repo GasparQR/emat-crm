@@ -65,6 +65,9 @@ export const fmtMonthYear = (mes, ano) =>
 
 /**
  * @typedef {Object} ReportConsulta
+ * @property {string} [id]
+ * @property {string} [contactonombre]
+ * @property {string|number} [nroppto]
  * @property {string} [asesor]
  * @property {string|number} [ano]
  * @property {string} [mes]
@@ -134,7 +137,7 @@ export function resolveConsultaDate(consulta, mode = DATE_CRITERIA.PRESUPUESTO) 
  * @property {string} [mode]
  * @property {string} [desde]
  * @property {string} [hasta]
- * @property {string} [asesor]
+ * @property {string|string[]} [asesor]
  */
 
 /**
@@ -150,7 +153,7 @@ export function resolveConsultaDate(consulta, mode = DATE_CRITERIA.PRESUPUESTO) 
  */
 export function filterConsultasForReport(
   consultas,
-  { mode, desde, hasta, asesor = "todos" } = {},
+  { mode, desde, hasta, asesor = /** @type {string|string[]} */ ("todos") } = {},
 ) {
   const from = moment(desde).startOf("day");
   const to = moment(hasta).endOf("day");

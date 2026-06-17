@@ -23,7 +23,7 @@ import { useActiveCall } from "@/components/context/ActiveCallContext";
 import { toast } from "sonner";
 import { openConsultaPdf } from "@/lib/consultaPdf";
 import { buildPipelineStagePatchAsync, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
-import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica, canEditConsultaStage } from "@/lib/permissions";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import AsesorAvatar from "@/components/crm/AsesorAvatar";
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
@@ -88,7 +88,10 @@ export default function Consultas() {
       queryClient.invalidateQueries({ queryKey: ["consultas-hoy", wid] });
       toast.success("Etapa actualizada");
     },
-    onError: (e) => toast.error(e?.message || "Error al actualizar etapa"),
+    onError: (e) => {
+      queryClient.invalidateQueries({ queryKey: ["consultas-list", workspace?.id] });
+      toast.error(e?.message || "Error al actualizar etapa");
+    },
   });
 
   const handleEstadoChange = async (c, newStage) => {
@@ -270,7 +273,7 @@ export default function Consultas() {
           <Select
             value={c.pipeline_stage}
             onValueChange={(v) => handleEstadoChange(c, v)}
-            disabled={stageMutation.isPending}
+            disabled={stageMutation.isPending || !canEditConsultaStage(user, c.asesor)}
           >
             <SelectTrigger
               className={cn(

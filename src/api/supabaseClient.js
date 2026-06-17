@@ -20,6 +20,23 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 // ─── Wrapper de acceso a datos ─────────────────────────────────────────────────
 
+const ROW_NOT_FOUND_MESSAGE =
+  'No tenés permiso para modificar este registro, o fue actualizado por otro usuario. Recargá la página.';
+
+function finishSingleRowMutation({ error, data, id, tableName, action }) {
+  if (error && error.code !== 'PGRST116') {
+    console.error(`Error ${action} ${tableName} ${id}:`, error);
+    throw error;
+  }
+  if (!data) {
+    console.error(`Error ${action} ${tableName} ${id}:`, error ?? '0 rows returned');
+    const err = new Error(ROW_NOT_FOUND_MESSAGE);
+    err.code = 'PGRST116';
+    throw err;
+  }
+  return data;
+}
+
 class SupabaseDataStore {
   constructor(tableName) {
     this.tableName = tableName;
@@ -116,13 +133,15 @@ class SupabaseDataStore {
       .update(updateData)
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      console.error(`Error updating ${this.tableName} ${id}:`, error);
-      throw error;
-    }
-    return updated;
+    return finishSingleRowMutation({
+      error,
+      data: updated,
+      id,
+      tableName: this.tableName,
+      action: 'updating',
+    });
   }
 
   async delete(id) {
@@ -131,13 +150,15 @@ class SupabaseDataStore {
       .delete()
       .eq('id', id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      console.error(`Error deleting ${this.tableName} ${id}:`, error);
-      throw error;
-    }
-    return deleted;
+    return finishSingleRowMutation({
+      error,
+      data: deleted,
+      id,
+      tableName: this.tableName,
+      action: 'deleting',
+    });
   }
 
   async getAll() {

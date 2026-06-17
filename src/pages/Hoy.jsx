@@ -17,7 +17,7 @@ import { useAuth } from "@/lib/SimpleAuthContext";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { getNextFollowUpDate } from "@/components/utils/dateUtils";
 import { buildPipelineStagePatchAsync } from "@/lib/pipelineStage";
-import { filterConsultasByVisibility, isLogistica as roleIsLogistica } from "@/lib/permissions";
+import { filterConsultasByVisibility, isLogistica as roleIsLogistica, canEditConsultaStage } from "@/lib/permissions";
 import { isWonStage } from "@/lib/pipelineStage";
 import { buildAsesorFilterOptions, useAsesores } from "@/components/hooks/useAsesores";
 import MultiSelectFilter from "@/components/crm/filters/MultiSelectFilter";
@@ -26,6 +26,8 @@ import useViewSessionFilters from "@/hooks/useViewSessionFilters";
 import { isFilterEnabled, matchesMultiFilter } from "@/lib/viewLayout";
 
 import { allocateConsultaNroPpto } from "@/lib/consultaNroppto";
+
+/** @typedef {{ id: string, data: Record<string, unknown> }} ConsultaUpdatePayload */
 
 export default function Hoy() {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
@@ -64,7 +66,8 @@ export default function Hoy() {
   const allocateNroPpto = () => allocateConsultaNroPpto(workspaceId);
 
   const stageMutation = useMutation({
-    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
+    mutationFn: (/** @type {ConsultaUpdatePayload} */ payload) =>
+      entities.Consulta.update(payload.id, payload.data),
     onSuccess: () => {
       const wid = workspace?.id;
       queryClient.invalidateQueries({ queryKey: ['consultas-hoy', wid] });
@@ -72,11 +75,15 @@ export default function Hoy() {
       queryClient.invalidateQueries({ queryKey: ['consultas-list', wid] });
       toast.success("Etapa actualizada");
     },
-    onError: (e) => toast.error(e?.message || "Error al actualizar etapa"),
+    onError: (e) => {
+      queryClient.invalidateQueries({ queryKey: ['consultas-hoy', workspace?.id] });
+      toast.error(e?.message || "Error al actualizar etapa");
+    },
   });
 
   const followUpMutation = useMutation({
-    mutationFn: ({ id, data }) => entities.Consulta.update(id, data),
+    mutationFn: (/** @type {ConsultaUpdatePayload} */ payload) =>
+      entities.Consulta.update(payload.id, payload.data),
     onSuccess: () => {
       const wid = workspace?.id;
       queryClient.invalidateQueries({ queryKey: ['consultas-hoy', wid] });
@@ -162,6 +169,7 @@ export default function Hoy() {
     onStageChange: handleStageChange,
     onWhatsApp: handleWhatsApp,
     onMarcarCompletado: handleMarcarCompletado,
+    canEditStage: (c) => canEditConsultaStage(user, c.asesor),
   };
 
   return (
