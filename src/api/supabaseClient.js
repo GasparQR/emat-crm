@@ -18,7 +18,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-// ─── Wrapper de acceso a datos ─────────────────────────────────────────────────
+// ─── Wrapper de acceso a datos ────────────────────────────────────────────────
 
 const ROW_NOT_FOUND_MESSAGE =
   'No tenés permiso para modificar este registro, o fue actualizado por otro usuario. Recargá la página.';
