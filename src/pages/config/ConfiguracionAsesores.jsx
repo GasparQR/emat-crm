@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, KeyRound, Plus, UserCheck, UserX } from "lucide-react";
 import { entities, supabase, auth } from "@/api/supabaseClient";
 import { adminUsersApi } from "@/api/adminUsers";
 import { createPageUrl } from "@/utils";
@@ -68,6 +68,11 @@ export default function ConfiguracionAsesores() {
   const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [accessAsesor, setAccessAsesor] = useState(null);
+  const [accessForm, setAccessForm] = useState({ email: "", password: "", role: "ASESOR", active: true, can_view_other_advisors: false });
+  const [accessSaving, setAccessSaving] = useState(false);
+
   const { data: asesores = [], isLoading } = useQuery({
     queryKey: ["asesores-admin", workspaceId],
     queryFn: () => entities.Asesor.filter({ workspace_id: workspaceId }, "nombre", 2000),
@@ -95,6 +100,15 @@ export default function ConfiguracionAsesores() {
     () => (asesores || []).filter((a) => a.codigo),
     [asesores]
   );
+
+  // Map asesor.codigo → usuario profile for quick lookup
+  const usuariosByAsesorCodigo = useMemo(() => {
+    const map = {};
+    (usuarios || []).forEach((u) => {
+      if (u.asesor_codigo) map[u.asesor_codigo] = u;
+    });
+    return map;
+  }, [usuarios]);
 
   const openCreate = () => {
     setEditing(false);
@@ -276,6 +290,45 @@ export default function ConfiguracionAsesores() {
     }
   };
 
+  const openAssignAccess = (asesor) => {
+    setAccessAsesor(asesor);
+    setAccessForm({
+      email: asesor.email || "",
+      password: "",
+      role: "ASESOR",
+      active: true,
+      can_view_other_advisors: false,
+    });
+    setAccessOpen(true);
+  };
+
+  const handleAssignAccess = async () => {
+    if (!accessForm.email.trim() || !accessForm.password) {
+      toast.error("Email y contraseña son obligatorios");
+      return;
+    }
+    setAccessSaving(true);
+    try {
+      await adminUsersApi.assignUserToAsesor({
+        asesor_codigo: accessAsesor.codigo,
+        email: accessForm.email.trim().toLowerCase(),
+        password: accessForm.password,
+        full_name: accessAsesor.nombre,
+        role: accessForm.role,
+        active: accessForm.active,
+        can_view_other_advisors: accessForm.can_view_other_advisors,
+      });
+      toast.success(`Acceso asignado a ${accessAsesor.nombre}`);
+      setAccessOpen(false);
+      setAccessAsesor(null);
+      refresh();
+    } catch (error) {
+      toast.error(error?.message || "No se pudo asignar el acceso");
+    } finally {
+      setAccessSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -312,50 +365,89 @@ export default function ConfiguracionAsesores() {
                   <TableHead>Email</TableHead>
                   <TableHead>Color</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Acceso</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6}>Cargando...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7}>Cargando...</TableCell></TableRow>
                 ) : asesores.length === 0 ? (
-                  <TableRow><TableCell colSpan={6}>No hay asesores</TableCell></TableRow>
-                ) : asesores.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.codigo || "-"}</TableCell>
-                    <TableCell>{a.nombre}</TableCell>
-                    <TableCell>{a.email || "-"}</TableCell>
-                    <TableCell>
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                        style={{
-                          backgroundColor:
-                            a.color_hex && isValidAsesorPaletteHex(a.color_hex)
-                              ? a.color_hex
-                              : getAsesorHexColorFromHash(a.codigo),
-                        }}
-                        title="Color en listados"
-                      >
-                        {nombreToInitials(a.nombre || a.codigo)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{a.active === false || a.activo === false ? "Inactivo" : "Activo"}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => openEdit(a)}>Editar</Button>
-                      <Button variant="outline" size="sm" onClick={() => toggleActive(a)}>
-                        {a.active === false || a.activo === false ? "Reactivar" : "Desactivar"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => openDelete(a)}
-                      >
-                        Eliminar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                  <TableRow><TableCell colSpan={7}>No hay asesores</TableCell></TableRow>
+                ) : asesores.map((a) => {
+                  const linkedUser = a.codigo ? usuariosByAsesorCodigo[a.codigo] : null;
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell>{a.codigo || "-"}</TableCell>
+                      <TableCell>{a.nombre}</TableCell>
+                      <TableCell>{a.email || "-"}</TableCell>
+                      <TableCell>
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                          style={{
+                            backgroundColor:
+                              a.color_hex && isValidAsesorPaletteHex(a.color_hex)
+                                ? a.color_hex
+                                : getAsesorHexColorFromHash(a.codigo),
+                          }}
+                          title="Color en listados"
+                        >
+                          {nombreToInitials(a.nombre || a.codigo)}
+                        </div>
+                      </TableCell>
+                      <TableCell>{a.active === false || a.activo === false ? "Inactivo" : "Activo"}</TableCell>
+                      <TableCell>
+                        {linkedUser ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                            <UserCheck className="w-3 h-3" />
+                            {linkedUser.email}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                            <UserX className="w-3 h-3" />
+                            Sin acceso
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        {a.codigo && !linkedUser && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-blue-700 border-blue-200 hover:bg-blue-50"
+                            onClick={() => openAssignAccess(a)}
+                          >
+                            <KeyRound className="w-3 h-3" />
+                            Asignar Acceso
+                          </Button>
+                        )}
+                        {a.codigo && linkedUser && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-slate-600"
+                            onClick={() => toast.info(`Usuario: ${linkedUser.email} — Editá desde Configuración › Usuarios`)}
+                          >
+                            <UserCheck className="w-3 h-3" />
+                            Ver Usuario
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => openEdit(a)}>Editar</Button>
+                        <Button variant="outline" size="sm" onClick={() => toggleActive(a)}>
+                          {a.active === false || a.activo === false ? "Reactivar" : "Desactivar"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => openDelete(a)}
+                        >
+                          Eliminar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -456,6 +548,82 @@ export default function ConfiguracionAsesores() {
             <Button variant="outline" onClick={() => setReassignOpen(false)}>Cancelar</Button>
             <Button onClick={runReassign} disabled={reassigning || !preview}>
               {reassigning ? "Reasignando..." : "Confirmar reasignación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Access Dialog */}
+      <Dialog open={accessOpen} onOpenChange={(next) => { setAccessOpen(next); if (!next) setAccessAsesor(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4" />
+              Asignar acceso al sistema
+            </DialogTitle>
+          </DialogHeader>
+          {accessAsesor && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm">
+                <span className="text-blue-700">Asesor: </span>
+                <strong className="text-blue-900">{accessAsesor.nombre}</strong>
+                <span className="text-blue-600"> ({accessAsesor.codigo})</span>
+              </div>
+              <div className="space-y-2">
+                <Label>Email de acceso</Label>
+                <Input
+                  type="email"
+                  value={accessForm.email}
+                  onChange={(e) => setAccessForm((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Contraseña</Label>
+                <Input
+                  type="password"
+                  value={accessForm.password}
+                  onChange={(e) => setAccessForm((p) => ({ ...p, password: e.target.value }))}
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Rol</Label>
+                <Select
+                  value={accessForm.role}
+                  onValueChange={(v) => setAccessForm((p) => ({ ...p, role: v }))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ASESOR">ASESOR</SelectItem>
+                    <SelectItem value="ADMIN">ADMIN</SelectItem>
+                    <SelectItem value="LOGISTICA">LOGISTICA</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {accessForm.role === "ASESOR" && (
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={accessForm.can_view_other_advisors}
+                    onCheckedChange={(checked) => setAccessForm((p) => ({ ...p, can_view_other_advisors: checked }))}
+                  />
+                  <Label>Puede ver otros asesores</Label>
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={accessForm.active}
+                  onCheckedChange={(checked) => setAccessForm((p) => ({ ...p, active: checked }))}
+                />
+                <Label>Usuario activo</Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAccessOpen(false); setAccessAsesor(null); }}>Cancelar</Button>
+            <Button onClick={handleAssignAccess} disabled={accessSaving} className="gap-2">
+              <KeyRound className="w-4 h-4" />
+              {accessSaving ? "Asignando..." : "Asignar Acceso"}
             </Button>
           </DialogFooter>
         </DialogContent>

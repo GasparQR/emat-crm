@@ -43,6 +43,7 @@ async function invoke(name, body) {
 
 export const adminUsersApi = {
   createUser: async (payload) => invoke("admin-create-user", payload),
+  assignUserToAsesor: async (payload) => invoke("admin-assign-user-to-asesor", payload),
   updateUser: async (payload) => invoke("admin-update-user", payload),
   setUserActive: async ({ id, active }) => invoke("admin-deactivate-user", { id, active }),
   deleteAsesor: async ({ asesor_id, workspace_id }) =>
