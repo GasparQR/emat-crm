@@ -1,11 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
 import {
-  ensureAsesorCatalog,
-  generateUniqueAsesorCodigo,
-} from '../_shared/asesorCode.ts';
-import {
-  assertEmailAvailableForNewUser,
   assertEmailAvailableForUserOnly,
   DUPLICATE_USUARIO_EMAIL_ERROR,
 } from '../_shared/emailValidation.ts';
@@ -51,89 +46,69 @@ Deno.serve(async (req) => {
 
     if (!callerIsAdmin(authData.user, callerProfile)) {
       return jsonResponse(
-        {
-          error:
-            'Access denied: necesitás rol ADMIN en usuario (o app_metadata.role ADMIN).',
-        },
+        { error: 'Access denied: necesitás rol ADMIN en usuario.' },
         403,
       );
     }
 
     const body = await req.json();
-    const full_name = (body?.full_name ?? '').trim();
+    const asesor_codigo = body?.asesor_codigo
+      ? String(body.asesor_codigo).trim().toUpperCase()
+      : '';
     const email = (body?.email ?? '').trim().toLowerCase();
     const password = body?.password ?? '';
+    const full_name = (body?.full_name ?? '').trim();
     const role = String(body?.role ?? 'ASESOR').toUpperCase();
     const active = body?.active !== false;
     const can_view_other_advisors = body?.can_view_other_advisors === true;
-    const existing_asesor_codigo = body?.existing_asesor_codigo
-      ? String(body.existing_asesor_codigo).trim().toUpperCase()
-      : null;
 
-    if (!full_name || !email || !password) {
-      return jsonResponse({ error: 'full_name, email and password are required' }, 400);
+    if (!asesor_codigo) {
+      return jsonResponse({ error: 'asesor_codigo es obligatorio' }, 400);
+    }
+    if (!email || !password) {
+      return jsonResponse({ error: 'email y password son obligatorios' }, 400);
     }
     if (!['ADMIN', 'ASESOR', 'LOGISTICA'].includes(role)) {
-      return jsonResponse({ error: 'Invalid role' }, 400);
+      return jsonResponse({ error: 'Rol inválido' }, 400);
     }
 
-    let asesor_codigo: string | null = null;
+    // Verify the asesor exists
+    const { data: existingAsesor, error: asesorErr } = await adminClient
+      .from('asesor')
+      .select('codigo, nombre, email')
+      .eq('codigo', asesor_codigo)
+      .maybeSingle();
 
-    if (existing_asesor_codigo && role === 'ASESOR') {
-      // Linking to an existing asesor: only check email uniqueness in usuario table
-      const emailCheck = await assertEmailAvailableForUserOnly(adminClient, email);
-      if (emailCheck.error) {
-        return jsonResponse({ error: emailCheck.error }, 400);
-      }
-
-      // Verify the asesor exists
-      const { data: existingAsesor, error: asesorErr } = await adminClient
-        .from('asesor')
-        .select('codigo, nombre')
-        .eq('codigo', existing_asesor_codigo)
-        .maybeSingle();
-
-      if (asesorErr || !existingAsesor) {
-        return jsonResponse({ error: `No existe un asesor con código: ${existing_asesor_codigo}` }, 400);
-      }
-
-      // Verify the asesor doesn't already have a linked user
-      const { data: existingUser } = await adminClient
-        .from('usuario')
-        .select('id')
-        .eq('asesor_codigo', existing_asesor_codigo)
-        .maybeSingle();
-
-      if (existingUser) {
-        return jsonResponse({ error: `El asesor ${existing_asesor_codigo} ya tiene un usuario asignado.` }, 400);
-      }
-
-      asesor_codigo = existing_asesor_codigo;
-    } else {
-      // Standard flow: check email against both tables
-      const emailCheck = await assertEmailAvailableForNewUser(adminClient, email);
-      if (emailCheck.error) {
-        return jsonResponse({ error: emailCheck.error }, 400);
-      }
-
-      if (role === 'ASESOR') {
-        const generated = await generateUniqueAsesorCodigo(adminClient, full_name, email);
-        if ('error' in generated) {
-          return jsonResponse({ error: generated.error }, 400);
-        }
-        asesor_codigo = generated.codigo;
-
-        const catalog = await ensureAsesorCatalog(
-          adminClient,
-          asesor_codigo,
-          full_name,
-          email,
-        );
-        if (catalog.error) {
-          return jsonResponse({ error: catalog.error }, 400);
-        }
-      }
+    if (asesorErr || !existingAsesor) {
+      return jsonResponse(
+        { error: `No existe un asesor con código: ${asesor_codigo}` },
+        400,
+      );
     }
+
+    // Verify the asesor doesn't already have a linked user
+    const { data: existingLinkedUser } = await adminClient
+      .from('usuario')
+      .select('id, email')
+      .eq('asesor_codigo', asesor_codigo)
+      .maybeSingle();
+
+    if (existingLinkedUser) {
+      return jsonResponse(
+        {
+          error: `El asesor ${asesor_codigo} ya tiene un usuario asignado (${existingLinkedUser.email}).`,
+        },
+        400,
+      );
+    }
+
+    // Check email uniqueness only in usuario table (asesor may already have this email)
+    const emailCheck = await assertEmailAvailableForUserOnly(adminClient, email);
+    if (emailCheck.error) {
+      return jsonResponse({ error: emailCheck.error }, 400);
+    }
+
+    const resolvedName = full_name || existingAsesor.nombre || asesor_codigo;
 
     const { data: createdAuth, error: createErr } = await adminClient.auth.admin.createUser({
       email,
@@ -141,28 +116,24 @@ Deno.serve(async (req) => {
       email_confirm: true,
       app_metadata: { role },
       user_metadata: {
-        full_name,
-        ...(role === 'ASESOR' && asesor_codigo ? { asesor_codigo } : {}),
+        full_name: resolvedName,
+        asesor_codigo,
       },
     });
 
     if (createErr || !createdAuth.user) {
-      const msg = createErr?.message ?? 'Could not create auth user';
+      const msg = createErr?.message ?? 'No se pudo crear el usuario de autenticación';
       if (/already registered|already been registered|duplicate/i.test(msg)) {
         return jsonResponse({ error: DUPLICATE_USUARIO_EMAIL_ERROR }, 400);
       }
-      const hint =
-        /database error/i.test(msg)
-          ? ' Ejecutá la migración 20260603120000_fix_auth_user_trigger.sql en Supabase (trigger insertaba usuario antes que asesor).'
-          : '';
-      return jsonResponse({ error: msg + hint }, 400);
+      return jsonResponse({ error: msg }, 400);
     }
 
     const now = new Date().toISOString();
     const payload = {
       id: createdAuth.user.id,
       workspace_id: 'local',
-      full_name,
+      full_name: resolvedName,
       email,
       role,
       active,

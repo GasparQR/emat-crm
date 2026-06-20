@@ -33,6 +33,7 @@ const EMPTY_FORM = {
   active: true,
   can_view_other_advisors: false,
   asesor_codigo: "",
+  existing_asesor_codigo: "",
 };
 
 export default function ConfiguracionUsuarios() {
@@ -96,14 +97,12 @@ export default function ConfiguracionUsuarios() {
       toast.error("La contraseña es obligatoria para crear usuarios");
       return;
     }
-    if (
-      !editing &&
-      isDuplicateUsuarioEmail(form.email, sortedUsers)
-    ) {
+    if (!editing && isDuplicateUsuarioEmail(form.email, sortedUsers)) {
       toast.error(DUPLICATE_USUARIO_EMAIL_ERROR);
       return;
     }
-    if (!editing && isDuplicateAsesorEmail(form.email, asesores)) {
+    // Only check asesor email conflict when NOT linking to an existing asesor
+    if (!editing && !form.existing_asesor_codigo && isDuplicateAsesorEmail(form.email, asesores)) {
       toast.error(DUPLICATE_ASESOR_EMAIL_ERROR);
       return;
     }
@@ -127,6 +126,9 @@ export default function ConfiguracionUsuarios() {
           role: form.role,
           active: form.active,
           can_view_other_advisors: form.can_view_other_advisors,
+          ...(form.existing_asesor_codigo
+            ? { existing_asesor_codigo: form.existing_asesor_codigo }
+            : {}),
         });
         toast.success("Usuario creado");
       }
@@ -257,11 +259,58 @@ export default function ConfiguracionUsuarios() {
                     <Label>Cartera comercial</Label>
                     <p className="text-sm text-slate-600 bg-slate-50 border rounded-md px-3 py-2">{form.asesor_codigo}</p>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-500">
-                    Se asignará automáticamente una cartera comercial al guardar.
-                  </p>
-                )}
+                ) : !editing ? (
+                  <div className="space-y-2">
+                    <Label>Cartera comercial</Label>
+                    {(() => {
+                      const asesoresSinUsuario = (asesores || []).filter(
+                        (a) => !sortedUsers.some((u) => u.asesor_codigo === a.codigo)
+                      );
+                      return asesoresSinUsuario.length > 0 ? (
+                        <>
+                          <Select
+                            value={form.existing_asesor_codigo}
+                            onValueChange={(v) =>
+                              setForm((p) => ({
+                                ...p,
+                                existing_asesor_codigo: v === "__nuevo__" ? "" : v,
+                                full_name: v && v !== "__nuevo__"
+                                  ? (asesores.find((a) => a.codigo === v)?.nombre || p.full_name)
+                                  : p.full_name,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Vincular a asesor existente (opcional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__nuevo__">Crear nueva cartera automáticamente</SelectItem>
+                              {asesoresSinUsuario.map((a) => (
+                                <SelectItem key={a.id} value={a.codigo}>
+                                  {a.nombre} ({a.codigo})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {!form.existing_asesor_codigo && (
+                            <p className="text-xs text-slate-500">
+                              Si no seleccionás un asesor, se creará una nueva cartera automáticamente.
+                            </p>
+                          )}
+                          {form.existing_asesor_codigo && (
+                            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
+                              Se asignará acceso al asesor existente: <strong>{form.existing_asesor_codigo}</strong>
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-500">
+                          Se asignará automáticamente una nueva cartera comercial al guardar.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                ) : null}
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={form.can_view_other_advisors}

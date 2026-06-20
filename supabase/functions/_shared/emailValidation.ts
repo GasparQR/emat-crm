@@ -70,6 +70,22 @@ export async function assertEmailAvailableForNewUser(
   return {};
 }
 
+export async function assertEmailAvailableForUserOnly(
+  adminClient: SupabaseClient,
+  email: string,
+  excludeUserId?: string | null,
+): Promise<{ error?: string }> {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return {};
+
+  const existingUsuario = await findUsuarioByEmail(adminClient, normalized, excludeUserId);
+  if (existingUsuario) {
+    return { error: DUPLICATE_USUARIO_EMAIL_ERROR };
+  }
+
+  return {};
+}
+
 export async function assertEmailAvailableForAsesor(
   adminClient: SupabaseClient,
   email: string,
