@@ -2,12 +2,12 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/api/supabaseClient";
 
+// "contactos" excluded: pipeline/consulta changes don't affect the contacto table
 const PIPELINE_QUERY_KEYS = [
   "pipeline-stages",
   "consultas-pipeline",
   "consultas",
   "consultas-hoy",
-  "contactos",
 ];
 
 export default function usePipelineRealtime(workspaceId) {

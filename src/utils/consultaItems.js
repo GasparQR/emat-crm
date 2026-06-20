@@ -8,6 +8,7 @@
 import { entities } from "@/api/supabaseClient";
 import { applyFechaGanadoOnStageChange, getFechaGanadoFromConsulta } from "@/lib/pipelineStage";
 import { parseIvaPercent } from "@/lib/consultaIva";
+import { parseConsultaItems } from "@/utils/parseConsultaItems";
 
 function toNumberOrNull(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -166,20 +167,7 @@ export const obtenerConsultaConItems = async (consultaId) => {
       throw new Error("Consulta no encontrada");
     }
 
-    // Parsear items si vienen como string JSON
-    if (typeof consulta.items === "string") {
-      try {
-        consulta.items = JSON.parse(consulta.items);
-      } catch (e) {
-        console.warn("No se pudo parsear items, usando array vacío", e);
-        consulta.items = [];
-      }
-    }
-
-    // Si no hay items, crear array vacío
-    if (!consulta.items) {
-      consulta.items = [];
-    }
+    consulta.items = parseConsultaItems(consulta.items);
 
     return consulta;
   } catch (error) {
@@ -208,12 +196,9 @@ export const obtenerConsultasConItems = async (
       limit
     );
 
-    // Parsear items en cada consulta
     return consultas.map((consulta) => ({
       ...consulta,
-      items: typeof consulta.items === "string"
-        ? JSON.parse(consulta.items || "[]")
-        : consulta.items || [],
+      items: parseConsultaItems(consulta.items),
     }));
   } catch (error) {
     console.error("Error al obtener consultas con items:", error);
@@ -233,12 +218,9 @@ export const filtrarConsultasConItems = async (workspace_id, filters = {}) => {
     const queryFilters = { workspace_id, ...filters };
     const consultas = await entities.Consulta.filter(queryFilters, "-created_date", 500);
 
-    // Parsear items
     return consultas.map((consulta) => ({
       ...consulta,
-      items: typeof consulta.items === "string"
-        ? JSON.parse(consulta.items || "[]")
-        : consulta.items || [],
+      items: parseConsultaItems(consulta.items),
     }));
   } catch (error) {
     console.error("Error al filtrar consultas:", error);

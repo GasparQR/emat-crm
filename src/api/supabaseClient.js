@@ -326,7 +326,10 @@ async function upsertUsuarioFromAuth(authUser) {
     .single();
 
   if (error) {
-    console.warn('usuario upsert:', error.message);
+    // Log the full error so it's visible in Supabase logs and browser devtools
+    console.error('[auth] usuario upsert failed — returning auth-only profile:', error.message, error);
+    // Return the auth-derived profile as a fallback so login still works,
+    // but the caller should be aware this profile lacks admin-managed fields.
     return base;
   }
   return mergeUsuarioRow(data, base);
@@ -548,25 +551,23 @@ export const workspaceSettingsApi = {
   },
 
   async saveViewLayout(workspaceId, viewLayoutConfig) {
-    const existing = await this.get(workspaceId);
-    return this.upsert(workspaceId, {
-      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
-      consulta_default_observaciones: existing?.consulta_default_observaciones,
-      consulta_default_iva: existing?.consulta_default_iva,
-      view_layout_config: viewLayoutConfig,
-      frequent_cities: existing?.frequent_cities,
-    });
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .upsert({ workspace_id: workspaceId, view_layout_config: viewLayoutConfig, updated_date: new Date().toISOString() }, { onConflict: 'workspace_id' })
+      .select()
+      .single();
+    if (error) { console.error('Error saving view_layout_config:', error); throw error; }
+    return data;
   },
 
   async saveFrequentCities(workspaceId, frequentCities) {
-    const existing = await this.get(workspaceId);
-    return this.upsert(workspaceId, {
-      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
-      consulta_default_observaciones: existing?.consulta_default_observaciones,
-      consulta_default_iva: existing?.consulta_default_iva,
-      view_layout_config: existing?.view_layout_config,
-      frequent_cities: frequentCities,
-    });
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .upsert({ workspace_id: workspaceId, frequent_cities: frequentCities, updated_date: new Date().toISOString() }, { onConflict: 'workspace_id' })
+      .select()
+      .single();
+    if (error) { console.error('Error saving frequent_cities:', error); throw error; }
+    return data;
   },
 };
 
