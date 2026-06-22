@@ -1,12 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeRole } from '@/lib/permissions';
 
-// Configuración Supabase
-const PROJECT_ID = 'ywbgeqjqjfnhldqqqklj';
-const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
+// Supabase configuration — prefer env vars; fall back to hardcoded values
+// so existing Vercel deployments continue working until the env var is added.
+// To migrate: add VITE_SUPABASE_URL to your .env.local and Vercel project settings.
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://ywbgeqjqjfnhldqqqklj.supabase.co';
+
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_ANON_KEY) {
-  console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env');
+  console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env.local');
+}
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  console.warn('⚠️  VITE_SUPABASE_URL no está configurada — usando URL hardcodeada. Agregá esta variable a .env.local y a Vercel.');
 }
 
 // Cliente Supabase (sesión persistente en localStorage)
@@ -183,18 +191,15 @@ const createEntityProxy = (tableName) => {
 
 // ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
-function normalizeRole(role, email) {
-  // Si es admin@emat.com, siempre es ADMIN
-  if (email === 'admin@emat.com') return 'ADMIN';
-  
-  // Si no, normaliza el role que viene de metadata
-  const value = String(role ?? '').toUpperCase();
-  if (value === 'ADMIN') return 'ADMIN';
-  if (value === 'ASESOR') return 'ASESOR';
-  if (value === 'LOGISTICA') return 'LOGISTICA';
-  
-  // Default
-  return 'ASESOR';
+// Legacy escape hatch: configurable via env var, not hardcoded.
+// Set VITE_ADMIN_BYPASS_EMAIL in .env.local to keep the bypass active.
+// Leave it empty (or unset) to disable it for new deployments.
+const ADMIN_BYPASS_EMAIL = (import.meta.env.VITE_ADMIN_BYPASS_EMAIL ?? '').trim().toLowerCase();
+
+/** Resolves a role, applying the bypass-email override when configured. */
+function resolveRoleWithBypass(role, email) {
+  if (ADMIN_BYPASS_EMAIL && (email ?? '').toLowerCase() === ADMIN_BYPASS_EMAIL) return 'ADMIN';
+  return normalizeRole(role);
 }
 
 const DEFAULT_PROFILE = {
@@ -215,7 +220,7 @@ const DEFAULT_PROFILE = {
 function profileFromAuthUser(authUser) {
   
   const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
-  const normalizedRole = normalizeRole(metaRole, authUser.email);
+  const normalizedRole = resolveRoleWithBypass(metaRole, authUser.email);
   const defaultAsesorCode = normalizedRole === 'ASESOR'
     ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
     : null;
@@ -248,7 +253,7 @@ function mergeUsuarioRow(row, base) {
 function applyAuthRoleOverrides(profile, authUser) {
   return {
     ...profile,
-    role: normalizeRole(profile?.role, authUser?.email),
+    role: resolveRoleWithBypass(profile?.role, authUser?.email),
     active: profile?.active !== false,
   };
 }
@@ -473,14 +478,6 @@ export const auth = {
       .from('usuario')
       .update({ last_sign_in_at: new Date().toISOString(), updated_date: new Date().toISOString() })
       .eq('id', authUser.id);
-  },
-};
-
-// ─── Gestión de usuarios ───────────────────────────────────────────────────────
-
-export const users = {
-  inviteUser: async () => {
-    throw new Error('inviteUser reemplazado por adminUsersApi.createUser');
   },
 };
 
