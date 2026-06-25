@@ -13,7 +13,7 @@ import {
 } from "@/lib/backupExport";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { auth, users, entities, workspaceSettingsApi } from "@/api/supabaseClient";
+import { auth, entities, workspaceSettingsApi } from "@/api/supabaseClient";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,9 +26,6 @@ export default function Configuracion() {
   const { data: currentUser } = useCurrentUser();
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("user");
-  const [isLoading, setIsLoading] = useState(false);
   const [consultaDays, setConsultaDays] = useState(3);
   const [savingDays, setSavingDays] = useState(false);
   const [globalCondiciones, setGlobalCondiciones] = useState("");
@@ -289,31 +286,6 @@ export default function Configuracion() {
       toast.error("Error al guardar tu firma");
     } finally {
       setSavingMiFirma(false);
-    }
-  };
-
-  const handleInviteUser = async (e) => {
-    e.preventDefault();
-    if (!inviteEmail) {
-      toast.error("Por favor ingresa un email");
-      return;
-    }
-
-    if (inviteRole === "admin" && normalizeRole(currentUser?.role) !== "ADMIN") {
-      toast.error("Solo los administradores pueden invitar otros administradores");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      await users.inviteUser(inviteEmail, inviteRole);
-      toast.success(`Invitación enviada a ${inviteEmail}`);
-      setInviteEmail("");
-      setInviteRole("user");
-    } catch (error) {
-      toast.error("Error al enviar la invitación");
-    } finally {
-      setIsLoading(false);
     }
   };
 

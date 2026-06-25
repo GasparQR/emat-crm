@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner"
 import AppUpdateChecker from "@/components/AppUpdateChecker"
+import ErrorBoundary from "@/components/ErrorBoundary"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
@@ -162,17 +163,19 @@ const AuthenticatedApp = () => {
 function App() {
 
   return (
-    <AuthProvider>
-      <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <NavigationTracker />
-          <AppUpdateChecker />
-          <AuthenticatedApp />
-        </Router>
-        <SonnerToaster position="top-right" richColors />
-        <Toaster />
-      </QueryClientProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <QueryClientProvider client={queryClientInstance}>
+          <Router>
+            <NavigationTracker />
+            <AppUpdateChecker />
+            <AuthenticatedApp />
+          </Router>
+          <SonnerToaster position="top-right" richColors />
+          <Toaster />
+        </QueryClientProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
 
