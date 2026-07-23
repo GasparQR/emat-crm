@@ -607,21 +607,18 @@ export const appConfigApi = {
 
 // ─── Entidades ─────────────────────────────────────────────────────────────────
 
+// Solo entidades cuya tabla existe realmente en la base. Las declaraciones
+// heredadas de Base44 (workspace, workspacemember, proveedor, historialesenvios,
+// cliente, presupuesto, mensaje, listawhatsapp) apuntaban a tablas que nunca se
+// crearon en Supabase: ninguna migración las crea. Se eliminaron para que este
+// objeto refleje el esquema real.
 export const entities = {
-  Workspace: createEntityProxy('workspace'),
-  WorkspaceMember: createEntityProxy('workspacemember'),
   Asesor: createEntityProxy('asesor'),
   Consulta: createEntityProxy('consulta'),
   Contacto: createEntityProxy('contacto'),
-  Proveedor: createEntityProxy('proveedor'),
   PipelineStage: createEntityProxy('pipelinestage'),
-  HistorialEnvios: createEntityProxy('historialesenvios'),
-  Cliente: createEntityProxy('cliente'),
-  Presupuesto: createEntityProxy('presupuesto'),
   PlantillaWhatsApp: createEntityProxy('plantillawhatsapp'),
-  EnvioWhatsApp: createEntityProxy('enviowatsapp'),
-  Mensaje: createEntityProxy('mensaje'),
-  ListaWhatsApp: createEntityProxy('listawhatsapp'),
+  EnvioWhatsApp: createEntityProxy('enviowhatsapp'),
   VariablePlantilla: createEntityProxy('variableplantilla'),
   CatalogoProducto: createEntityProxy('catalogo_producto'),
   Usuario: createEntityProxy('usuario'),
