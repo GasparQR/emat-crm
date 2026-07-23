@@ -51,10 +51,8 @@ import Ajustes from './pages/Ajustes';
 import Configuracion from './pages/Configuracion';
 import Consultas from './pages/Consultas';
 import Contactos from './pages/Contactos';
-import EditorListaWhatsApp from './pages/EditorListaWhatsApp';
 import Home from './pages/Home';
 import Hoy from './pages/Hoy';
-import ListasWhatsApp from './pages/ListasWhatsApp';
 import Pipeline from './pages/Pipeline';
 import Plantillas from './pages/Plantillas';
 import Reportes from './pages/Reportes';
@@ -68,10 +66,8 @@ export const PAGES = {
     "Configuracion": Configuracion,
     "Consultas": Consultas,
     "Contactos": Contactos,
-    "EditorListaWhatsApp": EditorListaWhatsApp,
     "Home": Home,
     "Hoy": Hoy,
-    "ListasWhatsApp": ListasWhatsApp,
     "Pipeline": Pipeline,
     "Plantillas": Plantillas,
     "Reportes": Reportes,
