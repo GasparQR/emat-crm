@@ -570,6 +570,41 @@ export const workspaceSettingsApi = {
   },
 };
 
+// ─── App config global (PK = id, fila única id = 1) ───────────────────────────
+//
+// Fuente de verdad del Modo Mantenimiento y futuras banderas globales. Solo lectura
+// desde la app: la fila la cambia únicamente el equipo dev desde el dashboard de
+// Supabase (RLS bloquea toda escritura). Ver migración 20260723140000_app_config.sql.
+
+/**
+ * @typedef {Object} AppConfigRow
+ * @property {number} id
+ * @property {boolean} maintenance_mode
+ * @property {string} maintenance_message
+ * @property {string} updated_at
+ */
+
+export const APP_CONFIG_ID = 1;
+
+export const appConfigApi = {
+  /**
+   * Lee la fila única de configuración global.
+   * @returns {Promise<AppConfigRow | null>}
+   */
+  async get() {
+    const { data, error } = await supabase
+      .from('app_config')
+      .select('*')
+      .eq('id', APP_CONFIG_ID)
+      .maybeSingle();
+    if (error) {
+      console.error('Error fetching app_config:', error);
+      return null;
+    }
+    return data;
+  },
+};
+
 // ─── Entidades ─────────────────────────────────────────────────────────────────
 
 export const entities = {

@@ -9,6 +9,8 @@ import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/SimpleAuthContext';
+import { AppConfigProvider } from '@/lib/AppConfigContext';
+import MaintenanceGate from '@/components/MaintenanceGate';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Login from '@/pages/Login';
 import RequireRole from '@/components/auth/RequireRole';
@@ -162,19 +164,26 @@ const AuthenticatedApp = () => {
 
 function App() {
 
+  // AppConfigProvider + MaintenanceGate quedan por encima de AuthProvider (y dentro
+  // de QueryClientProvider): así, con mantenimiento activo, no se monta ni la sesión
+  // ni el router ni ningún módulo interno — bloqueo total sin flash del dashboard.
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <NavigationTracker />
-            <AppUpdateChecker />
-            <AuthenticatedApp />
-          </Router>
-          <SonnerToaster position="top-right" richColors />
-          <Toaster />
-        </QueryClientProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <AppConfigProvider>
+          <MaintenanceGate>
+            <AuthProvider>
+              <Router>
+                <NavigationTracker />
+                <AppUpdateChecker />
+                <AuthenticatedApp />
+              </Router>
+              <SonnerToaster position="top-right" richColors />
+              <Toaster />
+            </AuthProvider>
+          </MaintenanceGate>
+        </AppConfigProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   )
 }
