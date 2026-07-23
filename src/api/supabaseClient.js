@@ -219,7 +219,9 @@ const DEFAULT_PROFILE = {
 
 function profileFromAuthUser(authUser) {
   
-  const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
+  // Solo app_metadata: user_metadata lo escribe el propio usuario (auth.updateUser),
+  // así que confiar en él permitiría auto-asignarse ADMIN.
+  const metaRole = authUser?.app_metadata?.role;
   const normalizedRole = resolveRoleWithBypass(metaRole, authUser.email);
   const defaultAsesorCode = normalizedRole === 'ASESOR'
     ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)

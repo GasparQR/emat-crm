@@ -1,29 +1,5 @@
-import { createClient, type User } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-type CallerProfile = { id: string; role: string; active: boolean } | null;
-
-function callerIsAdmin(authUser: User, callerProfile: CallerProfile): boolean {
-  if (!authUser || callerProfile?.active === false) return false;
-  const email = (authUser.email ?? '').toLowerCase();
-  if (email === 'admin@emat.com') return true;
-  const metaRole = String(
-    authUser.app_metadata?.role ?? authUser.user_metadata?.role ?? '',
-  ).toUpperCase();
-  if (metaRole === 'ADMIN') return true;
-  return callerProfile?.role === 'ADMIN' && callerProfile.active === true;
-}
-
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
-}
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -32,6 +8,11 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      return jsonResponse({ error: 'Missing Supabase environment variables' }, 500);
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) return jsonResponse({ error: 'Missing Authorization header' }, 401);
 

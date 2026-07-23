@@ -16,6 +16,10 @@ type CallerProfile = { id: string; role: string; active: boolean } | null;
  *   3. ADMIN_BYPASS_EMAIL env var — legacy escape hatch for a single superuser email.
  *      Set this secret in Supabase Dashboard → Edge Functions → Secrets.
  *      Leave it empty (or unset) to disable the bypass for new deployments.
+ *
+ * user_metadata is deliberately NOT consulted: it is writable by the user itself
+ * via supabase.auth.updateUser({ data: { role: 'ADMIN' } }), so trusting it here
+ * would let any authenticated user reach the service-role admin-* functions.
  */
 export function callerIsAdmin(authUser: User, callerProfile: CallerProfile): boolean {
   if (!authUser || callerProfile?.active === false) return false;
@@ -23,10 +27,8 @@ export function callerIsAdmin(authUser: User, callerProfile: CallerProfile): boo
   // Primary check: row in usuario table managed by admins
   if (callerProfile?.role === 'ADMIN' && callerProfile.active === true) return true;
 
-  // Secondary check: app_metadata written at user-creation time
-  const metaRole = String(
-    authUser.app_metadata?.role ?? authUser.user_metadata?.role ?? '',
-  ).toUpperCase();
+  // Secondary check: app_metadata written at user-creation time (admin-only)
+  const metaRole = String(authUser.app_metadata?.role ?? '').toUpperCase();
   if (metaRole === 'ADMIN') return true;
 
   // Legacy escape hatch: configurable via env var, not hardcoded

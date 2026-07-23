@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { useCurrentUser } from "@/components/hooks/useCurrentUser";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspace } from "@/components/context/WorkspaceContext";
-import { isAdmin, normalizeRole } from "@/lib/permissions";
+import { isAdmin } from "@/lib/permissions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { IVA_RATES, formatIvaLabel, ivaSelectValue } from "@/lib/consultaIva";
 
