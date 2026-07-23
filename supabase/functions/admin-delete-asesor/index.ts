@@ -1,5 +1,42 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { callerIsAdmin, corsHeaders, jsonResponse } from '../_shared/adminAuth.ts';
+import { createClient, type User } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Autocontenida a propósito: el deploy manual/dashboard sube cada función como su
+// propia carpeta y no incluye la carpeta compartida, así que replicamos aquí el
+// mismo callerIsAdmin endurecido del helper compartido (sin el hardcode
+// admin@emat.com, sin user_metadata.role —escribible por el propio usuario—, con el
+// bypass solo vía ADMIN_BYPASS_EMAIL). A diferencia de las otras admin-* functions,
+// esta no necesita nada más de la carpeta compartida.
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+type CallerProfile = { id: string; role: string; active: boolean } | null;
+
+function callerIsAdmin(authUser: User, callerProfile: CallerProfile): boolean {
+  if (!authUser || callerProfile?.active === false) return false;
+
+  // Fuente primaria: fila en la tabla usuario gestionada por admins.
+  if (callerProfile?.role === 'ADMIN' && callerProfile.active === true) return true;
+
+  // Secundaria: app_metadata escrito al crear el usuario (solo admins lo setean).
+  const metaRole = String(authUser.app_metadata?.role ?? '').toUpperCase();
+  if (metaRole === 'ADMIN') return true;
+
+  // Escape hatch legacy: configurable por env var, no hardcodeado.
+  const bypassEmail = (Deno.env.get('ADMIN_BYPASS_EMAIL') ?? '').trim().toLowerCase();
+  if (bypassEmail && (authUser.email ?? '').toLowerCase() === bypassEmail) return true;
+
+  return false;
+}
+
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
