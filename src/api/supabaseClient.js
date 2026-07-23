@@ -619,7 +619,7 @@ export const entities = {
   Cliente: createEntityProxy('cliente'),
   Presupuesto: createEntityProxy('presupuesto'),
   PlantillaWhatsApp: createEntityProxy('plantillawhatsapp'),
-  EnvioWhatsApp: createEntityProxy('enviowatsapp'),
+  EnvioWhatsApp: createEntityProxy('enviowhatsapp'),
   Mensaje: createEntityProxy('mensaje'),
   ListaWhatsApp: createEntityProxy('listawhatsapp'),
   VariablePlantilla: createEntityProxy('variableplantilla'),
