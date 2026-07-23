@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { Toaster as SonnerToaster } from "sonner"
 import AppUpdateChecker from "@/components/AppUpdateChecker"
+import ErrorBoundary from "@/components/ErrorBoundary"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import NavigationTracker from '@/lib/NavigationTracker'
@@ -167,21 +168,23 @@ function App() {
   // de QueryClientProvider): así, con mantenimiento activo, no se monta ni la sesión
   // ni el router ni ningún módulo interno — bloqueo total sin flash del dashboard.
   return (
-    <QueryClientProvider client={queryClientInstance}>
-      <AppConfigProvider>
-        <MaintenanceGate>
-          <AuthProvider>
-            <Router>
-              <NavigationTracker />
-              <AppUpdateChecker />
-              <AuthenticatedApp />
-            </Router>
-            <SonnerToaster position="top-right" richColors />
-            <Toaster />
-          </AuthProvider>
-        </MaintenanceGate>
-      </AppConfigProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClientInstance}>
+        <AppConfigProvider>
+          <MaintenanceGate>
+            <AuthProvider>
+              <Router>
+                <NavigationTracker />
+                <AppUpdateChecker />
+                <AuthenticatedApp />
+              </Router>
+              <SonnerToaster position="top-right" richColors />
+              <Toaster />
+            </AuthProvider>
+          </MaintenanceGate>
+        </AppConfigProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

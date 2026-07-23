@@ -1,12 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
+import { normalizeRole } from '@/lib/permissions';
 
-// Configuración Supabase
-const PROJECT_ID = 'ywbgeqjqjfnhldqqqklj';
-const SUPABASE_URL = `https://${PROJECT_ID}.supabase.co`;
+// Supabase configuration — prefer env vars; fall back to hardcoded values
+// so existing Vercel deployments continue working until the env var is added.
+// To migrate: add VITE_SUPABASE_URL to your .env.local and Vercel project settings.
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ||
+  'https://ywbgeqjqjfnhldqqqklj.supabase.co';
+
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_ANON_KEY) {
-  console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env');
+  console.error('❌ VITE_SUPABASE_ANON_KEY no está configurada en .env.local');
+}
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  console.warn('⚠️  VITE_SUPABASE_URL no está configurada — usando URL hardcodeada. Agregá esta variable a .env.local y a Vercel.');
 }
 
 // Cliente Supabase (sesión persistente en localStorage)
@@ -183,18 +191,15 @@ const createEntityProxy = (tableName) => {
 
 // ─── Perfil CRM por defecto ───────────────────────────────────────────────────
 
-function normalizeRole(role, email) {
-  // Si es admin@emat.com, siempre es ADMIN
-  if (email === 'admin@emat.com') return 'ADMIN';
-  
-  // Si no, normaliza el role que viene de metadata
-  const value = String(role ?? '').toUpperCase();
-  if (value === 'ADMIN') return 'ADMIN';
-  if (value === 'ASESOR') return 'ASESOR';
-  if (value === 'LOGISTICA') return 'LOGISTICA';
-  
-  // Default
-  return 'ASESOR';
+// Legacy escape hatch: configurable via env var, not hardcoded.
+// Set VITE_ADMIN_BYPASS_EMAIL in .env.local to keep the bypass active.
+// Leave it empty (or unset) to disable it for new deployments.
+const ADMIN_BYPASS_EMAIL = (import.meta.env.VITE_ADMIN_BYPASS_EMAIL ?? '').trim().toLowerCase();
+
+/** Resolves a role, applying the bypass-email override when configured. */
+function resolveRoleWithBypass(role, email) {
+  if (ADMIN_BYPASS_EMAIL && (email ?? '').toLowerCase() === ADMIN_BYPASS_EMAIL) return 'ADMIN';
+  return normalizeRole(role);
 }
 
 const DEFAULT_PROFILE = {
@@ -214,8 +219,10 @@ const DEFAULT_PROFILE = {
 
 function profileFromAuthUser(authUser) {
   
-  const metaRole = authUser?.app_metadata?.role ?? authUser?.user_metadata?.role;
-  const normalizedRole = normalizeRole(metaRole, authUser.email);
+  // Solo app_metadata: user_metadata lo escribe el propio usuario (auth.updateUser),
+  // así que confiar en él permitiría auto-asignarse ADMIN.
+  const metaRole = authUser?.app_metadata?.role;
+  const normalizedRole = resolveRoleWithBypass(metaRole, authUser.email);
   const defaultAsesorCode = normalizedRole === 'ASESOR'
     ? (authUser.user_metadata?.asesor_codigo ?? authUser.user_metadata?.asesorCode ?? null)
     : null;
@@ -248,7 +255,7 @@ function mergeUsuarioRow(row, base) {
 function applyAuthRoleOverrides(profile, authUser) {
   return {
     ...profile,
-    role: normalizeRole(profile?.role, authUser?.email),
+    role: resolveRoleWithBypass(profile?.role, authUser?.email),
     active: profile?.active !== false,
   };
 }
@@ -326,7 +333,10 @@ async function upsertUsuarioFromAuth(authUser) {
     .single();
 
   if (error) {
-    console.warn('usuario upsert:', error.message);
+    // Log the full error so it's visible in Supabase logs and browser devtools
+    console.error('[auth] usuario upsert failed — returning auth-only profile:', error.message, error);
+    // Return the auth-derived profile as a fallback so login still works,
+    // but the caller should be aware this profile lacks admin-managed fields.
     return base;
   }
   return mergeUsuarioRow(data, base);
@@ -473,14 +483,6 @@ export const auth = {
   },
 };
 
-// ─── Gestión de usuarios ───────────────────────────────────────────────────────
-
-export const users = {
-  inviteUser: async () => {
-    throw new Error('inviteUser reemplazado por adminUsersApi.createUser');
-  },
-};
-
 // ─── Workspace settings (PK = workspace_id) ───────────────────────────────────
 
 export const workspaceSettingsApi = {
@@ -548,25 +550,23 @@ export const workspaceSettingsApi = {
   },
 
   async saveViewLayout(workspaceId, viewLayoutConfig) {
-    const existing = await this.get(workspaceId);
-    return this.upsert(workspaceId, {
-      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
-      consulta_default_observaciones: existing?.consulta_default_observaciones,
-      consulta_default_iva: existing?.consulta_default_iva,
-      view_layout_config: viewLayoutConfig,
-      frequent_cities: existing?.frequent_cities,
-    });
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .upsert({ workspace_id: workspaceId, view_layout_config: viewLayoutConfig, updated_date: new Date().toISOString() }, { onConflict: 'workspace_id' })
+      .select()
+      .single();
+    if (error) { console.error('Error saving view_layout_config:', error); throw error; }
+    return data;
   },
 
   async saveFrequentCities(workspaceId, frequentCities) {
-    const existing = await this.get(workspaceId);
-    return this.upsert(workspaceId, {
-      consulta_default_condiciones_comerciales: existing?.consulta_default_condiciones_comerciales,
-      consulta_default_observaciones: existing?.consulta_default_observaciones,
-      consulta_default_iva: existing?.consulta_default_iva,
-      view_layout_config: existing?.view_layout_config,
-      frequent_cities: frequentCities,
-    });
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .upsert({ workspace_id: workspaceId, frequent_cities: frequentCities, updated_date: new Date().toISOString() }, { onConflict: 'workspace_id' })
+      .select()
+      .single();
+    if (error) { console.error('Error saving frequent_cities:', error); throw error; }
+    return data;
   },
 };
 
